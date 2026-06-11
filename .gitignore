@@ -1,5 +1,7 @@
 # Copié par scripts/install-ha-addon.sh pour Home Assistant
 /config.yaml
+/run.sh
+/ha-addon-bundle/
 
 node_modules/
 dist/

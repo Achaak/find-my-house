@@ -10,28 +10,37 @@ Ce guide installe **Find My House** comme app locale sur Home Assistant OS (anci
 
 ## Installation
 
-### 1. Copier le projet **entier** sur le Pi
+### 1. Préparer le bundle sur votre Mac
 
-> **Important** : copiez tout le dépôt (`package.json`, `src/`, `prisma/`, `Dockerfile`, etc.), pas seulement le dossier `homeassistant-addon/`.
+Sur votre machine de dev (pas sur le Pi) :
 
-**Via Samba** (recommandé) : installez l'app **Samba share**, connectez-vous à `smb://homeassistant.local/addons`, créez `local/find-my-house/` et copiez-y **tout le projet**.
+```bash
+./scripts/bundle-ha-addon.sh
+```
 
-**Via git** (terminal avec accès host) :
+Cela crée le dossier `ha-addon-bundle/` avec **tout ce qu'il faut** pour le build Docker (~50 fichiers, pas seulement `config.yaml` + `Dockerfile`).
+
+> L'erreur `"/src": not found` ou `dockerfile is missing` signifie que seuls 2–3 fichiers ont été copiés sur le Pi. Il faut tout le bundle.
+
+### 2. Copier sur le Pi via Samba
+
+1. Installez l'app **Samba share** dans HA
+2. Mac : **Finder → Se connecter au serveur** → `smb://homeassistant.local/addons`
+3. Ouvrez `local/find-my-house/` (créez-le si besoin)
+4. **Supprimez** l'ancien contenu (souvent seulement 3 fichiers)
+5. Copiez **tout le contenu** de `ha-addon-bundle/` (pas le dossier lui-même, mais son contenu)
+
+Vérifiez dans Samba que vous voyez bien : `package.json`, `src/`, `prisma/`, `Dockerfile`, `config.yaml`, `run.sh`.
+
+**Alternative git** (si accès terminal au host) :
 
 ```bash
 cd /addons/local
 git clone https://github.com/VOTRE-UTILISATEUR/find-my-house.git find-my-house
 cd find-my-house
-```
-
-### 2. Préparer l'app
-
-```bash
 ./scripts/install-ha-addon.sh
 ./scripts/verify-ha-addon.sh
 ```
-
-Le script copie à la racine les 3 fichiers requis par le Supervisor : `config.yaml`, `Dockerfile`, `run.sh`.
 
 ### 3. Installer dans Home Assistant
 
@@ -84,13 +93,14 @@ Vous devriez voir :
 
 ## Dépannage
 
-| Problème                          | Solution                                                                                                                              |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `dockerfile is missing`           | Copiez le dépôt **entier** dans `addons/local/find-my-house/`, puis `./scripts/install-ha-addon.sh` et `./scripts/verify-ha-addon.sh` |
-| Build échoue sur `better-sqlite3` | Vérifiez que le Pi est en **aarch64** (OS 64 bits). Le premier build est long, attendez 20 min.                                       |
-| Bot hors ligne sur Discord        | Vérifiez `discord_token` dans la config add-on                                                                                        |
-| Pas de notifications              | Vérifiez `discord_channel_id` et les permissions du bot sur ce canal                                                                  |
-| Commandes slash absentes          | Retirez `discord_guild_id`, redémarrez l'add-on, attendez quelques minutes                                                            |
+| Problème                          | Solution                                                                                                                                       |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dockerfile is missing`           | Le `Dockerfile` n'est pas à la racine du dossier app. Relancez `./scripts/bundle-ha-addon.sh` et recopiez tout le contenu via Samba.           |
+| `"/src": not found` au build      | Seuls 2–3 fichiers copiés (contexte Docker ~1,6 Ko). Recopiez **tout** le contenu de `ha-addon-bundle/`, pas seulement `homeassistant-addon/`. |
+| Build échoue sur `better-sqlite3` | Vérifiez que le Pi est en **aarch64** (OS 64 bits). Le premier build est long, attendez 20 min.                                                |
+| Bot hors ligne sur Discord        | Vérifiez `discord_token` dans la config add-on                                                                                                 |
+| Pas de notifications              | Vérifiez `discord_channel_id` et les permissions du bot sur ce canal                                                                           |
+| Commandes slash absentes          | Retirez `discord_guild_id`, redémarrez l'add-on, attendez quelques minutes                                                                     |
 
 ## Alternative : Docker Compose (hors HA)
 
