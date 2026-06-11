@@ -2,6 +2,7 @@ import cron from "node-cron";
 import type { ScrapeFilters } from "./types/listing.js";
 import { config } from "./config.js";
 import { ListingRepository } from "./db/listingRepository.js";
+import { ReactionRepository } from "./db/reactionRepository.js";
 import { disconnectPrisma, getPrisma } from "./db/prisma.js";
 import { startDiscordBot } from "./discord/bot.js";
 import { sendNewListingNotifications } from "./discord/notifications.js";
@@ -14,9 +15,11 @@ async function shutdown(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  const scrapers = createScrapers();
   const prisma = getPrisma(config.database.url);
   const repository = new ListingRepository(prisma);
-  const scraperService = new ScraperService(createScrapers(), repository);
+  const reactionRepository = new ReactionRepository(prisma);
+  const scraperService = new ScraperService(scrapers, repository);
 
   const scrapeOptions: ScrapeFilters = {
     city: config.scrape.city,
@@ -34,6 +37,9 @@ async function main(): Promise<void> {
 
   console.log("[app] Démarrage de Find My House...");
   console.log(`[app] Base: ${config.database.url}`);
+  console.log(
+    `[app] Scrapers actifs: ${scrapers.map((s) => s.name).join(", ") || "aucun"}`
+  );
   console.log(
     `[app] Zone de recherche: ${scrapeOptions.city} (${geoFilterLabel(geoFilter)})`
   );
@@ -77,6 +83,7 @@ async function main(): Promise<void> {
     clientId: config.discord.clientId,
     guildId: config.discord.guildId,
     repository,
+    reactionRepository,
     scraperService,
     scrapeDefaults: scrapeOptions,
   });

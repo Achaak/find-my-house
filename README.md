@@ -4,10 +4,11 @@ Bot Discord + scraper d'annonces immobilières françaises, avec stockage SQLite
 
 ## Fonctionnalités
 
-- Scraping d'annonces via l'API BienIci (extensible à d'autres sources)
+- Scraping multi-sources : **BienIci**, **Leboncoin** et **SeLoger** (scrapers modulaires, activables via `SCRAPE_SCRAPERS`)
 - Filtres avancés : terrain, pièces, chambres, ancien/neuf, rayon km ou temps de trajet en voiture
 - Stockage SQLite via Prisma 7 avec contraintes d'unicité (pas de doublons)
-- Bot Discord avec commandes slash interactives
+- Bot Discord avec commandes slash et embeds enrichis (photo, prix, surface, lien…)
+- Boutons **J'aime** / **Pas j'aime** sur chaque annonce, avec favoris persistés par utilisateur Discord
 - Notifications de nouvelles annonces dans un canal Discord
 - Scraping automatique planifié via cron
 
@@ -34,6 +35,7 @@ pnpm run db:migrate
 | `DISCORD_CLIENT_ID`         | ID de l'application Discord                                                                                                                          |
 | `DISCORD_GUILD_ID`          | (Optionnel) ID du serveur pour enregistrer les commandes en dev                                                                                      |
 | `DISCORD_CHANNEL_ID`        | (Optionnel) Canal pour les notifications de nouvelles annonces. Le bot doit avoir les permissions **Send Messages** et **Embed Links** sur ce canal. |
+| `SCRAPE_SCRAPERS`           | (Optionnel) Scrapers actifs, séparés par des virgules (`bienici`, `leboncoin`, `seloger`). Tous activés si absent.                                   |
 | `SCRAPE_CITY`               | Ville de référence (ex: Paris)                                                                                                                       |
 | `SCRAPE_MAX_PRICE`          | Prix maximum en euros                                                                                                                                |
 | `SCRAPE_MIN_SURFACE`        | Surface minimum en m²                                                                                                                                |
@@ -63,13 +65,17 @@ pnpm run build && pnpm start
 
 ## Commandes Discord
 
-| Commande          | Description                                                                                  |
-| ----------------- | -------------------------------------------------------------------------------------------- |
-| `/annonces`       | Rechercher des annonces (ville, prix, surface, terrain, pièces, chambres, ancien, rayon km…) |
-| `/annonce id:123` | Détail d'une annonce                                                                         |
-| `/scraper`        | Lancer un scraping manuel (critères du `.env`)                                               |
-| `/stats`          | Statistiques de la base                                                                      |
-| `/aide`           | Aide                                                                                         |
+| Commande                             | Description                                                                                                                     |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `/annonces`                          | Rechercher des annonces (ville, prix, surface, terrain, pièces, chambres, ancien, rayon km…). Résultats en embeds avec boutons. |
+| `/annonce id:123`                    | Détail d'une annonce                                                                                                            |
+| `/jaime ajouter\|retirer\|liste`     | Gérer ses favoris                                                                                                               |
+| `/pas-jaime ajouter\|retirer\|liste` | Gérer les annonces marquées comme non aimées                                                                                    |
+| `/scraper`                           | Lancer un scraping manuel (critères du `.env`)                                                                                  |
+| `/stats`                             | Statistiques de la base                                                                                                         |
+| `/aide`                              | Aide                                                                                                                            |
+
+Les boutons **❤️ J'aime** et **👎 Pas j'aime** sous chaque annonce permettent d'ajouter ou retirer une réaction en un clic (réponse éphémère, visible uniquement par vous). Un clic sur un bouton déjà actif retire la réaction.
 
 ## Anti-doublons
 
@@ -80,21 +86,26 @@ Deux contraintes empêchent les doublons :
 
 Si une annonce existe déjà sans changement, elle est ignorée. Si un champ change (prix, titre, coordonnées, etc.), elle est mise à jour.
 
+Les réactions utilisateur (`listing_reactions`) sont liées aux annonces et supprimées en cascade si l'annonce est effacée.
+
 ## Architecture
 
 ```
 src/
-├── config.ts           # Configuration via .env
-├── db/                 # Prisma client + repository
-├── utils/              # Géolocalisation, isochrone, calculs geo
-├── scrapers/           # Scrapers modulaires (BienIci, ...)
-├── discord/            # Bot + commandes slash + notifications
-├── services/           # Orchestration du scraping
-└── index.ts            # Point d'entrée
+├── config.ts              # Configuration via .env
+├── db/                    # Prisma client, repository annonces + réactions
+├── utils/                 # Géolocalisation, isochrone, APIs (BienIci, Leboncoin, SeLoger)
+├── scrapers/              # Scrapers modulaires (bienici, leboncoin, seloger)
+├── discord/               # Bot, commandes slash, embeds, boutons, notifications
+├── services/              # Orchestration du scraping
+└── index.ts               # Point d'entrée (bot + cron)
 prisma/
-└── schema.prisma       # Schéma de la base
+└── schema.prisma          # Schéma (listings + listing_reactions)
 ```
 
 ## Ajouter un scraper
 
-Implémenter l'interface `Scraper` dans `src/scrapers/` et l'ajouter dans `src/scrapers/index.ts`.
+1. Implémenter l'interface `Scraper` dans `src/scrapers/`
+2. Ajouter le client API correspondant dans `src/utils/` si nécessaire
+3. Enregistrer le scraper dans `src/scrapers/index.ts`
+4. Documenter le nom (minuscules) pour `SCRAPE_SCRAPERS`

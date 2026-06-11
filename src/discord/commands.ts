@@ -1,9 +1,11 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import type { ListingRepository } from "../db/listingRepository.js";
+import type { ReactionRepository } from "../db/reactionRepository.js";
 import type { ScraperService } from "../services/scraperService.js";
 import { config } from "../config.js";
 import type { ScrapeFilters } from "../types/listing.js";
 import { geoFilterLabel, resolveGeoFilter } from "../utils/geoFilter.js";
+import { buildListingActionRow } from "./components.js";
 import { formatListing, formatListingEmbed } from "./format.js";
 import { sendNewListingNotifications } from "./notifications.js";
 
@@ -93,12 +95,119 @@ export function buildCommands() {
     new SlashCommandBuilder()
       .setName("aide")
       .setDescription("Afficher l'aide du bot"),
+
+    new SlashCommandBuilder()
+      .setName("jaime")
+      .setDescription("Gérer vos annonces favorites")
+      .addSubcommand((sub) =>
+        sub
+          .setName("ajouter")
+          .setDescription("Ajouter une annonce à vos favoris")
+          .addIntegerOption((opt) =>
+            opt
+              .setName("id")
+              .setDescription("ID de l'annonce")
+              .setRequired(true)
+          )
+      )
+      .addSubcommand((sub) =>
+        sub
+          .setName("retirer")
+          .setDescription("Retirer une annonce de vos favoris")
+          .addIntegerOption((opt) =>
+            opt
+              .setName("id")
+              .setDescription("ID de l'annonce")
+              .setRequired(true)
+          )
+      )
+      .addSubcommand((sub) =>
+        sub
+          .setName("liste")
+          .setDescription("Afficher vos annonces favorites")
+          .addIntegerOption((opt) =>
+            opt
+              .setName("limite")
+              .setDescription("Nombre de résultats (max 10)")
+              .setMinValue(1)
+              .setMaxValue(10)
+              .setRequired(false)
+          )
+      ),
+
+    new SlashCommandBuilder()
+      .setName("pas-jaime")
+      .setDescription("Gérer les annonces que vous n'aimez pas")
+      .addSubcommand((sub) =>
+        sub
+          .setName("ajouter")
+          .setDescription("Marquer une annonce comme non aimée")
+          .addIntegerOption((opt) =>
+            opt
+              .setName("id")
+              .setDescription("ID de l'annonce")
+              .setRequired(true)
+          )
+      )
+      .addSubcommand((sub) =>
+        sub
+          .setName("retirer")
+          .setDescription("Retirer une annonce de vos non-favoris")
+          .addIntegerOption((opt) =>
+            opt
+              .setName("id")
+              .setDescription("ID de l'annonce")
+              .setRequired(true)
+          )
+      )
+      .addSubcommand((sub) =>
+        sub
+          .setName("liste")
+          .setDescription("Afficher les annonces que vous n'aimez pas")
+          .addIntegerOption((opt) =>
+            opt
+              .setName("limite")
+              .setDescription("Nombre de résultats (max 10)")
+              .setMinValue(1)
+              .setMaxValue(10)
+              .setRequired(false)
+          )
+      ),
   ].map((cmd) => cmd.toJSON());
+}
+
+async function formatReactionList(
+  reactionRepository: ReactionRepository,
+  discordUserId: string,
+  type: "like" | "dislike",
+  limit: number,
+  emptyLabel: string
+): Promise<string> {
+  const total = await reactionRepository.countByUser(discordUserId, type);
+  const listings = await reactionRepository.findListingsByUser(
+    discordUserId,
+    type,
+    limit
+  );
+
+  if (listings.length === 0) {
+    return emptyLabel;
+  }
+
+  const header =
+    total > limit
+      ? `**${String(total)}** au total — ${String(listings.length)} affichées :`
+      : `**${String(total)}** annonce${total > 1 ? "s" : ""} :`;
+
+  return [header, "", listings.map(formatListing).join("\n\n---\n\n")].join(
+    "\n"
+  );
 }
 
 export async function handleCommand(
   interaction: ChatInputCommandInteraction,
   repository: ListingRepository,
+  reactionRepository: ReactionRepository,
   scraperService: ScraperService,
   defaultScrapeOptions: ScrapeFilters
 ): Promise<void> {
@@ -154,8 +263,17 @@ export async function handleCommand(
         return;
       }
 
-      const message = listings.map(formatListing).join("\n\n---\n\n");
-      await interaction.reply(message.slice(0, 2000));
+      await interaction.reply({
+        embeds: [formatListingEmbed(listings[0])],
+        components: [buildListingActionRow(listings[0].id)],
+      });
+
+      for (const listing of listings.slice(1)) {
+        await interaction.followUp({
+          embeds: [formatListingEmbed(listing)],
+          components: [buildListingActionRow(listing.id)],
+        });
+      }
       return;
     }
 
@@ -168,7 +286,10 @@ export async function handleCommand(
         return;
       }
 
-      await interaction.reply({ embeds: [formatListingEmbed(listing)] });
+      await interaction.reply({
+        embeds: [formatListingEmbed(listing)],
+        components: [buildListingActionRow(listing.id)],
+      });
       return;
     }
 
@@ -227,13 +348,116 @@ export async function handleCommand(
       return;
     }
 
+    case "jaime": {
+      const subcommand = interaction.options.getSubcommand();
+      const discordUserId = interaction.user.id;
+
+      if (subcommand === "liste") {
+        const limit = interaction.options.getInteger("limite") ?? 5;
+        const message = await formatReactionList(
+          reactionRepository,
+          discordUserId,
+          "like",
+          limit,
+          "Vous n'avez aucune annonce en favori."
+        );
+        await interaction.reply(message.slice(0, 2000));
+        return;
+      }
+
+      const id = interaction.options.getInteger("id", true);
+      const listing = await repository.findById(id);
+
+      if (!listing) {
+        await interaction.reply(`Annonce #${String(id)} introuvable.`);
+        return;
+      }
+
+      if (subcommand === "ajouter") {
+        const result = await reactionRepository.add(discordUserId, id, "like");
+        await interaction.reply(
+          result === "already_exists"
+            ? `L'annonce **#${String(id)}** est déjà dans vos favoris.`
+            : `❤️ Annonce **#${String(id)}** ajoutée à vos favoris.`
+        );
+        return;
+      }
+
+      const removed = await reactionRepository.remove(
+        discordUserId,
+        id,
+        "like"
+      );
+      await interaction.reply(
+        removed
+          ? `Annonce **#${String(id)}** retirée de vos favoris.`
+          : `L'annonce **#${String(id)}** n'était pas dans vos favoris.`
+      );
+      return;
+    }
+
+    case "pas-jaime": {
+      const subcommand = interaction.options.getSubcommand();
+      const discordUserId = interaction.user.id;
+
+      if (subcommand === "liste") {
+        const limit = interaction.options.getInteger("limite") ?? 5;
+        const message = await formatReactionList(
+          reactionRepository,
+          discordUserId,
+          "dislike",
+          limit,
+          "Vous n'avez marqué aucune annonce comme non aimée."
+        );
+        await interaction.reply(message.slice(0, 2000));
+        return;
+      }
+
+      const id = interaction.options.getInteger("id", true);
+      const listing = await repository.findById(id);
+
+      if (!listing) {
+        await interaction.reply(`Annonce #${String(id)} introuvable.`);
+        return;
+      }
+
+      if (subcommand === "ajouter") {
+        const result = await reactionRepository.add(
+          discordUserId,
+          id,
+          "dislike"
+        );
+        await interaction.reply(
+          result === "already_exists"
+            ? `L'annonce **#${String(id)}** est déjà dans vos non-favoris.`
+            : `👎 Annonce **#${String(id)}** ajoutée à vos non-favoris.`
+        );
+        return;
+      }
+
+      const removed = await reactionRepository.remove(
+        discordUserId,
+        id,
+        "dislike"
+      );
+      await interaction.reply(
+        removed
+          ? `Annonce **#${String(id)}** retirée de vos non-favoris.`
+          : `L'annonce **#${String(id)}** n'était pas dans vos non-favoris.`
+      );
+      return;
+    }
+
     case "aide": {
       await interaction.reply(
         [
           "**Find My House** — Commandes disponibles:",
           "",
           "`/annonces` — Rechercher (prix, terrain, pièces, chambres, ancien, rayon km…)",
-          "`/annonce id:123` — Détail d'une annonce",
+          "`/annonce id:123` — Détail d'une annonce (boutons ❤️ / 👎)",
+          "`/jaime ajouter|retirer|liste` — Gérer vos favoris",
+          "`/pas-jaime ajouter|retirer|liste` — Gérer vos non-favoris",
+          "_Cliquez sur ❤️ ou 👎 sous une annonce pour l'ajouter ou la retirer._",
           "`/scraper` — Lancer un scraping (critères définis dans le .env)",
           "`/stats` — Statistiques de la base",
           "`/aide` — Afficher cette aide",

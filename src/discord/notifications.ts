@@ -1,6 +1,7 @@
 import { REST } from "@discordjs/rest";
 import { Routes } from "discord-api-types/rest/v10";
 import type { ListingRow } from "../types/listing.js";
+import { buildListingActionComponents } from "./components.js";
 import { formatListingEmbed } from "./format.js";
 
 export async function sendNewListingNotifications(
@@ -19,19 +20,19 @@ export async function sendNewListingNotifications(
 
   let sent = 0;
 
-  for (let i = 0; i < listings.length; i += 10) {
-    const batch = listings.slice(i, i + 10);
+  for (const [index, listing] of listings.entries()) {
     try {
       await rest.post(Routes.channelMessages(channelId), {
         body: {
-          content: i === 0 ? header : undefined,
-          embeds: batch.map(formatListingEmbed),
+          content: index === 0 ? header : undefined,
+          embeds: [formatListingEmbed(listing)],
+          components: buildListingActionComponents(listing.id),
         },
       });
-      sent += batch.length;
+      sent++;
     } catch (error) {
       console.error(
-        `[discord] Erreur envoi notification (lot ${String(Math.floor(i / 10) + 1)}):`,
+        `[discord] Erreur envoi notification (#${String(listing.id)}):`,
         error
       );
     }

@@ -30,9 +30,25 @@ model Listing {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
+  reactions ListingReaction[]
+
   @@unique([source, externalId])
   @@index([city])
   @@index([price])
   @@index([scrapedAt])
   @@map("listings")
+}
+
+model ListingReaction {
+  id            Int      @id @default(autoincrement())
+  discordUserId String   @map("discord_user_id")
+  listingId     Int      @map("listing_id")
+  type          String
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([discordUserId, listingId])
+  @@index([discordUserId, type])
+  @@map("listing_reactions")
 }
