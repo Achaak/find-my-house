@@ -7,6 +7,17 @@ datasource db {
   provider = "sqlite"
 }
 
+enum ListingSource {
+  bienici
+  seloger
+  leboncoin
+}
+
+enum ReactionType {
+  like
+  dislike
+}
+
 model Property {
   id            Int       @id @default(autoincrement())
   propertyKey   String    @unique @map("property_key")
@@ -49,8 +60,8 @@ model ListingPublication {
   id         Int      @id @default(autoincrement())
   propertyId Int      @map("property_id")
   externalId String   @map("external_id")
-  source     String
-  url        String   @unique
+  source     ListingSource
+  url        String        @unique
   scrapedAt  DateTime @map("scraped_at")
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
@@ -66,8 +77,8 @@ model ListingReaction {
   id            Int      @id @default(autoincrement())
   discordUserId String   @map("discord_user_id")
   propertyId    Int      @map("property_id")
-  type          String
-  createdAt     DateTime @default(now()) @map("created_at")
+  type          ReactionType
+  createdAt     DateTime     @default(now()) @map("created_at")
 
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 

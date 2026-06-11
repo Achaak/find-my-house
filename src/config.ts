@@ -1,4 +1,5 @@
 import { config as loadDotenv } from "dotenv";
+import type { ScrapeFilters } from "./types/listing.js";
 
 loadDotenv();
 loadDotenv({ path: ".env.local", override: true });
@@ -89,4 +90,21 @@ export const config = {
       process.env.DATABASE_URL ??
       `file:${process.env.DATABASE_PATH ?? "./data/listings.db"}`,
   },
+  leboncoin: {
+    apiKey: process.env.LEBONCOIN_API_KEY ?? "ba0c2dad52b3ec",
+  },
 };
+
+export function buildScrapeFilters(): ScrapeFilters {
+  return {
+    city: config.scrape.city,
+    maxPrice: config.scrape.maxPrice,
+    minSurface: config.scrape.minSurface,
+    minLandSurface: config.scrape.minLandSurface,
+    minRooms: config.scrape.minRooms,
+    minBedrooms: config.scrape.minBedrooms,
+    ancienOnly: config.scrape.ancienOnly,
+    radiusKm: config.scrape.radiusKm,
+    maxTravelMinutes: config.scrape.maxTravelMinutes,
+  };
+}

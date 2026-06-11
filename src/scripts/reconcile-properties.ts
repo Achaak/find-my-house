@@ -1,6 +1,9 @@
 import { config } from "../config.js";
 import { disconnectPrisma, getPrisma } from "../db/prisma.js";
+import { createLogger } from "../utils/logger.js";
 import { computePropertyKey } from "../utils/propertyKey.js";
+
+const log = createLogger("reconcile");
 
 /**
  * Merge duplicate properties (same propertyKey) after migration.
@@ -92,7 +95,7 @@ async function main(): Promise<void> {
       }
     }
 
-    console.log(
+    log.info(
       `Réconciliation terminée : ${String(merged)} doublon(s) fusionné(s), ${String(groups.size)} bien(s) unique(s).`
     );
   } finally {
@@ -101,6 +104,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  console.error(error);
+  log.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
 });

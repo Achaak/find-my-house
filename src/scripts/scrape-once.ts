@@ -1,4 +1,7 @@
-import { config } from "../config.js";
+import { buildScrapeFilters, config } from "../config.js";
+import { createLogger } from "../utils/logger.js";
+
+const log = createLogger("scrape-once");
 import { ListingRepository } from "../db/listingRepository.js";
 import { disconnectPrisma, getPrisma } from "../db/prisma.js";
 import {
@@ -14,26 +17,16 @@ async function main(): Promise<void> {
   const scraperService = new ScraperService(createScrapers(), repository);
 
   try {
-    const result = await scraperService.run({
-      city: config.scrape.city,
-      maxPrice: config.scrape.maxPrice,
-      minSurface: config.scrape.minSurface,
-      minLandSurface: config.scrape.minLandSurface,
-      minRooms: config.scrape.minRooms,
-      minBedrooms: config.scrape.minBedrooms,
-      ancienOnly: config.scrape.ancienOnly,
-      radiusKm: config.scrape.radiusKm,
-      maxTravelMinutes: config.scrape.maxTravelMinutes,
-    });
+    const result = await scraperService.run(buildScrapeFilters());
 
-    console.log("Résultat du scraping:");
-    console.log(`  Trouvées:   ${String(result.found)}`);
-    console.log(`  Nouveaux:   ${String(result.inserted)}`);
-    console.log(`  Liées:      ${String(result.linked)}`);
-    console.log(`  MAJ:        ${String(result.updated)}`);
-    console.log(`  Baisses:    ${String(result.priceDropListings.length)}`);
-    console.log(`  Ignorées:   ${String(result.skipped)}`);
-    console.log(`  Total BDD:  ${String(await repository.count())} biens`);
+    log.info("Résultat du scraping:");
+    log.info(`  Trouvées:   ${String(result.found)}`);
+    log.info(`  Nouveaux:   ${String(result.inserted)}`);
+    log.info(`  Liées:      ${String(result.linked)}`);
+    log.info(`  MAJ:        ${String(result.updated)}`);
+    log.info(`  Baisses:    ${String(result.priceDropListings.length)}`);
+    log.info(`  Ignorées:   ${String(result.skipped)}`);
+    log.info(`  Total BDD:  ${String(await repository.count())} biens`);
 
     if (config.discord.channelId) {
       if (result.insertedListings.length > 0) {
@@ -43,7 +36,7 @@ async function main(): Promise<void> {
           result.insertedListings,
           repository
         );
-        console.log(`  Discord:    ${String(sent)} nouvelle(s) annonce(s)`);
+        log.info(`  Discord:    ${String(sent)} nouvelle(s) annonce(s)`);
       }
       if (result.priceDropListings.length > 0) {
         const sent = await sendPriceDropNotifications(
@@ -52,7 +45,7 @@ async function main(): Promise<void> {
           result.priceDropListings,
           repository
         );
-        console.log(`  Discord:    ${String(sent)} baisse(s) de prix`);
+        log.info(`  Discord:    ${String(sent)} baisse(s) de prix`);
       }
     }
   } finally {

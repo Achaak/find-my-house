@@ -12,7 +12,7 @@ function toPublicationRow(row: PrismaPublication): PublicationRow {
   return {
     id: row.id,
     externalId: row.externalId,
-    source: row.source as PublicationRow["source"],
+    source: row.source,
     url: row.url,
     scrapedAt: row.scrapedAt.toISOString(),
   };

@@ -5,9 +5,13 @@ import type {
   Listing,
   ScrapeFilters,
 } from "../types/listing.js";
+import { createLogger } from "../utils/logger.js";
+import { validateListings } from "../utils/listingValidation.js";
 import { resolveScraperGeoFilterLabel } from "../utils/geoFilter.js";
 
 export type ScrapeOptions = ScrapeFilters;
+
+const log = createLogger("scraper");
 
 export class ScraperService {
   constructor(
@@ -18,28 +22,33 @@ export class ScraperService {
   async run(options: ScrapeOptions): Promise<ExtendedScrapeResult> {
     const allListings: Listing[] = [];
 
-    for (const scraper of this.scrapers) {
-      const zoneLabel = resolveScraperGeoFilterLabel(
-        options,
-        scraper.supportsTravelTime ?? false
-      );
-      console.log(
-        `[scraper] ${scraper.name} — recherche à ${options.city} (${zoneLabel})...`
-      );
-      try {
-        const listings = await scraper.scrape(options);
-        console.log(
-          `[scraper] ${scraper.name} — ${String(listings.length)} annonces trouvées`
+    await Promise.all(
+      this.scrapers.map(async (scraper) => {
+        const zoneLabel = resolveScraperGeoFilterLabel(
+          options,
+          scraper.supportsTravelTime ?? false
         );
-        allListings.push(...listings);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        console.error(`[scraper] ${scraper.name} — erreur: ${message}`);
-      }
-    }
+        log.info(
+          `${scraper.name} — recherche à ${options.city} (${zoneLabel})...`
+        );
 
-    const { insertedListings, ...result } =
-      await this.repository.upsertMany(allListings);
-    return { ...result, insertedListings };
+        try {
+          const listings = await scraper.scrape(options);
+          log.info(
+            `${scraper.name} — ${String(listings.length)} annonces trouvées`
+          );
+          allListings.push(...listings);
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          log.error(`${scraper.name} — erreur: ${message}`);
+        }
+      })
+    );
+
+    const validListings = validateListings(allListings);
+    const { insertedListings, ...scrapeResult } =
+      await this.repository.upsertMany(validListings);
+    return { ...scrapeResult, insertedListings };
   }
 }

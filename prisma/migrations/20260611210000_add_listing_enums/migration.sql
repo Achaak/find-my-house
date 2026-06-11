@@ -1,0 +1,1 @@
+-- Prisma enums map to TEXT on SQLite; existing values are already compatible.

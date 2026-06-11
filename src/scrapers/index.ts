@@ -1,4 +1,7 @@
 import { config } from "../config.js";
+import { createLogger } from "../utils/logger.js";
+
+const log = createLogger("scraper");
 import { BienIciScraper } from "./bienici.js";
 import { LeboncoinScraper } from "./leboncoin.js";
 import { SeLogerScraper } from "./seloger.js";
@@ -21,8 +24,8 @@ export function createScrapers(): Scraper[] {
   const knownNames = new Set(allScrapers.map((s) => s.name));
   const unknown = enabled.filter((name) => !knownNames.has(name));
   if (unknown.length > 0) {
-    console.warn(
-      `[scraper] Noms inconnus dans SCRAPE_SCRAPERS (ignorés): ${unknown.join(", ")}`
+    log.warn(
+      `Noms inconnus dans SCRAPE_SCRAPERS (ignorés): ${unknown.join(", ")}`
     );
   }
 
@@ -30,7 +33,7 @@ export function createScrapers(): Scraper[] {
   const filtered = allScrapers.filter((s) => enabledSet.has(s.name));
 
   if (filtered.length === 0) {
-    console.warn("[scraper] Aucun scraper activé — vérifiez SCRAPE_SCRAPERS");
+    log.warn("Aucun scraper activé — vérifiez SCRAPE_SCRAPERS");
   }
 
   return filtered;

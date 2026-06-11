@@ -1,6 +1,5 @@
 import cron from "node-cron";
-import type { ScrapeFilters } from "./types/listing.js";
-import { config } from "./config.js";
+import { buildScrapeFilters, config } from "./config.js";
 import { ListingRepository } from "./db/listingRepository.js";
 import { ReactionRepository } from "./db/reactionRepository.js";
 import { disconnectPrisma, getPrisma } from "./db/prisma.js";
@@ -13,6 +12,10 @@ import { createScrapers } from "./scrapers/index.js";
 import { ScraperService } from "./services/scraperService.js";
 import { formatVersionLine } from "./version.js";
 import { geoFilterLabel, resolveGeoFilter } from "./utils/geoFilter.js";
+import { createLogger } from "./utils/logger.js";
+
+const log = createLogger("app");
+const cronLog = createLogger("cron");
 
 async function shutdown(): Promise<void> {
   await disconnectPrisma();
@@ -25,36 +28,25 @@ async function main(): Promise<void> {
   const reactionRepository = new ReactionRepository(prisma);
   const scraperService = new ScraperService(scrapers, repository);
 
-  const scrapeOptions: ScrapeFilters = {
-    city: config.scrape.city,
-    maxPrice: config.scrape.maxPrice,
-    minSurface: config.scrape.minSurface,
-    minLandSurface: config.scrape.minLandSurface,
-    minRooms: config.scrape.minRooms,
-    minBedrooms: config.scrape.minBedrooms,
-    ancienOnly: config.scrape.ancienOnly,
-    radiusKm: config.scrape.radiusKm,
-    maxTravelMinutes: config.scrape.maxTravelMinutes,
-  };
-
+  const scrapeOptions = buildScrapeFilters();
   const geoFilter = resolveGeoFilter(scrapeOptions, true);
 
-  console.log(`[app] Démarrage de Find My House ${formatVersionLine()}...`);
-  console.log(`[app] Base: ${config.database.url}`);
-  console.log(
-    `[app] Scrapers actifs: ${scrapers.map((s) => s.name).join(", ") || "aucun"}`
+  log.info(`Démarrage de Find My House ${formatVersionLine()}...`);
+  log.info(`Base: ${config.database.url}`);
+  log.info(
+    `Scrapers actifs: ${scrapers.map((s) => s.name).join(", ") || "aucun"}`
   );
-  console.log(
-    `[app] Zone de recherche: ${scrapeOptions.city} (${geoFilterLabel(geoFilter)})`
+  log.info(
+    `Zone de recherche: ${scrapeOptions.city} (${geoFilterLabel(geoFilter)})`
   );
 
   if (cron.validate(config.scrape.cron)) {
     cron.schedule(config.scrape.cron, async () => {
-      console.log("[cron] Scraping automatique...");
+      cronLog.info("Scraping automatique...");
       try {
         const result = await scraperService.run(scrapeOptions);
-        console.log(
-          `[cron] Résultat: ${String(result.inserted)} nouveaux biens, ${String(result.linked)} liées, ${String(result.updated)} MAJ, ${String(result.skipped)} ignorées`
+        cronLog.info(
+          `Résultat: ${String(result.inserted)} nouveaux biens, ${String(result.linked)} liées, ${String(result.updated)} MAJ, ${String(result.skipped)} ignorées`
         );
         if (config.discord.channelId) {
           if (result.insertedListings.length > 0) {
@@ -64,9 +56,7 @@ async function main(): Promise<void> {
               result.insertedListings,
               repository
             );
-            console.log(
-              `[cron] Discord: ${String(sent)} nouvelle(s) annonce(s)`
-            );
+            cronLog.info(`Discord: ${String(sent)} nouvelle(s) annonce(s)`);
           }
           if (result.priceDropListings.length > 0) {
             const sent = await sendPriceDropNotifications(
@@ -75,18 +65,18 @@ async function main(): Promise<void> {
               result.priceDropListings,
               repository
             );
-            console.log(`[cron] Discord: ${String(sent)} baisse(s) de prix`);
+            cronLog.info(`Discord: ${String(sent)} baisse(s) de prix`);
           }
         }
       } catch (error) {
-        console.error("[cron] Erreur scraping:", error);
+        cronLog.error("Erreur scraping:", error);
       }
     });
-    console.log(`[cron] Planifié: ${config.scrape.cron}`);
+    cronLog.info(`Planifié: ${config.scrape.cron}`);
   }
 
   const stop = async (signal: string) => {
-    console.log(`[app] Arrêt (${signal})...`);
+    log.info(`Arrêt (${signal})...`);
     await shutdown();
     process.exit(0);
   };
@@ -106,6 +96,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  console.error("[app] Erreur fatale:", error);
+  log.error("Erreur fatale:", error);
   process.exit(1);
 });

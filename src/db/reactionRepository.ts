@@ -1,8 +1,8 @@
-import type { PrismaClient } from "../generated/prisma/client.js";
+import type { PrismaClient, ReactionType } from "../generated/prisma/client.js";
 import type { PropertyRow } from "../types/listing.js";
 import { toPropertyRow } from "./listingMapper.js";
 
-export type ReactionType = "like" | "dislike";
+export type { ReactionType };
 
 const propertyInclude = { publications: true } as const;
 

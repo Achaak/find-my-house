@@ -2,8 +2,11 @@ import { REST } from "@discordjs/rest";
 import { Routes } from "discord-api-types/rest/v10";
 import type { ListingRepository } from "../db/listingRepository.js";
 import type { PropertyRow } from "../types/listing.js";
+import { createLogger } from "../utils/logger.js";
 import { buildListingActionComponents } from "./components.js";
 import { formatListingEmbed } from "./format.js";
+
+const log = createLogger("discord");
 
 type ListingNotificationOptions = {
   header: (count: number) => string;
@@ -51,8 +54,8 @@ async function sendListingNotifications(
         notifiedIds.push(property.id);
       }
     } catch (error) {
-      console.error(
-        `[discord] Erreur envoi ${options.logLabel} (#${String(listing.id)}):`,
+      log.error(
+        `Erreur envoi ${options.logLabel} (#${String(listing.id)}):`,
         error
       );
     }
@@ -93,6 +96,7 @@ export async function sendPriceDropNotifications(
         ? "📉 **1 baisse de prix**"
         : `📉 **${String(count)} baisses de prix**`,
     shouldNotify: (property) => property.price < property.firstPrice,
+    markNotified: true,
     logLabel: "baisse de prix",
   });
 }

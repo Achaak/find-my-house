@@ -1,4 +1,5 @@
 import got, { HTTPError } from "got";
+import { config } from "../config.js";
 import type { PortalListingCriteria } from "../types/listing.js";
 import type { GeoPoint } from "./geo.js";
 import { wrapHttpError } from "./httpError.js";
@@ -10,14 +11,16 @@ const LOCATION_URL =
 const CATEGORY_VENTES_IMMO = "9";
 const REAL_ESTATE_MAISON = "1";
 export const LEBONCOIN_PAGE_SIZE = 35;
-const JSON_HEADERS = {
-  Accept: "application/json",
-  "Content-Type": "application/json",
-  api_key: "ba0c2dad52b3ec",
-  "User-Agent":
-    "LBC;iOS;16.4.1;iPhone;phone;AFACB532-200B-476A-98B3-B2346A97EA54;wifi;6.102.0;24.32.1930",
-  "Accept-Language": "fr-FR,fr;q=0.9",
-} as const;
+function jsonHeaders(): Record<string, string> {
+  return {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+    api_key: config.leboncoin.apiKey,
+    "User-Agent":
+      "LBC;iOS;16.4.1;iPhone;phone;AFACB532-200B-476A-98B3-B2346A97EA54;wifi;6.102.0;24.32.1930",
+    "Accept-Language": "fr-FR,fr;q=0.9",
+  };
+}
 
 export type LeboncoinLocation = {
   locationType: string;
@@ -94,7 +97,7 @@ export async function resolveLeboncoinPlace(
   city: string
 ): Promise<LeboncoinPlace | null> {
   const response = await got.post(LOCATION_URL, {
-    headers: JSON_HEADERS,
+    headers: jsonHeaders(),
     json: { context: [], text: city.trim() },
     throwHttpErrors: false,
   });
@@ -201,7 +204,7 @@ async function fetchLeboncoinPage(
   try {
     return await got
       .post(SEARCH_URL, {
-        headers: JSON_HEADERS,
+        headers: jsonHeaders(),
         json: body,
       })
       .json<LeboncoinSearchResult>();
@@ -247,7 +250,7 @@ export async function fetchLeboncoinAdById(
 ): Promise<LeboncoinAd | null> {
   try {
     const ad = await got(`${CLASSIFIED_URL}/${listId}`, {
-      headers: JSON_HEADERS,
+      headers: jsonHeaders(),
     }).json<LeboncoinAd>();
     return ad;
   } catch (error) {

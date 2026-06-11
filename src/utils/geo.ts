@@ -40,3 +40,24 @@ export function isWithinRadiusKm(
     radiusKm
   );
 }
+
+/** Approximate axis-aligned bounds for SQL pre-filtering before haversine. */
+export function boundingBoxForRadiusKm(
+  center: GeoPoint,
+  radiusKm: number
+): {
+  minLat: number;
+  maxLat: number;
+  minLng: number;
+  maxLng: number;
+} {
+  const latDelta = radiusKm / 111.32;
+  const lngDelta = radiusKm / (111.32 * Math.cos((center.lat * Math.PI) / 180));
+
+  return {
+    minLat: center.lat - latDelta,
+    maxLat: center.lat + latDelta,
+    minLng: center.lng - lngDelta,
+    maxLng: center.lng + lngDelta,
+  };
+}

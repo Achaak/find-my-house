@@ -7,6 +7,7 @@ import type {
   ExtendedScrapeResult,
   Listing,
   ListingSearchFilters,
+  ListingSource,
   PropertyRow,
   ScrapeResult,
   UpsertStatus,
@@ -14,10 +15,12 @@ import type {
 import type { PropertyEnrichmentPatch } from "../types/enrichment.js";
 import { toPropertyRow } from "./listingMapper.js";
 import {
+  boundingBoxForRadiusKm,
   haversineDistanceKm,
   isWithinRadiusKm,
   type GeoPoint,
 } from "../utils/geo.js";
+import { createLogger } from "../utils/logger.js";
 import {
   resolveGeoFilter,
   resolveRadiusSearchFilter,
@@ -26,6 +29,7 @@ import { resolveGeoSearchCenter } from "../utils/geocode.js";
 import { computePropertyKey } from "../utils/propertyKey.js";
 
 const propertyInclude = { publications: true } as const;
+const log = createLogger("db");
 
 const IN_QUERY_BATCH_SIZE = 900;
 
@@ -99,7 +103,7 @@ function pendingPublicationsToCreate(pending: PendingPropertyCreate) {
   const seen = new Set<string>();
   const publications: {
     externalId: string;
-    source: string;
+    source: ListingSource;
     url: string;
     scrapedAt: Date;
   }[] = [];
@@ -230,7 +234,7 @@ export class ListingRepository {
       }
     }
 
-    const externalIdsBySource = new Map<string, Set<string>>();
+    const externalIdsBySource = new Map<ListingSource, Set<string>>();
     for (const listing of listings) {
       const ids = externalIdsBySource.get(listing.source) ?? new Set<string>();
       ids.add(listing.externalId);
@@ -617,8 +621,26 @@ export class ListingRepository {
               ],
             }
           : {}),
-        latitude: radiusFilter ? { not: null } : undefined,
-        longitude: radiusFilter ? { not: null } : undefined,
+        ...(radiusFilter
+          ? (() => {
+              const bounds = boundingBoxForRadiusKm(
+                radiusFilter.center,
+                radiusFilter.radiusKm
+              );
+              return {
+                latitude: {
+                  not: null,
+                  gte: bounds.minLat,
+                  lte: bounds.maxLat,
+                },
+                longitude: {
+                  not: null,
+                  gte: bounds.minLng,
+                  lte: bounds.maxLng,
+                },
+              };
+            })()
+          : {}),
       },
       include: propertyInclude,
       orderBy: searchOrderBy(filters.sort),
@@ -698,9 +720,8 @@ export class ListingRepository {
       });
       return toPropertyRow(row);
     } catch (error) {
-      console.warn(
-        `[db] Enrichissement property ${String(id)}:`,
-        error instanceof Error ? error.message : String(error)
+      log.warn(
+        `Enrichissement property ${String(id)}: ${error instanceof Error ? error.message : String(error)}`
       );
       return undefined;
     }
@@ -719,9 +740,8 @@ export class ListingRepository {
       });
       return toPropertyRow(row);
     } catch (error) {
-      console.warn(
-        `[db] Mise à jour adresse property ${String(id)}:`,
-        error instanceof Error ? error.message : String(error)
+      log.warn(
+        `Mise à jour adresse property ${String(id)}: ${error instanceof Error ? error.message : String(error)}`
       );
       return undefined;
     }
