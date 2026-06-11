@@ -60,6 +60,14 @@ function toPropertyData(listing: Listing) {
   };
 }
 
+function isPriceDrop(
+  previousPrice: number,
+  newPrice: number,
+  firstPrice: number
+): boolean {
+  return previousPrice !== newPrice && newPrice < firstPrice;
+}
+
 function hasPropertyChanges(
   existing: ReturnType<typeof toPropertyData>,
   listing: Listing
@@ -85,9 +93,11 @@ function hasPropertyChanges(
 export class ListingRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async upsert(
-    listing: Listing
-  ): Promise<{ status: UpsertStatus; row?: PropertyRow }> {
+  async upsert(listing: Listing): Promise<{
+    status: UpsertStatus;
+    row?: PropertyRow;
+    priceDropped?: boolean;
+  }> {
     const propertyKey = computePropertyKey(listing);
     const scrapedAt = new Date(listing.scrapedAt);
 
@@ -129,7 +139,10 @@ export class ListingRepository {
         where: { id: property.id },
         include: propertyInclude,
       });
-      return { status: "updated", row: toPropertyRow(row) };
+      const priceDropped =
+        propertyChanged &&
+        isPriceDrop(property.price, listing.price, property.firstPrice);
+      return { status: "updated", row: toPropertyRow(row), priceDropped };
     }
 
     const existingProperty = await this.prisma.property.findUnique({
@@ -148,7 +161,8 @@ export class ListingRepository {
         },
       });
 
-      if (hasPropertyChanges(existingProperty, listing)) {
+      const propertyChanged = hasPropertyChanges(existingProperty, listing);
+      if (propertyChanged) {
         await this.prisma.property.update({
           where: { id: existingProperty.id },
           data: toPropertyData(listing),
@@ -159,13 +173,21 @@ export class ListingRepository {
         where: { id: existingProperty.id },
         include: propertyInclude,
       });
-      return { status: "linked", row: toPropertyRow(row) };
+      const priceDropped =
+        propertyChanged &&
+        isPriceDrop(
+          existingProperty.price,
+          listing.price,
+          existingProperty.firstPrice
+        );
+      return { status: "linked", row: toPropertyRow(row), priceDropped };
     }
 
     const row = await this.prisma.property.create({
       data: {
         propertyKey,
         ...toPropertyData(listing),
+        firstPrice: listing.price,
         firstSeenAt: scrapedAt,
         publications: {
           create: {
@@ -181,9 +203,12 @@ export class ListingRepository {
     return { status: "inserted", row: toPropertyRow(row) };
   }
 
-  async upsertMany(
-    listings: Listing[]
-  ): Promise<ScrapeResult & { insertedListings: PropertyRow[] }> {
+  async upsertMany(listings: Listing[]): Promise<
+    ScrapeResult & {
+      insertedListings: PropertyRow[];
+      priceDropListings: PropertyRow[];
+    }
+  > {
     const result: ScrapeResult = {
       found: listings.length,
       inserted: 0,
@@ -192,14 +217,19 @@ export class ListingRepository {
       skipped: 0,
     };
     const insertedListings: PropertyRow[] = [];
+    const priceDropListings: PropertyRow[] = [];
 
     const insertedIds: number[] = [];
+    const priceDropIds = new Set<number>();
 
     for (const listing of listings) {
-      const { status, row } = await this.upsert(listing);
+      const { status, row, priceDropped } = await this.upsert(listing);
       result[status]++;
       if (status === "inserted" && row) {
         insertedIds.push(row.id);
+      }
+      if (priceDropped && row) {
+        priceDropIds.add(row.id);
       }
     }
 
@@ -208,7 +238,12 @@ export class ListingRepository {
       insertedListings.push(...refreshed);
     }
 
-    return { ...result, insertedListings };
+    if (priceDropIds.size > 0) {
+      const refreshed = await this.findByIds([...priceDropIds]);
+      priceDropListings.push(...refreshed);
+    }
+
+    return { ...result, insertedListings, priceDropListings };
   }
 
   async markNotified(propertyIds: number[]): Promise<void> {

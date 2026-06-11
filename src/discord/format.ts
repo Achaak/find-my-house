@@ -14,6 +14,14 @@ export function formatPrice(price: number): string {
   }).format(price);
 }
 
+export function formatPriceDrop(property: PropertyRow): string | null {
+  if (property.price >= property.firstPrice) return null;
+
+  const drop = property.firstPrice - property.price;
+  const pct = Math.round((drop / property.firstPrice) * 100);
+  return `📉 **Baisse de prix** : ~~${formatPrice(property.firstPrice)}~~ → **${formatPrice(property.price)}** (−${formatPrice(drop)}, −${String(pct)} %)`;
+}
+
 function formatSourceLabel(source: ListingSource): string {
   return SOURCE_LABELS[source];
 }
@@ -39,7 +47,7 @@ export function formatPublicationLinks(property: PropertyRow): string {
 export function formatListing(property: PropertyRow): string {
   const parts = [
     `**#${String(property.id)}** — ${property.title}`,
-    `💰 ${formatPrice(property.price)}`,
+    formatPriceDrop(property) ?? `💰 ${formatPrice(property.price)}`,
     property.surface ? `📐 ${String(property.surface)} m²` : null,
     property.landSurface
       ? `🌳 ${String(property.landSurface)} m² terrain`
@@ -60,11 +68,14 @@ export function formatListing(property: PropertyRow): string {
 }
 
 export function formatListingEmbed(property: PropertyRow) {
+  const priceDrop = formatPriceDrop(property);
+
   return {
     title: property.title,
     url: property.url,
+    color: priceDrop ? 0x2ecc71 : undefined,
     description: [
-      `**Prix:** ${formatPrice(property.price)}`,
+      priceDrop ?? `**Prix:** ${formatPrice(property.price)}`,
       property.surface ? `**Surface:** ${String(property.surface)} m²` : null,
       property.landSurface
         ? `**Terrain:** ${String(property.landSurface)} m²`

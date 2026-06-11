@@ -16,9 +16,12 @@ export class ScraperService {
     private readonly repository: ListingRepository
   ) {}
 
-  async run(
-    options: ScrapeOptions
-  ): Promise<ScrapeResult & { insertedListings: PropertyRow[] }> {
+  async run(options: ScrapeOptions): Promise<
+    ScrapeResult & {
+      insertedListings: PropertyRow[];
+      priceDropListings: PropertyRow[];
+    }
+  > {
     const allListings: Listing[] = [];
 
     for (const scraper of this.scrapers) {

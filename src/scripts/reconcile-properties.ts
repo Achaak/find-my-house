@@ -48,9 +48,14 @@ async function main(): Promise<void> {
       const [canonical, ...duplicates] = group;
       merged += duplicates.length;
 
+      const firstPrice = Math.min(
+        canonical.firstPrice,
+        ...duplicates.map((duplicate) => duplicate.firstPrice)
+      );
+
       await prisma.property.update({
         where: { id: canonical.id },
-        data: { propertyKey },
+        data: { propertyKey, firstPrice },
       });
 
       for (const duplicate of duplicates) {

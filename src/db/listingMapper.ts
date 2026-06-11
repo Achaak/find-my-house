@@ -31,6 +31,7 @@ export function toPropertyRow(row: PropertyWithPublications): PropertyRow {
     id: row.id,
     title: row.title,
     price: row.price,
+    firstPrice: row.firstPrice,
     surface: row.surface,
     landSurface: row.landSurface,
     rooms: row.rooms,

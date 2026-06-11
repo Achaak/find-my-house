@@ -1,7 +1,10 @@
 import { config } from "../config.js";
 import { ListingRepository } from "../db/listingRepository.js";
 import { disconnectPrisma, getPrisma } from "../db/prisma.js";
-import { sendNewListingNotifications } from "../discord/notifications.js";
+import {
+  sendNewListingNotifications,
+  sendPriceDropNotifications,
+} from "../discord/notifications.js";
 import { createScrapers } from "../scrapers/index.js";
 import { ScraperService } from "../services/scraperService.js";
 
@@ -28,17 +31,29 @@ async function main(): Promise<void> {
     console.log(`  Nouveaux:   ${String(result.inserted)}`);
     console.log(`  Liées:      ${String(result.linked)}`);
     console.log(`  MAJ:        ${String(result.updated)}`);
+    console.log(`  Baisses:    ${String(result.priceDropListings.length)}`);
     console.log(`  Ignorées:   ${String(result.skipped)}`);
     console.log(`  Total BDD:  ${String(await repository.count())} biens`);
 
-    if (config.discord.channelId && result.insertedListings.length > 0) {
-      const sent = await sendNewListingNotifications(
-        config.discord.token,
-        config.discord.channelId,
-        result.insertedListings,
-        repository
-      );
-      console.log(`  Discord:    ${String(sent)} notification(s) envoyée(s)`);
+    if (config.discord.channelId) {
+      if (result.insertedListings.length > 0) {
+        const sent = await sendNewListingNotifications(
+          config.discord.token,
+          config.discord.channelId,
+          result.insertedListings,
+          repository
+        );
+        console.log(`  Discord:    ${String(sent)} nouvelle(s) annonce(s)`);
+      }
+      if (result.priceDropListings.length > 0) {
+        const sent = await sendPriceDropNotifications(
+          config.discord.token,
+          config.discord.channelId,
+          result.priceDropListings,
+          repository
+        );
+        console.log(`  Discord:    ${String(sent)} baisse(s) de prix`);
+      }
     }
   } finally {
     await disconnectPrisma();

@@ -12,6 +12,7 @@ model Property {
   propertyKey   String    @unique @map("property_key")
   title         String
   price         Int
+  firstPrice    Int       @map("first_price")
   surface       Float?
   landSurface   Float?    @map("land_surface")
   rooms         Int?

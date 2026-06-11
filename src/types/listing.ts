@@ -33,6 +33,7 @@ export type PropertyRow = {
   id: number;
   title: string;
   price: number;
+  firstPrice: number;
   surface: number | null;
   landSurface: number | null;
   rooms: number | null;

@@ -7,7 +7,10 @@ import type { ScrapeFilters } from "../types/listing.js";
 import { geoFilterLabel, resolveGeoFilter } from "../utils/geoFilter.js";
 import { buildListingActionRow } from "./components.js";
 import { formatListing, formatListingEmbed } from "./format.js";
-import { sendNewListingNotifications } from "./notifications.js";
+import {
+  sendNewListingNotifications,
+  sendPriceDropNotifications,
+} from "./notifications.js";
 
 export function buildCommands() {
   return [
@@ -389,13 +392,23 @@ export async function handleCommand(
       const { city, radiusKm, maxTravelMinutes } = defaultScrapeOptions;
       const result = await scraperService.run(defaultScrapeOptions);
 
-      if (config.discord.channelId && result.insertedListings.length > 0) {
-        await sendNewListingNotifications(
-          config.discord.token,
-          config.discord.channelId,
-          result.insertedListings,
-          repository
-        );
+      if (config.discord.channelId) {
+        if (result.insertedListings.length > 0) {
+          await sendNewListingNotifications(
+            config.discord.token,
+            config.discord.channelId,
+            result.insertedListings,
+            repository
+          );
+        }
+        if (result.priceDropListings.length > 0) {
+          await sendPriceDropNotifications(
+            config.discord.token,
+            config.discord.channelId,
+            result.priceDropListings,
+            repository
+          );
+        }
       }
 
       const scrapeGeoFilter = resolveGeoFilter(
@@ -414,6 +427,7 @@ export async function handleCommand(
           `✅ ${String(result.inserted)} nouveaux biens`,
           `🔗 ${String(result.linked)} publications liées (doublon inter-sites)`,
           `🔄 ${String(result.updated)} mises à jour`,
+          `📉 ${String(result.priceDropListings.length)} baisse(s) de prix`,
           `⏭️ ${String(result.skipped)} inchangées`,
           `📊 Total: **${String(await repository.count())}** biens, **${String(await repository.countPublications())}** publications`,
         ].join("\n")

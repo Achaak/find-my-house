@@ -5,7 +5,10 @@ import { ListingRepository } from "./db/listingRepository.js";
 import { ReactionRepository } from "./db/reactionRepository.js";
 import { disconnectPrisma, getPrisma } from "./db/prisma.js";
 import { startDiscordBot } from "./discord/bot.js";
-import { sendNewListingNotifications } from "./discord/notifications.js";
+import {
+  sendNewListingNotifications,
+  sendPriceDropNotifications,
+} from "./discord/notifications.js";
 import { createScrapers } from "./scrapers/index.js";
 import { ScraperService } from "./services/scraperService.js";
 import { geoFilterLabel, resolveGeoFilter } from "./utils/geoFilter.js";
@@ -52,16 +55,27 @@ async function main(): Promise<void> {
         console.log(
           `[cron] Résultat: ${String(result.inserted)} nouveaux biens, ${String(result.linked)} liées, ${String(result.updated)} MAJ, ${String(result.skipped)} ignorées`
         );
-        if (config.discord.channelId && result.insertedListings.length > 0) {
-          const sent = await sendNewListingNotifications(
-            config.discord.token,
-            config.discord.channelId,
-            result.insertedListings,
-            repository
-          );
-          console.log(
-            `[cron] Discord: ${String(sent)} notification(s) envoyée(s)`
-          );
+        if (config.discord.channelId) {
+          if (result.insertedListings.length > 0) {
+            const sent = await sendNewListingNotifications(
+              config.discord.token,
+              config.discord.channelId,
+              result.insertedListings,
+              repository
+            );
+            console.log(
+              `[cron] Discord: ${String(sent)} nouvelle(s) annonce(s)`
+            );
+          }
+          if (result.priceDropListings.length > 0) {
+            const sent = await sendPriceDropNotifications(
+              config.discord.token,
+              config.discord.channelId,
+              result.priceDropListings,
+              repository
+            );
+            console.log(`[cron] Discord: ${String(sent)} baisse(s) de prix`);
+          }
         }
       } catch (error) {
         console.error("[cron] Erreur scraping:", error);
