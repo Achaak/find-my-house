@@ -1,17 +1,5 @@
+import { fetchBienIciSuggest } from "./bieniciSuggest.js";
 import { bboxCenter, type GeoPoint } from "./geo.js";
-
-type BienIciSuggestResult = {
-  name: string;
-  type?: string;
-  insee_code?: string;
-  boundingBox?: {
-    west: number;
-    south: number;
-    east: number;
-    north: number;
-  };
-  zoneIds?: string[];
-};
 
 export type BienIciPlace = {
   name: string;
@@ -33,20 +21,10 @@ type BienIciGeocoderSuggestion = {
   tags?: string[];
 };
 
-async function fetchSuggest(query: string): Promise<BienIciSuggestResult[]> {
-  const response = await fetch(
-    `https://res.bienici.com/suggest.json?q=${encodeURIComponent(query.trim())}`,
-    { headers: { Accept: "application/json" } }
-  );
-
-  if (!response.ok) return [];
-  return response.json() as Promise<BienIciSuggestResult[]>;
-}
-
 export async function resolveBienIciPlace(
   city: string
 ): Promise<BienIciPlace | null> {
-  const results = await fetchSuggest(city);
+  const results = await fetchBienIciSuggest(city);
   const match = results.find((r) => r.boundingBox && r.zoneIds?.length);
   if (!match?.boundingBox || !match.zoneIds?.length) return null;
 
@@ -54,7 +32,7 @@ export async function resolveBienIciPlace(
   let departmentZoneIds: string[] = [];
 
   if (departmentCode) {
-    const deptResults = await fetchSuggest(departmentCode);
+    const deptResults = await fetchBienIciSuggest(departmentCode);
     const dept = deptResults.find(
       (r) => r.type === "department" && r.insee_code === departmentCode
     );

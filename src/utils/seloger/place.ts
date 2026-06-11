@@ -1,39 +1,14 @@
 import got from "got";
 import type { PortalListingCriteria } from "../../types/listing.js";
+import { fetchBienIciSuggest } from "../bieniciSuggest.js";
 import { bboxCenter, type GeoPoint } from "../geo.js";
 import { resolveBienIciTravelOrigin } from "../geocode.js";
 import { travelTimeRadiusKm, type GeoFilter } from "../geoFilter.js";
 import { getSeLogerHeaders } from "./headers.js";
 import { BASE_URL, type SeLogerPlace } from "./types.js";
 
-type BienIciSuggestResult = {
-  name: string;
-  insee_code?: string;
-  boundingBox?: {
-    west: number;
-    south: number;
-    east: number;
-    north: number;
-  };
-};
-
 function encodeSeLogerLocation(payload: Record<string, unknown>): string {
   return Buffer.from(JSON.stringify(payload)).toString("base64url");
-}
-
-async function fetchBienIciSuggest(
-  query: string
-): Promise<BienIciSuggestResult[]> {
-  const response = await got(
-    `https://res.bienici.com/suggest.json?q=${encodeURIComponent(query.trim())}`,
-    {
-      headers: { Accept: "application/json" },
-      throwHttpErrors: false,
-    }
-  );
-
-  if (response.statusCode !== 200) return [];
-  return JSON.parse(response.body) as BienIciSuggestResult[];
 }
 
 /** Resolves a city to a SeLoger place code (e.g. AD08FR76382). */

@@ -270,15 +270,10 @@ export class ListingRepository {
     return [...byKey.values()];
   }
 
-  async upsert(listing: Listing): Promise<{
-    status: UpsertStatus;
-    row?: PropertyRow;
-    priceDropped?: boolean;
-  }> {
-    const propertyKey = computePropertyKey(listing);
-    const scrapedAt = new Date(listing.scrapedAt);
-
-    const existingPublication = await this.prisma.listingPublication.findFirst({
+  private async findPropertyForListing(
+    listing: Listing
+  ): Promise<PropertyRow | undefined> {
+    const publication = await this.prisma.listingPublication.findFirst({
       where: {
         OR: [
           { source: listing.source, externalId: listing.externalId },
@@ -288,96 +283,45 @@ export class ListingRepository {
       include: { property: { include: propertyInclude } },
     });
 
-    if (existingPublication) {
-      const property = existingPublication.property;
-      const propertyChanged = hasPropertyChanges(property, listing);
-      const scrapedAtChanged =
-        existingPublication.scrapedAt.getTime() !== scrapedAt.getTime();
+    return publication ? toPropertyRow(publication.property) : undefined;
+  }
 
-      if (!propertyChanged && !scrapedAtChanged) {
-        return { status: "skipped" };
-      }
+  async upsert(listing: Listing): Promise<{
+    status: UpsertStatus;
+    row?: PropertyRow;
+    priceDropped?: boolean;
+  }> {
+    const result = await this.upsertMany([listing]);
 
-      if (propertyChanged) {
-        await this.prisma.property.update({
-          where: { id: property.id },
-          data: toPropertyData(listing),
-        });
-      }
-
-      if (scrapedAtChanged) {
-        await this.prisma.listingPublication.update({
-          where: { id: existingPublication.id },
-          data: { scrapedAt },
-        });
-      }
-
-      const row = await this.prisma.property.findUniqueOrThrow({
-        where: { id: property.id },
-        include: propertyInclude,
-      });
-      const priceDropped =
-        propertyChanged &&
-        isPriceDrop(property.price, listing.price, property.firstPrice);
-      return { status: "updated", row: toPropertyRow(row), priceDropped };
+    if (result.skipped === 1) {
+      return { status: "skipped" };
     }
 
-    const existingProperty = await this.prisma.property.findUnique({
-      where: { propertyKey },
-      include: propertyInclude,
-    });
-
-    if (existingProperty) {
-      await this.prisma.listingPublication.create({
-        data: {
-          propertyId: existingProperty.id,
-          externalId: listing.externalId,
-          source: listing.source,
-          url: listing.url,
-          scrapedAt,
-        },
-      });
-
-      const propertyChanged = hasPropertyChanges(existingProperty, listing);
-      if (propertyChanged) {
-        await this.prisma.property.update({
-          where: { id: existingProperty.id },
-          data: toPropertyData(listing),
-        });
-      }
-
-      const row = await this.prisma.property.findUniqueOrThrow({
-        where: { id: existingProperty.id },
-        include: propertyInclude,
-      });
-      const priceDropped =
-        propertyChanged &&
-        isPriceDrop(
-          existingProperty.price,
-          listing.price,
-          existingProperty.firstPrice
-        );
-      return { status: "linked", row: toPropertyRow(row), priceDropped };
+    if (result.inserted === 1) {
+      return {
+        status: "inserted",
+        row: result.insertedListings[0],
+      };
     }
 
-    const row = await this.prisma.property.create({
-      data: {
-        propertyKey,
-        ...toPropertyData(listing),
-        firstPrice: listing.price,
-        firstSeenAt: scrapedAt,
-        publications: {
-          create: {
-            externalId: listing.externalId,
-            source: listing.source,
-            url: listing.url,
-            scrapedAt,
-          },
-        },
-      },
-      include: propertyInclude,
-    });
-    return { status: "inserted", row: toPropertyRow(row) };
+    const row = await this.findPropertyForListing(listing);
+    const priceDropped =
+      row !== undefined &&
+      result.priceDropListings.some((property) => property.id === row.id);
+
+    if (result.linked === 1) {
+      return { status: "linked", row, priceDropped: priceDropped || undefined };
+    }
+
+    if (result.updated === 1) {
+      return {
+        status: "updated",
+        row,
+        priceDropped: priceDropped || undefined,
+      };
+    }
+
+    return { status: "skipped" };
   }
 
   async upsertMany(listings: Listing[]): Promise<ExtendedScrapeResult> {
