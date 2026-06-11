@@ -4,7 +4,7 @@ export type ScraperOptions = ScrapeFilters;
 
 export type Scraper = {
   readonly name: string;
-  /** false pour les scrapers qui ne filtrent qu'au rayon (km). */
+  /** false for scrapers that only filter by radius (km). */
   readonly supportsTravelTime?: boolean;
   scrape(options: ScraperOptions): Promise<Listing[]>;
 };

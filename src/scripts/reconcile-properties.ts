@@ -3,8 +3,8 @@ import { disconnectPrisma, getPrisma } from "../db/prisma.js";
 import { computePropertyKey } from "../utils/propertyKey.js";
 
 /**
- * Fusionne les biens en doublon (même propertyKey) après migration.
- * À lancer une fois : pnpm run db:reconcile
+ * Merge duplicate properties (same propertyKey) after migration.
+ * Run once: pnpm run db:reconcile
  */
 async function main(): Promise<void> {
   const prisma = getPrisma(config.database.url);

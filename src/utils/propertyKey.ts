@@ -2,9 +2,9 @@ import { createHash } from "node:crypto";
 import type { Listing } from "../types/listing.js";
 
 /**
- * Empreinte d'un bien pour la déduplication inter-sites.
- * Basée uniquement sur les caractéristiques structurelles stables entre portails
- * (le GPS et le titre varient trop ; le terrain est souvent absent sur SeLoger).
+ * Property fingerprint for cross-site deduplication.
+ * Based only on structural attributes stable across portals
+ * (GPS and title vary too much; land area is often missing on SeLoger).
  */
 export function computePropertyKey(
   listing: Pick<

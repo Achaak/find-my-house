@@ -10,8 +10,8 @@ export type GeoFilter =
 type GeoFilterOptions = Pick<ScrapeFilters, "maxTravelMinutes" | "radiusKm">;
 
 /**
- * Résout le filtre géographique à appliquer pour un scraper.
- * Le temps de trajet est prioritaire sur le rayon quand le scraper le supporte.
+ * Resolves the geographic filter to apply for a scraper.
+ * Travel time takes priority over radius when the scraper supports it.
  */
 export function resolveGeoFilter(
   options: GeoFilterOptions,

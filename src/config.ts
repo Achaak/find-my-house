@@ -39,7 +39,7 @@ export const config = {
     maxTravelMinutes: process.env.SCRAPE_MAX_TRAVEL_MINUTES
       ? Number(process.env.SCRAPE_MAX_TRAVEL_MINUTES)
       : undefined,
-    /** Si défini, seuls ces scrapers sont exécutés (ex: bienici,leboncoin). */
+    /** When set, only these scrapers run (e.g. bienici,leboncoin). */
     scrapers: process.env.SCRAPE_SCRAPERS
       ? process.env.SCRAPE_SCRAPERS.split(",")
           .map((s) => s.trim().toLowerCase())

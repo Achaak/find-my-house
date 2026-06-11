@@ -56,7 +56,7 @@ export type PropertyRow = {
   updatedAt: string;
 };
 
-/** @deprecated Alias conservé pour la couche Discord */
+/** @deprecated Alias kept for the Discord layer */
 export type ListingRow = PropertyRow;
 
 export type ListingSearchSort =

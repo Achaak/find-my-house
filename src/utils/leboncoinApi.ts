@@ -131,7 +131,7 @@ export async function resolveLeboncoinPlace(
   };
 }
 
-/** Recherche par rayon (mètres), comme sur leboncoin.fr/recherche?locations=... */
+/** Radius search (meters), as on leboncoin.fr/recherche?locations=... */
 export function buildLeboncoinAreaLocation(
   place: LeboncoinPlace,
   radiusKm: number

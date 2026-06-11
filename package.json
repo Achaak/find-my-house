@@ -1,7 +1,7 @@
 {
   "name": "find-my-house",
   "version": "1.0.0",
-  "description": "Scraper d'annonces immobilières françaises avec bot Discord",
+  "description": "French real-estate listing scraper with Discord bot",
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",

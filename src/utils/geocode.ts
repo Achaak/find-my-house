@@ -69,7 +69,7 @@ export async function resolveBienIciPlace(
   };
 }
 
-/** Point de départ pour le temps de trajet (géocodeur Bien'ici, pas le centre bbox). */
+/** Origin point for travel time (Bien'ici geocoder, not the bbox center). */
 export async function resolveBienIciTravelOrigin(
   city: string
 ): Promise<BienIciTravelOrigin | null> {

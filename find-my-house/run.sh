@@ -12,7 +12,7 @@ require_opt() {
   local value
   value=$(opt "$key")
   if [ -z "$value" ]; then
-    echo "[run] Option obligatoire manquante: ${key}" >&2
+    echo "[run] Missing required option: ${key}" >&2
     exit 1
   fi
   printf '%s' "$value"
@@ -58,7 +58,7 @@ export DATABASE_URL="file:/data/listings.db"
 mkdir -p /data
 
 cd /app
-echo "[run] Application des migrations..."
+echo "[run] Applying migrations..."
 pnpm exec prisma migrate deploy
-echo "[run] Démarrage du bot..."
+echo "[run] Starting bot..."
 exec node dist/index.js

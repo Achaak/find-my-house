@@ -137,7 +137,7 @@ async function fetchBienIciSuggest(
   return JSON.parse(response.body) as BienIciSuggestResult[];
 }
 
-/** Résout une ville vers le code lieu SeLoger (ex: AD08FR76382). */
+/** Resolves a city to a SeLoger place code (e.g. AD08FR76382). */
 export async function resolveSeLogerPlace(
   city: string
 ): Promise<SeLogerPlace | null> {
@@ -157,7 +157,7 @@ export async function resolveSeLogerPlace(
   };
 }
 
-/** Point de départ STRT (ex: STRTFR4383444) pour le filtre temps de trajet. */
+/** STRT origin point (e.g. STRTFR4383444) for travel-time filtering. */
 export async function resolveSeLogerStrtPlaceId(
   center: GeoPoint
 ): Promise<string | null> {

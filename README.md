@@ -1,143 +1,144 @@
 # Find My House
 
-Bot Discord + scraper d'annonces immobilières françaises, avec stockage SQLite et déduplication automatique.
+Discord bot + French real-estate listing scraper, with SQLite storage and automatic deduplication.
 
-## Fonctionnalités
+## Features
 
-- Scraping multi-sources : **BienIci**, **Leboncoin** et **SeLoger** (scrapers modulaires, activables via `SCRAPE_SCRAPERS`)
-- Filtres avancés : terrain, pièces, chambres, ancien/neuf, rayon km ou temps de trajet en voiture
-- Stockage SQLite via Prisma 7 avec contraintes d'unicité (pas de doublons)
-- Bot Discord avec commandes slash et embeds enrichis (photo, prix, surface, lien…)
-- Boutons **J'aime** / **Pas j'aime** sur chaque annonce, avec favoris persistés par utilisateur Discord
-- Notifications de nouvelles annonces dans un canal Discord
-- Scraping automatique planifié via cron
+- Multi-source scraping: **BienIci**, **Leboncoin**, and **SeLoger** (modular scrapers, enabled via `SCRAPE_SCRAPERS`)
+- Advanced filters: land area, rooms, bedrooms, old/new builds, radius in km or driving travel time
+- SQLite storage via Prisma 7 with uniqueness constraints (no duplicates)
+- Discord bot with slash commands and rich embeds (photo, price, surface area, link…)
+- **Like** / **Dislike** buttons on each listing, with per-Discord-user persisted favorites
+- New listing notifications in a Discord channel
+- Scheduled automatic scraping via cron
 
-## Prérequis
+## Prerequisites
 
 - Node.js 20+
 - [pnpm](https://pnpm.io/installation) 9+
-- Un bot Discord ([Discord Developer Portal](https://discord.com/developers/applications))
+- A Discord bot ([Discord Developer Portal](https://discord.com/developers/applications))
 
 ## Installation
 
 ```bash
 pnpm install
 cp .env.example .env
-# Remplir les variables dans .env
+# Fill in the variables in .env
 pnpm run db:migrate
 ```
 
 ## Configuration
 
-| Variable                    | Description                                                                                                                                          |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DISCORD_TOKEN`             | Token du bot Discord                                                                                                                                 |
-| `DISCORD_CLIENT_ID`         | ID de l'application Discord                                                                                                                          |
-| `DISCORD_GUILD_ID`          | (Optionnel) ID du serveur pour enregistrer les commandes en dev                                                                                      |
-| `DISCORD_CHANNEL_ID`        | (Optionnel) Canal pour les notifications de nouvelles annonces. Le bot doit avoir les permissions **Send Messages** et **Embed Links** sur ce canal. |
-| `SCRAPE_SCRAPERS`           | (Optionnel) Scrapers actifs, séparés par des virgules (`bienici`, `leboncoin`, `seloger`). Tous activés si absent.                                   |
-| `SCRAPE_CITY`               | Ville de référence (ex: Paris)                                                                                                                       |
-| `SCRAPE_MAX_PRICE`          | Prix maximum en euros                                                                                                                                |
-| `SCRAPE_MIN_SURFACE`        | Surface minimum en m²                                                                                                                                |
-| `SCRAPE_MIN_LAND_SURFACE`   | (Optionnel) Terrain minimum en m²                                                                                                                    |
-| `SCRAPE_MIN_ROOMS`          | (Optionnel) Nombre de pièces minimum                                                                                                                 |
-| `SCRAPE_MIN_BEDROOMS`       | (Optionnel) Nombre de chambres minimum                                                                                                               |
-| `SCRAPE_ANCIEN_ONLY`        | (Optionnel) `true` pour exclure le neuf                                                                                                              |
-| `SCRAPE_MAX_TRAVEL_MINUTES` | (Optionnel) Temps de trajet max en voiture depuis `SCRAPE_CITY`. Prioritaire sur `SCRAPE_RADIUS_KM`.                                                 |
-| `SCRAPE_RADIUS_KM`          | (Optionnel) Rayon de recherche en km (utilisé si `SCRAPE_MAX_TRAVEL_MINUTES` n'est pas défini)                                                       |
-| `SCRAPE_CRON`               | Expression cron (défaut: toutes les 2h)                                                                                                              |
-| `DATABASE_URL`              | URL Prisma SQLite (ex: `file:./data/listings.db`)                                                                                                    |
+| Variable                    | Description                                                                                                                        |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `DISCORD_TOKEN`             | Discord bot token                                                                                                                  |
+| `DISCORD_CLIENT_ID`         | Discord application ID                                                                                                             |
+| `DISCORD_GUILD_ID`          | (Optional) Server ID for registering commands in dev                                                                               |
+| `DISCORD_CHANNEL_ID`        | (Optional) Channel for new listing notifications. The bot needs **Send Messages** and **Embed Links** permissions on this channel. |
+| `SCRAPE_SCRAPERS`           | (Optional) Active scrapers, comma-separated (`bienici`, `leboncoin`, `seloger`). All enabled if omitted.                           |
+| `SCRAPE_CITY`               | Reference city (e.g. Paris)                                                                                                        |
+| `SCRAPE_MAX_PRICE`          | Maximum price in euros                                                                                                             |
+| `SCRAPE_MIN_SURFACE`        | Minimum surface area in m²                                                                                                         |
+| `SCRAPE_MIN_LAND_SURFACE`   | (Optional) Minimum land area in m²                                                                                                 |
+| `SCRAPE_MIN_ROOMS`          | (Optional) Minimum number of rooms                                                                                                 |
+| `SCRAPE_MIN_BEDROOMS`       | (Optional) Minimum number of bedrooms                                                                                              |
+| `SCRAPE_ANCIEN_ONLY`        | (Optional) `true` to exclude new builds                                                                                            |
+| `SCRAPE_MAX_TRAVEL_MINUTES` | (Optional) Max driving time from `SCRAPE_CITY`. Takes priority over `SCRAPE_RADIUS_KM`.                                            |
+| `SCRAPE_RADIUS_KM`          | (Optional) Search radius in km (used when `SCRAPE_MAX_TRAVEL_MINUTES` is not set)                                                  |
+| `SCRAPE_CRON`               | Cron expression (default: every 2 hours)                                                                                           |
+| `DATABASE_URL`              | Prisma SQLite URL (e.g. `file:./data/listings.db`)                                                                                 |
 
-> **Migration Discord** : remplacez l'ancienne variable `DISCORD_WEBHOOK_URL` par `DISCORD_CHANNEL_ID`. Les notifications passent désormais par le bot (REST API) plutôt qu'un webhook.
+> **Discord migration**: replace the legacy `DISCORD_WEBHOOK_URL` variable with `DISCORD_CHANNEL_ID`. Notifications now go through the bot (REST API) instead of a webhook.
 
-## Lancement
+## Running
 
 ```bash
-# Développement (hot reload)
+# Development (hot reload)
 pnpm run dev
 
-# Scraping manuel (sans Discord)
+# Manual scrape (no Discord)
 pnpm run scrape
 
 # Production
 pnpm run build && pnpm start
 ```
 
-## Déploiement
+## Deployment
 
 ### Home Assistant OS (Raspberry Pi 4)
 
-Le dépôt Git sert de source au build Docker — pas besoin de copier `src/` sur le Pi.
+The Docker image is **pre-built on GitHub Actions** (GHCR) — the Pi downloads the image instead of compiling (~2–5 min).
 
-1. **Poussez** ce dépôt sur GitHub (`Achaak/find-my-home`)
-2. **Paramètres → Apps → ⋮ → Dépôts** → ajoutez `https://github.com/Achaak/find-my-home`
-3. **Apps → Installer une app** → **Find My House** → Installer (15–20 min la 1ʳᵉ fois)
-4. Onglet **Configuration** : token Discord, critères de scrape, etc.
-5. **Démarrer** + **Démarrer au démarrage**
+1. **Push** to `main` → GitHub Actions builds the image (repo **Actions** tab)
+2. Make the package **public**: GitHub → **Packages** → `find-my-home-aarch64` → **Package settings** → **Change visibility**
+3. **Settings → Apps → ⋮ → Repositories** → `https://github.com/Achaak/find-my-home`
+4. **Apps → Find My House → Install**
+5. **Configuration** tab: Discord token, scrape criteria, etc.
+6. **Start** + **Start on boot**
 
-Les variables d'environnement passent par l'interface HA (pas de `.env` dans le conteneur). La base SQLite est dans le volume persistant `/data/listings.db`.
+Variables are set through the HA UI (no `.env`). SQLite: persistent volume `/data/listings.db`.
 
-**Mise à jour** : `git push` sur GitHub, puis **Apps → Find My House → Reconstruire → Redémarrer**.
+**Updates**: `git push` to `main`, wait for the Actions build, bump `version` in `find-my-house/config.yaml`, then **Apps → Rebuild → Restart**.
 
-**Alternative SSH** (app Terminal & SSH) :
+**SSH alternative** (Terminal & SSH add-on):
 
 ```bash
 ha store add https://github.com/Achaak/find-my-home
 ha addons install find_my_house
 ```
 
-> Le dépôt GitHub doit être **public** (ou accessible sans auth depuis le Pi). En prod, laissez `discord_guild_id` vide.
+> The GitHub repo must be **public** (or reachable without auth from the Pi). In production, leave `discord_guild_id` empty.
 
 ### Docker (NAS, NUC, VPS)
 
 ```bash
-cp .env.example .env   # éditer les variables
+cp .env.example .env   # edit the variables
 docker compose up -d --build
 ```
 
-## Commandes Discord
+## Discord commands
 
-| Commande                             | Description                                                                                                                                                                               |
-| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/annonces`                          | Rechercher en base (ville, code postal, texte, source, prix min/max, surface, terrain, pièces, chambres, ancien/neuf, rayon km, temps de trajet, tri…). Résultats en embeds avec boutons. |
-| `/annonce id:123`                    | Détail d'une annonce                                                                                                                                                                      |
-| `/jaime ajouter\|retirer\|liste`     | Gérer ses favoris                                                                                                                                                                         |
-| `/pas-jaime ajouter\|retirer\|liste` | Gérer les annonces marquées comme non aimées                                                                                                                                              |
-| `/scraper`                           | Lancer un scraping manuel (critères du `.env`)                                                                                                                                            |
-| `/stats`                             | Statistiques de la base                                                                                                                                                                   |
-| `/aide`                              | Aide                                                                                                                                                                                      |
+| Command                              | Description                                                                                                                                                                   |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/annonces`                          | Search the database (city, postal code, text, source, min/max price, surface, land, rooms, bedrooms, old/new, radius km, travel time, sort…). Results as embeds with buttons. |
+| `/annonce id:123`                    | Listing details                                                                                                                                                               |
+| `/jaime ajouter\|retirer\|liste`     | Manage favorites                                                                                                                                                              |
+| `/pas-jaime ajouter\|retirer\|liste` | Manage disliked listings                                                                                                                                                      |
+| `/scraper`                           | Run a manual scrape (`.env` criteria)                                                                                                                                         |
+| `/stats`                             | Database statistics                                                                                                                                                           |
+| `/aide`                              | Help                                                                                                                                                                          |
 
-Les boutons **❤️ J'aime** et **👎 Pas j'aime** sous chaque annonce permettent d'ajouter ou retirer une réaction en un clic (réponse éphémère, visible uniquement par vous). Un clic sur un bouton déjà actif retire la réaction.
+The **❤️ Like** and **👎 Dislike** buttons under each listing let you add or remove a reaction in one click (ephemeral reply, visible only to you). Clicking an already active button removes the reaction.
 
-## Anti-doublons
+## Deduplication
 
-Le modèle sépare le **bien** (`properties`) de ses **publications** par portail (`listing_publications`) :
+The model separates the **property** (`properties`) from its per-portal **publications** (`listing_publications`):
 
-- Un bien unique est identifié par une empreinte (`property_key`) calculée à partir du code postal, prix, surface, pièces et chambres (sans GPS ni titre, trop variables entre portails).
-- Chaque portail conserve sa propre publication (`UNIQUE(source, external_id)` et `UNIQUE(url)`).
-- Une même maison sur BienIci et Leboncoin crée **un bien** et **deux publications** — une seule notification Discord est envoyée.
-- Les réactions utilisateur (`listing_reactions`) sont liées au **bien**, pas à une publication individuelle.
+- A unique property is identified by a fingerprint (`property_key`) computed from postal code, price, surface area, rooms, and bedrooms (no GPS or title — too variable across portals).
+- Each portal keeps its own publication (`UNIQUE(source, external_id)` and `UNIQUE(url)`).
+- The same house on BienIci and Leboncoin creates **one property** and **two publications** — only one Discord notification is sent.
+- User reactions (`listing_reactions`) are tied to the **property**, not an individual publication.
 
-Après migration depuis l'ancien schéma, lancer `pnpm run db:reconcile` pour fusionner les doublons existants.
+After migrating from the legacy schema, run `pnpm run db:reconcile` to merge existing duplicates.
 
 ## Architecture
 
 ```
 src/
 ├── config.ts              # Configuration via .env
-├── db/                    # Prisma client, repository annonces + réactions
-├── utils/                 # Géolocalisation, isochrone, APIs (BienIci, Leboncoin, SeLoger)
-├── scrapers/              # Scrapers modulaires (bienici, leboncoin, seloger)
-├── discord/               # Bot, commandes slash, embeds, boutons, notifications
-├── services/              # Orchestration du scraping
-└── index.ts               # Point d'entrée (bot + cron)
+├── db/                    # Prisma client, listing + reaction repositories
+├── utils/                 # Geocoding, isochrone, APIs (BienIci, Leboncoin, SeLoger)
+├── scrapers/              # Modular scrapers (bienici, leboncoin, seloger)
+├── discord/               # Bot, slash commands, embeds, buttons, notifications
+├── services/              # Scraping orchestration
+└── index.ts               # Entry point (bot + cron)
 prisma/
-└── schema.prisma          # Schéma (properties + listing_publications + listing_reactions)
+└── schema.prisma          # Schema (properties + listing_publications + listing_reactions)
 ```
 
-## Ajouter un scraper
+## Adding a scraper
 
-1. Implémenter l'interface `Scraper` dans `src/scrapers/`
-2. Ajouter le client API correspondant dans `src/utils/` si nécessaire
-3. Enregistrer le scraper dans `src/scrapers/index.ts`
-4. Documenter le nom (minuscules) pour `SCRAPE_SCRAPERS`
+1. Implement the `Scraper` interface in `src/scrapers/`
+2. Add the corresponding API client in `src/utils/` if needed
+3. Register the scraper in `src/scrapers/index.ts`
+4. Document the name (lowercase) for `SCRAPE_SCRAPERS`
