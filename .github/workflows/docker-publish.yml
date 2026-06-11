@@ -39,5 +39,5 @@ jobs:
           platforms: ${{ matrix.platform }}
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/find-my-home-${{ matrix.ha_arch }}:latest
-            ghcr.io/${{ github.repository_owner }}/find-my-home-${{ matrix.ha_arch }}:${{ github.sha }}
+            ghcr.io/${{ toLower(github.repository_owner) }}/find-my-home-${{ matrix.ha_arch }}:latest
+            ghcr.io/${{ toLower(github.repository_owner) }}/find-my-home-${{ matrix.ha_arch }}:${{ github.sha }}
