@@ -45,6 +45,8 @@ export type PropertyRow = {
   longitude: number | null;
   city: string;
   postalCode: string | null;
+  address: string | null;
+  dpeNumero: string | null;
   description: string | null;
   imageUrl: string | null;
   propertyType: string | null;

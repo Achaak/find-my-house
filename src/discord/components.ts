@@ -71,9 +71,9 @@ export async function handleListingButton(
   interaction: ButtonInteraction,
   repository: ListingRepository,
   reactionRepository: ReactionRepository
-): Promise<void> {
+): Promise<boolean> {
   const parsed = parseListingButtonCustomId(interaction.customId);
-  if (!parsed) return;
+  if (!parsed) return false;
 
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
@@ -82,7 +82,7 @@ export async function handleListingButton(
     await interaction.editReply(
       `Annonce #${String(parsed.listingId)} introuvable.`
     );
-    return;
+    return true;
   }
 
   const result = await reactionRepository.toggle(
@@ -92,4 +92,5 @@ export async function handleListingButton(
   );
 
   await interaction.editReply(toggleMessages[parsed.type][result]);
+  return true;
 }

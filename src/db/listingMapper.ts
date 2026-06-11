@@ -41,6 +41,8 @@ export function toPropertyRow(row: PropertyWithPublications): PropertyRow {
     longitude: row.longitude,
     city: row.city,
     postalCode: row.postalCode,
+    address: row.address,
+    dpeNumero: row.dpeNumero,
     description: row.description,
     imageUrl: row.imageUrl,
     propertyType: row.propertyType,

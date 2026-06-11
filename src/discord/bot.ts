@@ -9,6 +9,7 @@ import type { ScraperService } from "../services/scraperService.js";
 import type { ScrapeFilters } from "../types/listing.js";
 import { buildCommands, handleCommand } from "./commands.js";
 import { handleListingButton } from "./components.js";
+import { handleDpeButton } from "./dpeComponents.js";
 
 type BotOptions = {
   token: string;
@@ -57,11 +58,18 @@ export async function startDiscordBot(options: BotOptions): Promise<Client> {
         }
 
         if (interaction.isButton()) {
-          await handleListingButton(
-            interaction,
-            options.repository,
-            options.reactionRepository
-          );
+          const handled =
+            (await handleListingButton(
+              interaction,
+              options.repository,
+              options.reactionRepository
+            )) ||
+            (await handleDpeButton(interaction, options.repository));
+          if (!handled) {
+            console.warn(
+              `[discord] Bouton non géré : ${interaction.customId}`
+            );
+          }
         }
       } catch (error) {
         console.error("[discord] Erreur interaction:", error);

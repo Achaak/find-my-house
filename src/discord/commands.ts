@@ -12,6 +12,9 @@ import {
   sendPriceDropNotifications,
 } from "./notifications.js";
 import { getBuildInfo } from "../version.js";
+import { buildDpeCandidateComponents } from "./dpeComponents.js";
+import { formatDpePropertySearchReply } from "./dpeFormat.js";
+import { searchDpeForProperty } from "../utils/ademeDpeApi.js";
 
 export function buildCommands() {
   return [
@@ -156,6 +159,18 @@ export function buildCommands() {
     new SlashCommandBuilder()
       .setName("version")
       .setDescription("Afficher la version de l'application"),
+
+    new SlashCommandBuilder()
+      .setName("dpe")
+      .setDescription(
+        "Proposer une adresse via l'ADEME à partir d'une annonce en base"
+      )
+      .addIntegerOption((opt) =>
+        opt
+          .setName("id")
+          .setDescription("ID de l'annonce")
+          .setRequired(true)
+      ),
 
     new SlashCommandBuilder()
       .setName("aide")
@@ -579,6 +594,42 @@ export async function handleCommand(
       return;
     }
 
+    case "dpe": {
+      const id = interaction.options.getInteger("id", true);
+      await interaction.deferReply();
+
+      const property = await repository.findById(id);
+      if (!property) {
+        await interaction.editReply(`Annonce #${String(id)} introuvable.`);
+        return;
+      }
+
+      try {
+        const { query, candidates } = await searchDpeForProperty(property);
+        const content = formatDpePropertySearchReply(
+          property,
+          query,
+          candidates
+        ).slice(0, 2000);
+
+        if (candidates.length === 0) {
+          await interaction.editReply(content);
+          return;
+        }
+
+        await interaction.editReply({
+          content,
+          components: buildDpeCandidateComponents(property.id, candidates),
+        });
+      } catch (error) {
+        console.error("[discord] Erreur recherche DPE:", error);
+        await interaction.editReply(
+          "Impossible de contacter l'API ADEME pour le moment. Réessayez plus tard."
+        );
+      }
+      return;
+    }
+
     case "aide": {
       await interaction.reply(
         [
@@ -586,6 +637,7 @@ export async function handleCommand(
           "",
           "`/annonces` — Rechercher en base (ville, CP, texte, source, prix, surface, terrain, pièces, chambres, ancien/neuf, rayon, temps de trajet, tri…)",
           "`/annonce id:123` — Détail d'une annonce (boutons ❤️ / 👎)",
+          "`/dpe id:123` — Proposer une adresse ADEME pour une annonce (validation par bouton)",
           "`/jaime ajouter|retirer|liste` — Gérer vos favoris",
           "`/pas-jaime ajouter|retirer|liste` — Gérer vos non-favoris",
           "_Cliquez sur ❤️ ou 👎 sous une annonce pour l'ajouter ou la retirer._",

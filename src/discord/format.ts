@@ -62,7 +62,9 @@ export function formatListing(property: PropertyRow): string {
       : property.isNewProperty === true
         ? "🏗️ Neuf"
         : null,
-    `📍 ${property.city}${property.postalCode ? ` (${property.postalCode})` : ""}`,
+    property.address
+      ? `🏠 ${property.address}`
+      : `📍 ${property.city}${property.postalCode ? ` (${property.postalCode})` : ""}`,
     formatPublicationLinks(property),
     `_Sources: ${formatSources(property)} — ${new Date(property.firstSeenAt).toLocaleString("fr-FR")}_`,
   ];
@@ -92,7 +94,9 @@ export function formatListingEmbed(property: PropertyRow) {
         : property.isNewProperty === true
           ? "**État:** Neuf"
           : null,
-      `**Ville:** ${property.city}${property.postalCode ? ` (${property.postalCode})` : ""}`,
+      property.address
+        ? `**Adresse:** ${property.address}`
+        : `**Ville:** ${property.city}${property.postalCode ? ` (${property.postalCode})` : ""}`,
       property.propertyType ? `**Type:** ${property.propertyType}` : null,
       formatPublicationLinks(property),
     ]

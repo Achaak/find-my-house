@@ -429,6 +429,23 @@ export class ListingRepository {
     return row ? toPropertyRow(row) : undefined;
   }
 
+  async updateAddress(
+    id: number,
+    address: string,
+    dpeNumero: string | null
+  ): Promise<PropertyRow | undefined> {
+    try {
+      const row = await this.prisma.property.update({
+        where: { id },
+        data: { address, dpeNumero },
+        include: propertyInclude,
+      });
+      return toPropertyRow(row);
+    } catch {
+      return undefined;
+    }
+  }
+
   async findByIds(ids: number[]): Promise<PropertyRow[]> {
     if (ids.length === 0) return [];
 

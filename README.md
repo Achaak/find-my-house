@@ -117,6 +117,7 @@ docker compose up -d --build
 | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/annonces`                          | Search the database (city, postal code, text, source, min/max price, surface, land, rooms, bedrooms, old/new, radius km, travel time, sort…). Results as embeds with buttons. |
 | `/annonce id:123`                    | Listing details                                                                                                                                                               |
+| `/dpe id:123`                        | Suggest a property address from ADEME open data (confirm with a button to save it)                                                                                            |
 | `/jaime ajouter\|retirer\|liste`     | Manage favorites                                                                                                                                                              |
 | `/pas-jaime ajouter\|retirer\|liste` | Manage disliked listings                                                                                                                                                      |
 | `/scraper`                           | Run a manual scrape (`.env` criteria)                                                                                                                                         |
