@@ -1,5 +1,6 @@
 import type { PrismaClient } from "../generated/prisma/client.js";
 import type {
+  ExtendedScrapeResult,
   Listing,
   ListingSearchFilters,
   PropertyRow,
@@ -215,12 +216,7 @@ export class ListingRepository {
     return { status: "inserted", row: toPropertyRow(row) };
   }
 
-  async upsertMany(listings: Listing[]): Promise<
-    ScrapeResult & {
-      insertedListings: PropertyRow[];
-      priceDropListings: PropertyRow[];
-    }
-  > {
+  async upsertMany(listings: Listing[]): Promise<ExtendedScrapeResult> {
     const result: ScrapeResult = {
       found: listings.length,
       inserted: 0,
@@ -476,7 +472,11 @@ export class ListingRepository {
         include: propertyInclude,
       });
       return toPropertyRow(row);
-    } catch {
+    } catch (error) {
+      console.warn(
+        `[db] Enrichissement property ${String(id)}:`,
+        error instanceof Error ? error.message : String(error)
+      );
       return undefined;
     }
   }
@@ -493,7 +493,11 @@ export class ListingRepository {
         include: propertyInclude,
       });
       return toPropertyRow(row);
-    } catch {
+    } catch (error) {
+      console.warn(
+        `[db] Mise à jour adresse property ${String(id)}:`,
+        error instanceof Error ? error.message : String(error)
+      );
       return undefined;
     }
   }

@@ -19,7 +19,7 @@ const property = await prisma.property.findUnique({
 if (!property) throw new Error(`Property ${String(propertyId)} introuvable`);
 
 const publication = property.publications[0];
-if (!publication?.url) {
+if (!publication.url) {
   throw new Error(`Aucune publication SeLoger pour #${String(propertyId)}`);
 }
 

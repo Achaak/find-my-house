@@ -11,6 +11,31 @@ function requireEnv(name: string): string {
   return value;
 }
 
+function parseRequiredPositiveNumber(
+  name: string,
+  raw: string | undefined,
+  fallback: number
+): number {
+  const value = raw ?? String(fallback);
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`Variable d'environnement invalide: ${name}=${value}`);
+  }
+  return parsed;
+}
+
+function parseOptionalPositiveNumber(
+  name: string,
+  raw: string | undefined
+): number | undefined {
+  if (raw === undefined || raw.trim() === "") return undefined;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`Variable d'environnement invalide: ${name}=${raw}`);
+  }
+  return parsed;
+}
+
 export const config = {
   discord: {
     token: requireEnv("DISCORD_TOKEN"),
@@ -21,24 +46,37 @@ export const config = {
   scrape: {
     cron: process.env.SCRAPE_CRON ?? "0 */2 * * *",
     city: process.env.SCRAPE_CITY ?? "Paris",
-    maxPrice: Number(process.env.SCRAPE_MAX_PRICE ?? "500000"),
-    minSurface: Number(process.env.SCRAPE_MIN_SURFACE ?? "30"),
-    minLandSurface: process.env.SCRAPE_MIN_LAND_SURFACE
-      ? Number(process.env.SCRAPE_MIN_LAND_SURFACE)
-      : undefined,
-    minRooms: process.env.SCRAPE_MIN_ROOMS
-      ? Number(process.env.SCRAPE_MIN_ROOMS)
-      : undefined,
-    minBedrooms: process.env.SCRAPE_MIN_BEDROOMS
-      ? Number(process.env.SCRAPE_MIN_BEDROOMS)
-      : undefined,
+    maxPrice: parseRequiredPositiveNumber(
+      "SCRAPE_MAX_PRICE",
+      process.env.SCRAPE_MAX_PRICE,
+      500_000
+    ),
+    minSurface: parseRequiredPositiveNumber(
+      "SCRAPE_MIN_SURFACE",
+      process.env.SCRAPE_MIN_SURFACE,
+      30
+    ),
+    minLandSurface: parseOptionalPositiveNumber(
+      "SCRAPE_MIN_LAND_SURFACE",
+      process.env.SCRAPE_MIN_LAND_SURFACE
+    ),
+    minRooms: parseOptionalPositiveNumber(
+      "SCRAPE_MIN_ROOMS",
+      process.env.SCRAPE_MIN_ROOMS
+    ),
+    minBedrooms: parseOptionalPositiveNumber(
+      "SCRAPE_MIN_BEDROOMS",
+      process.env.SCRAPE_MIN_BEDROOMS
+    ),
     ancienOnly: process.env.SCRAPE_ANCIEN_ONLY === "true",
-    radiusKm: process.env.SCRAPE_RADIUS_KM
-      ? Number(process.env.SCRAPE_RADIUS_KM)
-      : undefined,
-    maxTravelMinutes: process.env.SCRAPE_MAX_TRAVEL_MINUTES
-      ? Number(process.env.SCRAPE_MAX_TRAVEL_MINUTES)
-      : undefined,
+    radiusKm: parseOptionalPositiveNumber(
+      "SCRAPE_RADIUS_KM",
+      process.env.SCRAPE_RADIUS_KM
+    ),
+    maxTravelMinutes: parseOptionalPositiveNumber(
+      "SCRAPE_MAX_TRAVEL_MINUTES",
+      process.env.SCRAPE_MAX_TRAVEL_MINUTES
+    ),
     /** When set, only these scrapers run (e.g. bienici,leboncoin). */
     scrapers: process.env.SCRAPE_SCRAPERS
       ? process.env.SCRAPE_SCRAPERS.split(",")

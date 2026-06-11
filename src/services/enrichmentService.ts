@@ -157,7 +157,7 @@ async function enrichFromLeboncoin(
   );
 
   return pickDefined({
-    description: ad.body ?? null,
+    description: ad.body,
     surface: parseLeboncoinNumber(getLeboncoinAttribute(ad, "square")),
     landSurface: parseLeboncoinNumber(
       getLeboncoinAttribute(ad, "land_plot_surface")

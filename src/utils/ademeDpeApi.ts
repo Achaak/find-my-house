@@ -113,7 +113,7 @@ function parseGeopoint(geopoint?: string): { lat: number; lng: number } | null {
 }
 
 function extractPostalCodeFromAddress(address: string): string | null {
-  const match = address.match(/\b(\d{5})\b/);
+  const match = /\b(\d{5})\b/.exec(address);
   return match?.[1] ?? null;
 }
 
@@ -322,7 +322,11 @@ async function fetchDatasetPage<T>(
       DpeApiResponse<T>
     >();
     return data.results ?? [];
-  } catch {
+  } catch (error) {
+    console.warn(
+      `[ademe] Échec requête dataset ${datasetId}:`,
+      error instanceof Error ? error.message : String(error)
+    );
     return [];
   }
 }

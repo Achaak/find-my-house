@@ -1,10 +1,9 @@
 import type { ListingRepository } from "../db/listingRepository.js";
 import type { Scraper } from "../scrapers/types.js";
 import type {
+  ExtendedScrapeResult,
   Listing,
-  PropertyRow,
   ScrapeFilters,
-  ScrapeResult,
 } from "../types/listing.js";
 import { geoFilterLabel, resolveGeoFilter } from "../utils/geoFilter.js";
 
@@ -16,12 +15,7 @@ export class ScraperService {
     private readonly repository: ListingRepository
   ) {}
 
-  async run(options: ScrapeOptions): Promise<
-    ScrapeResult & {
-      insertedListings: PropertyRow[];
-      priceDropListings: PropertyRow[];
-    }
-  > {
+  async run(options: ScrapeOptions): Promise<ExtendedScrapeResult> {
     const allListings: Listing[] = [];
 
     for (const scraper of this.scrapers) {

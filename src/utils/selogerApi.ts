@@ -543,7 +543,9 @@ async function fetchSeLogerSearchPage(url: string): Promise<string> {
       throw new SeLogerAccessBlockedError();
     }
     if (error instanceof HTTPError) {
-      throw new Error(`SeLoger: HTTP ${String(error.response.statusCode)}`);
+      throw new Error(`SeLoger: HTTP ${String(error.response.statusCode)}`, {
+        cause: error,
+      });
     }
 
     throw error;
@@ -667,7 +669,7 @@ function parseSeLogerDetailMetrics(html: string): EnergyMetrics {
 /** Detail pages expose DPE/GES classes and numeric metrics. */
 export function parseSeLogerDetailEnergy(html: string): SeLogerEnergyDetails {
   const fromText = parseSeLogerEnergyClassesFromText(html);
-  const classes: SeLogerEnergyClasses =
+  const classes: Pick<SeLogerEnergyDetails, "dpeClass" | "gesClass"> =
     fromText.dpeClass && fromText.gesClass
       ? fromText
       : {
@@ -685,7 +687,7 @@ export function parseSeLogerDetailEnergy(html: string): SeLogerEnergyDetails {
 /** @deprecated Use parseSeLogerDetailEnergy */
 export function parseSeLogerDetailEnergyClasses(
   html: string
-): SeLogerEnergyClasses {
+): Pick<SeLogerEnergyDetails, "dpeClass" | "gesClass"> {
   const { dpeClass, gesClass } = parseSeLogerDetailEnergy(html);
   return { dpeClass, gesClass };
 }
@@ -782,75 +784,7 @@ export async function fetchSeLogerDetailEnergy(
 /** @deprecated Use fetchSeLogerDetailEnergy */
 export async function fetchSeLogerDetailEnergyClasses(
   url: string
-): Promise<SeLogerEnergyClasses> {
+): Promise<Pick<SeLogerEnergyDetails, "dpeClass" | "gesClass">> {
   const { dpeClass, gesClass } = await fetchSeLogerDetailEnergy(url);
   return { dpeClass, gesClass };
-}
-
-const ENERGY_ENRICH_CONCURRENCY = 2;
-
-function formatFetchError(error: unknown): string {
-  if (error instanceof HTTPError) {
-    return `HTTP ${String(error.response.statusCode)}`;
-  }
-  if (error instanceof Error) return error.message;
-  return String(error);
-}
-
-export async function enrichSeLogerCardsEnergy(
-  cards: SeLogerClassifiedCard[]
-): Promise<SeLogerClassifiedCard[]> {
-  const cardsWithTextEnergy = cards.map(applySeLogerSearchMetadata);
-  const needsEnrichment = cardsWithTextEnergy.filter(
-    (card) => !card.gesClass || !card.energyClass
-  );
-  if (needsEnrichment.length === 0) return cardsWithTextEnergy;
-
-  const enrichedById = new Map<string | number, SeLogerClassifiedCard>();
-  let index = 0;
-  let blockedCount = 0;
-
-  async function enrichNext(): Promise<void> {
-    while (index < needsEnrichment.length) {
-      const card = needsEnrichment[index];
-      index += 1;
-
-      try {
-        const url = buildSeLogerListingUrl(card);
-        const energy = await fetchSeLogerDetailEnergy(url);
-        enrichedById.set(card.id, {
-          ...card,
-          energyClass: card.energyClass ?? energy.dpeClass ?? undefined,
-          gesClass: card.gesClass ?? energy.gesClass ?? undefined,
-          dpeConsumptionKwhM2:
-            card.dpeConsumptionKwhM2 ?? energy.dpeConsumptionKwhM2 ?? undefined,
-          gesEmissionKgM2:
-            card.gesEmissionKgM2 ?? energy.gesEmissionKgM2 ?? undefined,
-        });
-      } catch (error) {
-        if (error instanceof HTTPError && error.response.statusCode === 403) {
-          blockedCount += 1;
-        } else {
-          console.warn(
-            `[seloger] Énergie introuvable pour l'annonce ${String(card.id)}: ${formatFetchError(error)}`
-          );
-        }
-        enrichedById.set(card.id, card);
-      }
-    }
-  }
-
-  const workers = Array.from(
-    { length: Math.min(ENERGY_ENRICH_CONCURRENCY, needsEnrichment.length) },
-    () => enrichNext()
-  );
-  await Promise.all(workers);
-
-  if (blockedCount > 0) {
-    console.warn(
-      `[seloger] ${String(blockedCount)} page(s) détail bloquée(s) (HTTP 403) — DPE/GES conservés depuis la recherche`
-    );
-  }
-
-  return cardsWithTextEnergy.map((card) => enrichedById.get(card.id) ?? card);
 }

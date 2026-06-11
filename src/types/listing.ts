@@ -112,3 +112,8 @@ export type ScrapeResult = {
   updated: number;
   skipped: number;
 };
+
+export type ExtendedScrapeResult = ScrapeResult & {
+  insertedListings: PropertyRow[];
+  priceDropListings: PropertyRow[];
+};
