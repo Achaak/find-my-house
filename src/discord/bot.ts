@@ -11,7 +11,7 @@ import type { ListingRepository } from "../db/listingRepository.js";
 import type { ReactionRepository } from "../db/reactionRepository.js";
 import type { ScraperService } from "../services/scraperService.js";
 import type { ScrapeFilters } from "../types/listing.js";
-import { buildCommands, handleCommand } from "./commands.js";
+import { buildCommands, handleCommand } from "./commands/index.js";
 import { handleListingButton } from "./components.js";
 import { handleDpeButton } from "./dpeComponents.js";
 
