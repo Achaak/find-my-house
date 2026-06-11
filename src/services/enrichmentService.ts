@@ -37,15 +37,25 @@ export function propertyNeedsEnrichment(
     property.gesClass === null ||
     property.dpeConsumptionKwhM2 === null ||
     property.gesEmissionKgM2 === null;
+  const missingCoords =
+    property.latitude === null || property.longitude === null;
+  const hasSeLogerPublication = property.publications.some(
+    (publication) => publication.source === "seloger"
+  );
 
   if (purpose === "address") {
-    return missingEnergy || property.surface === null;
+    return (
+      missingEnergy ||
+      property.surface === null ||
+      (hasSeLogerPublication && missingCoords)
+    );
   }
 
   return (
     missingEnergy ||
     property.landSurface === null ||
-    property.description === null
+    property.description === null ||
+    (hasSeLogerPublication && missingCoords)
   );
 }
 
@@ -67,6 +77,8 @@ async function enrichFromSeLoger(
     landSurface: details.landSurface,
     rooms: details.rooms,
     bedrooms: details.bedrooms,
+    latitude: details.latitude,
+    longitude: details.longitude,
     dpeClass: normalizeEnergyClass(details.dpeClass),
     gesClass: normalizeEnergyClass(details.gesClass),
     dpeConsumptionKwhM2: details.dpeConsumptionKwhM2,

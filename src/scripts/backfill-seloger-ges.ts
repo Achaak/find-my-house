@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { getPrisma, disconnectPrisma } from "../db/prisma.js";
-import { fetchSeLogerListingDetails } from "../utils/selogerApi.js";
+import { fetchSeLogerListingDetails } from "../utils/seloger/index.js";
 import { normalizeEnergyClass } from "../utils/energyClass.js";
 
 const databaseUrl = process.env.DATABASE_URL;

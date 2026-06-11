@@ -5,3 +5,4 @@ data/
 pnpm-lock.yaml
 prisma.config.js
 prisma.config.d.ts
+src/utils/seloger/fixtures/
