@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ListingRepository } from "../db/listingRepository.js";
+import { ReactionRepository } from "../db/reactionRepository.js";
 import { PrismaClient } from "../generated/prisma/client.js";
 
 const projectRoot = path.resolve(
@@ -14,6 +15,7 @@ const projectRoot = path.resolve(
 
 export function createTestRepository(): {
   repository: ListingRepository;
+  reactionRepository: ReactionRepository;
   prisma: PrismaClient;
   dispose: () => Promise<void>;
 } {
@@ -32,9 +34,11 @@ export function createTestRepository(): {
   const adapter = new PrismaBetterSqlite3({ url: databaseUrl });
   const prisma = new PrismaClient({ adapter });
   const repository = new ListingRepository(prisma);
+  const reactionRepository = new ReactionRepository(prisma);
 
   return {
     repository,
+    reactionRepository,
     prisma,
     dispose: async () => {
       await prisma.$disconnect();
