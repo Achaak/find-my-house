@@ -43,7 +43,6 @@ model Property {
   dpeConsumptionKwhM2  Float?  @map("dpe_consumption_kwh_m2")
   gesEmissionKgM2      Float?  @map("ges_emission_kg_m2")
   firstSeenAt   DateTime  @map("first_seen_at")
-  notifiedAt    DateTime? @map("notified_at")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 

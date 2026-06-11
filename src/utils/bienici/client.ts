@@ -1,7 +1,7 @@
-import got, { HTTPError } from "got";
 import type { PortalListingCriteria } from "../../types/listing.js";
 import type { GeoPoint } from "../geo/geo.js";
-import { wrapHttpError } from "../httpError.js";
+import { HTTPError, httpClient } from "../http/client.js";
+import { wrapHttpError } from "../errors/httpError.js";
 
 const AUTH_URL =
   "https://account.bienici.com/autoAuthenticate?createGuestAccountOnFailure";
@@ -92,7 +92,7 @@ export function buildBienIciSearchFilters(
 async function getGuestSession(): Promise<GuestSession> {
   if (cachedSession) return cachedSession;
 
-  const data = await got
+  const data = await httpClient
     .post(AUTH_URL, {
       headers: JSON_HEADERS,
       body: "{}",
@@ -138,7 +138,7 @@ async function requestBienIciTravelZone(
   let data: ZoneByTimeResponse;
 
   try {
-    data = await got
+    data = await httpClient
       .post(ZONE_URL, {
         headers: {
           ...JSON_HEADERS,
@@ -152,11 +152,7 @@ async function requestBienIciTravelZone(
           mode: params.mode ?? "car",
           accountId: session.accountId,
         },
-        retry: {
-          limit: 2,
-          methods: ["POST"],
-          statusCodes: [408, 413, 429, 500, 502, 503, 504, 521, 522, 524],
-        },
+        retry: { limit: 2 },
       })
       .json<ZoneByTimeResponse>();
   } catch (error) {
@@ -207,7 +203,7 @@ async function fetchBienIciPage<T>(
   const pageFilters = { ...filters, from, page, size: BIENICI_PAGE_SIZE };
   const url = `${ADS_URL}?filters=${encodeURIComponent(JSON.stringify(pageFilters))}`;
   try {
-    return await got(url, {
+    return await httpClient(url, {
       headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" },
     }).json<BienIciAdsPage<T>>();
   } catch (error) {
@@ -255,7 +251,7 @@ export async function fetchBienIciAdById<T extends { id: string }>(
 
   const url = `${ADS_URL}?filters=${encodeURIComponent(JSON.stringify(filters))}`;
   try {
-    const page = await got(url, {
+    const page = await httpClient(url, {
       headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" },
     }).json<BienIciAdsPage<T>>();
     return page.realEstateAds[0] ?? null;

@@ -57,7 +57,6 @@ export type PropertyRow = {
   dpeConsumptionKwhM2: number | null;
   gesEmissionKgM2: number | null;
   firstSeenAt: string;
-  notifiedAt: string | null;
   publications: PublicationRow[];
   url: string;
   source: ListingSource;
@@ -123,7 +122,13 @@ export type ScrapeResult = {
   skipped: number;
 };
 
+export type ScraperError = {
+  scraper: string;
+  message: string;
+};
+
 export type ExtendedScrapeResult = ScrapeResult & {
   insertedListings: PropertyRow[];
   priceDropListings: PropertyRow[];
+  errors: ScraperError[];
 };

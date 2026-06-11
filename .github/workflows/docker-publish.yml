@@ -32,7 +32,7 @@ jobs:
       - name: Verify version sync
         run: |
           PKG_VER=$(jq -r .version package.json)
-          CFG_VER=$(grep '^version:' find-my-house/config.yaml | sed 's/version: "\(.*\)"/\1/')
+          CFG_VER=$(grep '^version:' home-assistant/config.yaml | sed 's/version: "\(.*\)"/\1/')
           if [ "$PKG_VER" != "$CFG_VER" ]; then
             echo "Version mismatch: package.json=$PKG_VER, config.yaml=$CFG_VER"
             echo "Run: pnpm release:patch (or sync config.yaml manually)"

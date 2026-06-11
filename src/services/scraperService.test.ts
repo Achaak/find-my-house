@@ -51,6 +51,7 @@ describe("ScraperService", () => {
       expect(beta.scrapeMock).toHaveBeenCalledOnce();
       expect(result.found).toBe(2);
       expect(result.inserted).toBe(2);
+      expect(result.errors).toEqual([]);
     } finally {
       await dispose();
     }
@@ -78,6 +79,9 @@ describe("ScraperService", () => {
 
       expect(result.found).toBe(1);
       expect(result.inserted).toBe(1);
+      expect(result.errors).toEqual([
+        { scraper: "broken", message: "API down" },
+      ]);
     } finally {
       await dispose();
     }

@@ -9,6 +9,9 @@ describe("reconcile-properties grouping", () => {
       surface: 110,
       rooms: 6,
       bedrooms: 4,
+      landSurface: 900,
+      propertyType: "house",
+      isNewProperty: false,
     };
 
     const keyA = computePropertyKey(base);

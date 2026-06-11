@@ -66,7 +66,6 @@ export function makePropertyRow(
     dpeConsumptionKwhM2: 120,
     gesEmissionKgM2: 25,
     firstSeenAt: scrapedAt,
-    notifiedAt: null,
     publications,
     url: primary.url,
     source: primary.source,

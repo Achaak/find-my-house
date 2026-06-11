@@ -1,4 +1,5 @@
 import { bboxCenter, type GeoPoint } from "../geo/geo.js";
+import { httpClient } from "../http/client.js";
 import { fetchBienIciSuggest } from "./suggest.js";
 
 export type BienIciPlace = {
@@ -51,14 +52,21 @@ export async function resolveBienIciPlace(
 export async function resolveBienIciTravelOrigin(
   city: string
 ): Promise<BienIciTravelOrigin | null> {
-  const response = await fetch(
-    `https://geocoder.carte-bienici.com/suggestions?q=${encodeURIComponent(city.trim())}&tags=address,street,municipality,housenumber,locality`,
-    { headers: { Accept: "application/json" } }
+  const response = await httpClient(
+    "https://geocoder.carte-bienici.com/suggestions",
+    {
+      searchParams: {
+        q: city.trim(),
+        tags: "address,street,municipality,housenumber,locality",
+      },
+      headers: { Accept: "application/json" },
+      throwHttpErrors: false,
+    }
   );
 
-  if (!response.ok) return null;
+  if (response.statusCode !== 200) return null;
 
-  const results = (await response.json()) as BienIciGeocoderSuggestion[];
+  const results = JSON.parse(response.body) as BienIciGeocoderSuggestion[];
   const cityLower = city.trim().toLowerCase();
   const match =
     results.find(

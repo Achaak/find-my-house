@@ -13,7 +13,7 @@
   "plugins": {
     "@release-it/bumper": {
       "out": {
-        "file": "find-my-house/config.yaml",
+        "file": "home-assistant/config.yaml",
         "type": "text/plain"
       }
     }

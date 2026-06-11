@@ -67,12 +67,12 @@ pnpm run build && pnpm start
 
 Versioning uses [release-it](https://github.com/release-it/release-it) with [@release-it/bumper](https://github.com/release-it/bumper) (config in `.release-it.json`):
 
-| Command              | Action                                                                               |
-| -------------------- | ------------------------------------------------------------------------------------ |
-| `pnpm release:patch` | Bump patch, sync `find-my-house/config.yaml`, commit, tag `v*`, push, GitHub release |
-| `pnpm release:minor` | Bump minor version                                                                   |
-| `pnpm release:major` | Bump major version                                                                   |
-| `pnpm release`       | Interactive release (choose increment)                                               |
+| Command              | Action                                                                                |
+| -------------------- | ------------------------------------------------------------------------------------- |
+| `pnpm release:patch` | Bump patch, sync `home-assistant/config.yaml`, commit, tag `v*`, push, GitHub release |
+| `pnpm release:minor` | Bump minor version                                                                    |
+| `pnpm release:major` | Bump major version                                                                    |
+| `pnpm release`       | Interactive release (choose increment)                                                |
 
 Requires `gh` CLI authenticated (`gh auth login`) for the GitHub release step. CI builds Docker images tagged with the version (`:1.0.0`, `:latest`, and the commit SHA).
 
@@ -93,7 +93,7 @@ Variables are set through the HA UI (no `.env`). SQLite: persistent volume `/dat
 
 **Updates**: run `pnpm release:patch` (or `minor` / `major`) — release-it bumps, syncs `config.yaml`, pushes, and creates the GitHub release. Wait for the Actions build, then **Apps → Update** (or Rebuild → Restart).
 
-Version is managed in `package.json` and synced automatically to `find-my-house/config.yaml`. Use `/version` in Discord to check the running build.
+Version is managed in `package.json` and synced automatically to `home-assistant/config.yaml`. Use `/version` in Discord to check the running build.
 
 **SSH alternative** (Terminal & SSH add-on):
 
@@ -142,7 +142,7 @@ After migrating from the legacy schema, run `pnpm run db:reconcile` to merge exi
 
 ```
 src/
-├── config.ts              # Configuration via .env
+├── config/                # Env loading, Zod schema, scrape + Discord config
 ├── db/                    # Prisma client, listing + reaction repositories
 ├── types/                 # Domain types (listings, enrichment)
 ├── utils/
@@ -151,12 +151,15 @@ src/
 │   ├── seloger/           # SeLoger client, parsers, mapper
 │   ├── geo/               # Coordinates, radius, travel-time filters
 │   ├── energy/            # DPE/GES classes, ADEME API, matching
+│   ├── errors/            # HTTP and invariant error helpers
+│   ├── http/              # Shared HTTP client (got)
 │   └── …                  # Shared helpers (logger, validation, …)
 ├── scrapers/              # Modular scrapers (bienici, leboncoin, seloger)
 ├── services/              # Scraping orchestration + enrichment
 ├── scripts/               # CLI utilities (scrape-once, reconcile)
 ├── discord/               # Bot, slash commands, embeds, buttons, notifications
 └── index.ts               # Entry point (bot + cron)
+home-assistant/            # Home Assistant add-on (config.yaml, run.sh)
 prisma/
 └── schema.prisma          # Schema (properties + listing_publications + listing_reactions)
 ```

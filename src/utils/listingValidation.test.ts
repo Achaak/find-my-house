@@ -1,6 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { makeListing } from "../test/listingFixtures.js";
-import { validateListing, validateListings } from "./listingValidation.js";
+import {
+  parseListingSource,
+  validateListing,
+  validateListings,
+} from "./listingValidation.js";
+
+describe("parseListingSource", () => {
+  it("accepts known portal values", () => {
+    expect(parseListingSource("bienici")).toBe("bienici");
+    expect(parseListingSource("leboncoin")).toBe("leboncoin");
+  });
+
+  it("rejects unknown values", () => {
+    expect(parseListingSource("unknown")).toBeNull();
+    expect(parseListingSource(42)).toBeNull();
+  });
+});
 
 describe("listingValidation", () => {
   it("accepts a well-formed listing", () => {

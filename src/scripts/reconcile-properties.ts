@@ -1,4 +1,4 @@
-import { config } from "../config.js";
+import { scrapeConfig } from "../config/scrape.js";
 import { disconnectPrisma, getPrisma } from "../db/prisma.js";
 import { createLogger } from "../utils/logger.js";
 import { computePropertyKey } from "../utils/propertyKey.js";
@@ -10,7 +10,7 @@ const log = createLogger("reconcile");
  * Run once: pnpm run db:reconcile
  */
 async function main(): Promise<void> {
-  const prisma = getPrisma(config.database.url);
+  const prisma = getPrisma(scrapeConfig.database.url);
 
   try {
     const properties = await prisma.property.findMany({
@@ -27,6 +27,9 @@ async function main(): Promise<void> {
         surface: property.surface,
         rooms: property.rooms,
         bedrooms: property.bedrooms,
+        landSurface: property.landSurface,
+        propertyType: property.propertyType,
+        isNewProperty: property.isNewProperty,
       });
 
       const group = groups.get(key) ?? [];

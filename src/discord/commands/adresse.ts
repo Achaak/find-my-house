@@ -1,9 +1,12 @@
 import { SlashCommandBuilder } from "discord.js";
 import { ensurePropertyEnriched } from "../../services/enrichmentService.js";
 import { searchDpeForProperty } from "../../utils/energy/ademeDpeApi.js";
+import { createLogger } from "../../utils/logger.js";
 import { buildDpeCandidateComponents } from "../dpeComponents.js";
 import { formatDpePropertySearchReply } from "../dpeFormat.js";
 import type { CommandHandler } from "./types.js";
+
+const log = createLogger("discord");
 
 export function buildAdresseCommand() {
   return new SlashCommandBuilder()
@@ -51,7 +54,7 @@ export const handleAdresse: CommandHandler = async (interaction, ctx) => {
       components: buildDpeCandidateComponents(property.id, candidates),
     });
   } catch (error) {
-    console.error("[discord] Erreur recherche DPE:", error);
+    log.error("Erreur recherche DPE:", error);
     await interaction.editReply(
       "Impossible de contacter l'API ADEME pour le moment. Réessayez plus tard."
     );

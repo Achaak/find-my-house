@@ -1,5 +1,6 @@
 import { SlashCommandBuilder } from "discord.js";
 import { geoFilterLabel, resolveGeoFilter } from "../../utils/geo/geoFilter.js";
+import { parseListingSource } from "../../utils/listingValidation.js";
 import { buildListingActionRow } from "../components.js";
 import { formatListingEmbed } from "../format.js";
 import type { CommandHandler } from "./types.js";
@@ -131,12 +132,10 @@ export const handleAnnonces: CommandHandler = async (interaction, ctx) => {
   const city = interaction.options.getString("ville") ?? undefined;
   const postalCode = interaction.options.getString("code_postal") ?? undefined;
   const text = interaction.options.getString("texte") ?? undefined;
-  const source =
-    (interaction.options.getString("source") as
-      | "bienici"
-      | "seloger"
-      | "leboncoin"
-      | null) ?? undefined;
+  const sourceOption = interaction.options.getString("source");
+  const source = sourceOption
+    ? (parseListingSource(sourceOption) ?? undefined)
+    : undefined;
   const minPrice = interaction.options.getInteger("prix_min") ?? undefined;
   const maxPrice = interaction.options.getInteger("prix_max") ?? undefined;
   const minSurface = interaction.options.getInteger("surface_min") ?? undefined;

@@ -1,10 +1,7 @@
 import { SlashCommandBuilder } from "discord.js";
-import { config } from "../../config.js";
+import { formatScrapeSummary } from "../../services/formatScrapeSummary.js";
 import { geoFilterLabel, resolveGeoFilter } from "../../utils/geo/geoFilter.js";
-import {
-  sendNewListingNotifications,
-  sendPriceDropNotifications,
-} from "../notifications.js";
+import { canRunPrivilegedCommand, denyPrivilegedCommand } from "../auth.js";
 import type { CommandHandler } from "./types.js";
 
 export function buildScraperCommand() {
@@ -16,29 +13,17 @@ export function buildScraperCommand() {
 }
 
 export const handleScraper: CommandHandler = async (interaction, ctx) => {
+  if (!canRunPrivilegedCommand(interaction, ctx.discord.adminRoleId)) {
+    await denyPrivilegedCommand(interaction, ctx.discord.adminRoleId);
+    return;
+  }
+
   await interaction.deferReply();
 
   const { city, radiusKm, maxTravelMinutes } = ctx.defaultScrapeOptions;
   const result = await ctx.scraperService.run(ctx.defaultScrapeOptions);
 
-  if (config.discord.channelId) {
-    if (result.insertedListings.length > 0) {
-      await sendNewListingNotifications(
-        config.discord.token,
-        config.discord.channelId,
-        result.insertedListings,
-        ctx.repository
-      );
-    }
-    if (result.priceDropListings.length > 0) {
-      await sendPriceDropNotifications(
-        config.discord.token,
-        config.discord.channelId,
-        result.priceDropListings,
-        ctx.repository
-      );
-    }
-  }
+  await ctx.notifyScrapeResults(result);
 
   const scrapeGeoFilter = resolveGeoFilter(
     { maxTravelMinutes, radiusKm },
@@ -50,15 +35,11 @@ export const handleScraper: CommandHandler = async (interaction, ctx) => {
       : ` (${geoFilterLabel(scrapeGeoFilter)})`;
 
   await interaction.editReply(
-    [
-      `Scraping terminé pour **${city}**${zoneLabel}`,
-      `📥 ${String(result.found)} trouvées`,
-      `✅ ${String(result.inserted)} nouveaux biens`,
-      `🔗 ${String(result.linked)} publications liées (doublon inter-sites)`,
-      `🔄 ${String(result.updated)} mises à jour`,
-      `📉 ${String(result.priceDropListings.length)} baisse(s) de prix`,
-      `⏭️ ${String(result.skipped)} inchangées`,
-      `📊 Total: **${String(await ctx.repository.count())}** biens, **${String(await ctx.repository.countPublications())}** publications`,
-    ].join("\n")
+    formatScrapeSummary(result, {
+      city,
+      zoneLabel,
+      totalProperties: await ctx.repository.count(),
+      totalPublications: await ctx.repository.countPublications(),
+    })
   );
 };

@@ -1,5 +1,5 @@
-import got, { HTTPError } from "got";
-import { wrapHttpError } from "../httpError.js";
+import { HTTPError, httpClient } from "../http/client.js";
+import { wrapHttpError } from "../errors/httpError.js";
 import { SeLogerAccessBlockedError } from "./errors.js";
 import { getSeLogerHeaders } from "./headers.js";
 import { parseSeLogerDetailPage } from "./parsers/detailPage.js";
@@ -23,7 +23,7 @@ async function fetchSeLogerSearchPage(url: string): Promise<string> {
   lastSearchFetchAt = Date.now();
 
   try {
-    return await got(url, {
+    return await httpClient(url, {
       headers: getSeLogerHeaders("html", { Referer: `${BASE_URL}/` }),
     }).text();
   } catch (error) {
@@ -43,7 +43,7 @@ async function fetchSeLogerDetailHtml(url: string): Promise<string> {
   lastDetailFetchAt = Date.now();
 
   try {
-    return await got(url, {
+    return await httpClient(url, {
       headers: getSeLogerHeaders("html", {
         Referer: `${BASE_URL}/classified-search`,
         "Sec-Fetch-Site": "same-origin",

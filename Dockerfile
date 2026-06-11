@@ -20,7 +20,7 @@ COPY prisma.config.ts prisma.config.js prisma.config.d.ts tsconfig.json ./
 RUN pnpm install --frozen-lockfile
 
 COPY src ./src
-COPY find-my-house/run.sh /run.sh
+COPY home-assistant/run.sh /run.sh
 
 RUN pnpm run build && chmod +x /run.sh
 

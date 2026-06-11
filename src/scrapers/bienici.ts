@@ -1,4 +1,6 @@
+import { scrapeConfig } from "../config/scrape.js";
 import type { Listing } from "../types/listing.js";
+import { createLogger } from "../utils/logger.js";
 import {
   buildBienIciSearchFilters,
   computeBienIciTravelZone,
@@ -16,6 +18,8 @@ import {
   travelTimeRadiusKm,
 } from "../utils/geo/geoFilter.js";
 import type { Scraper, ScraperOptions } from "./types.js";
+
+const log = createLogger("scraper");
 
 type TravelRadiusFallback = {
   center: GeoPoint;
@@ -49,8 +53,8 @@ async function resolveZoneIdsByTypes(
       };
     } catch (error) {
       const radiusKm = travelTimeRadiusKm(geoFilter.maxTravelMinutes);
-      console.warn(
-        `[scraper] bienici — zone-by-time indisponible, repli sur rayon estimé (~${String(Math.round(radiusKm))} km):`,
+      log.warn(
+        `bienici — zone-by-time indisponible, repli sur rayon estimé (~${String(Math.round(radiusKm))} km):`,
         error
       );
       const zoneIds =
@@ -102,7 +106,10 @@ export class BienIciScraper implements Scraper {
     }
 
     const filters = buildBienIciSearchFilters(options, zoneIdsByTypes);
-    let allAds = await fetchBienIciAds<BienIciAd>(filters);
+    let allAds = await fetchBienIciAds<BienIciAd>(
+      filters,
+      scrapeConfig.scrape.maxPages
+    );
     const scrapedAt = new Date().toISOString();
 
     if (travelRadiusFallback) {

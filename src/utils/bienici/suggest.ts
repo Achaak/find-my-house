@@ -1,4 +1,4 @@
-import got from "got";
+import { httpClient } from "../http/client.js";
 
 const SUGGEST_URL = "https://res.bienici.com/suggest.json";
 
@@ -18,7 +18,7 @@ export type BienIciSuggestResult = {
 export async function fetchBienIciSuggest(
   query: string
 ): Promise<BienIciSuggestResult[]> {
-  const response = await got(SUGGEST_URL, {
+  const response = await httpClient(SUGGEST_URL, {
     searchParams: { q: query.trim() },
     headers: { Accept: "application/json" },
     throwHttpErrors: false,

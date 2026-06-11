@@ -1,11 +1,14 @@
-import got from "got";
 import type { PortalListingCriteria } from "../../types/listing.js";
+import { httpClient } from "../http/client.js";
+import { createLogger } from "../logger.js";
 import { fetchBienIciSuggest } from "../bienici/suggest.js";
 import { resolveBienIciTravelOrigin } from "../bienici/place.js";
 import { bboxCenter, type GeoPoint } from "../geo/geo.js";
 import { travelTimeRadiusKm, type GeoFilter } from "../geo/geoFilter.js";
 import { getSeLogerHeaders } from "./headers.js";
 import { BASE_URL, type SeLogerPlace } from "./types.js";
+
+const log = createLogger("seloger");
 
 function encodeSeLogerLocation(payload: Record<string, unknown>): string {
   return Buffer.from(JSON.stringify(payload)).toString("base64url");
@@ -40,7 +43,7 @@ export async function resolveSeLogerStrtPlaceId(
   url.searchParams.set("lat", String(center.lat));
   url.searchParams.set("typeKey", "STRT");
 
-  const response = await got(url.toString(), {
+  const response = await httpClient(url.toString(), {
     headers: getSeLogerHeaders("json"),
     throwHttpErrors: false,
   });
@@ -94,8 +97,8 @@ export async function buildSeLogerLocation(
     }
 
     const radiusKm = travelTimeRadiusKm(geoFilter.maxTravelMinutes);
-    console.warn(
-      `[seloger] point STRT indisponible pour "${city}", repli sur rayon estimé (~${String(Math.round(radiusKm))} km)`
+    log.warn(
+      `point STRT indisponible pour "${city}", repli sur rayon estimé (~${String(Math.round(radiusKm))} km)`
     );
     return buildSeLogerRadiusLocation(place, radiusKm, origin.center);
   }

@@ -1,3 +1,4 @@
+import { scrapeConfig } from "../config/scrape.js";
 import type { Listing } from "../types/listing.js";
 import { resolveGeoFilter } from "../utils/geo/geoFilter.js";
 import {
@@ -25,9 +26,9 @@ export class SeLogerScraper implements Scraper {
     const geoFilter = resolveGeoFilter(options, true);
     const location = await buildSeLogerLocation(options.city, place, geoFilter);
     const searchUrl = buildSeLogerSearchUrl(options, location);
-    const cards = (await fetchSeLogerClassifieds(searchUrl)).map(
-      applySeLogerSearchMetadata
-    );
+    const cards = (
+      await fetchSeLogerClassifieds(searchUrl, scrapeConfig.scrape.maxPages)
+    ).map(applySeLogerSearchMetadata);
     const scrapedAt = new Date().toISOString();
 
     return cards.map((card) =>

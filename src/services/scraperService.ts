@@ -4,6 +4,7 @@ import type {
   ExtendedScrapeResult,
   Listing,
   ScrapeFilters,
+  ScraperError,
 } from "../types/listing.js";
 import { createLogger } from "../utils/logger.js";
 import { validateListings } from "../utils/listingValidation.js";
@@ -21,6 +22,7 @@ export class ScraperService {
 
   async run(options: ScrapeOptions): Promise<ExtendedScrapeResult> {
     const allListings: Listing[] = [];
+    const errors: ScraperError[] = [];
 
     await Promise.all(
       this.scrapers.map(async (scraper) => {
@@ -42,6 +44,7 @@ export class ScraperService {
           const message =
             error instanceof Error ? error.message : String(error);
           log.error(`${scraper.name} — erreur: ${message}`);
+          errors.push({ scraper: scraper.name, message });
         }
       })
     );
@@ -49,6 +52,6 @@ export class ScraperService {
     const validListings = validateListings(allListings);
     const { insertedListings, ...scrapeResult } =
       await this.repository.upsertMany(validListings);
-    return { ...scrapeResult, insertedListings };
+    return { ...scrapeResult, insertedListings, errors };
   }
 }

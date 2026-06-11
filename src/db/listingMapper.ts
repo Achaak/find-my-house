@@ -3,6 +3,7 @@ import type {
   Property as PrismaProperty,
 } from "../generated/prisma/client.js";
 import type { PropertyRow, PublicationRow } from "../types/listing.js";
+import { InvariantError } from "../utils/errors/invariantError.js";
 
 type PropertyWithPublications = PrismaProperty & {
   publications: PrismaPublication[];
@@ -25,6 +26,11 @@ export function toPropertyRow(row: PropertyWithPublications): PropertyRow {
       (a, b) =>
         new Date(a.scrapedAt).getTime() - new Date(b.scrapedAt).getTime()
     );
+
+  if (publications.length === 0) {
+    throw new InvariantError(`Property #${String(row.id)} has no publications`);
+  }
+
   const primary = publications[0];
 
   return {
@@ -51,7 +57,6 @@ export function toPropertyRow(row: PropertyWithPublications): PropertyRow {
     dpeConsumptionKwhM2: row.dpeConsumptionKwhM2,
     gesEmissionKgM2: row.gesEmissionKgM2,
     firstSeenAt: row.firstSeenAt.toISOString(),
-    notifiedAt: row.notifiedAt?.toISOString() ?? null,
     publications,
     url: primary.url,
     source: primary.source,

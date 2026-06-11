@@ -340,6 +340,7 @@ export class ListingRepository {
         skipped: 0,
         insertedListings: [],
         priceDropListings: [],
+        errors: [],
       };
     }
 
@@ -530,18 +531,8 @@ export class ListingRepository {
       priceDropListings: [...priceDropPropertyIds]
         .map((id) => refreshedById.get(id))
         .filter((row): row is PropertyRow => row !== undefined),
+      errors: [],
     };
-  }
-
-  async markNotified(propertyIds: number[]): Promise<void> {
-    if (propertyIds.length === 0) return;
-
-    for (const idBatch of chunk(propertyIds, IN_QUERY_BATCH_SIZE)) {
-      await this.prisma.property.updateMany({
-        where: { id: { in: idBatch } },
-        data: { notifiedAt: new Date() },
-      });
-    }
   }
 
   async findRecent(limit = 10): Promise<PropertyRow[]> {

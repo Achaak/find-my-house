@@ -1,3 +1,4 @@
+import { scrapeConfig } from "../config/scrape.js";
 import type { Listing } from "../types/listing.js";
 import {
   buildLeboncoinAreaLocation,
@@ -42,7 +43,7 @@ export class LeboncoinScraper implements Scraper {
     }
 
     const body = buildLeboncoinSearchBody(options, searchLocation);
-    let allAds = await fetchLeboncoinAds(body);
+    let allAds = await fetchLeboncoinAds(body, scrapeConfig.scrape.maxPages);
 
     if (radiusFilter) {
       const { center, radiusKm } = radiusFilter;

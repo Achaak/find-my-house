@@ -1,11 +1,11 @@
-import { config } from "../config.js";
+import { scrapeConfig } from "../config/scrape.js";
 import { createLogger } from "../utils/logger.js";
-
-const log = createLogger("scraper");
 import { BienIciScraper } from "./bienici.js";
 import { LeboncoinScraper } from "./leboncoin.js";
 import { SeLogerScraper } from "./seloger.js";
 import type { Scraper } from "./types.js";
+
+const log = createLogger("scraper");
 
 const ALL_SCRAPERS = (): Scraper[] => [
   new BienIciScraper(),
@@ -15,7 +15,7 @@ const ALL_SCRAPERS = (): Scraper[] => [
 
 export function createScrapers(): Scraper[] {
   const allScrapers = ALL_SCRAPERS();
-  const enabled = config.scrape.scrapers;
+  const enabled = scrapeConfig.scrape.scrapers;
 
   if (!enabled) {
     return allScrapers;

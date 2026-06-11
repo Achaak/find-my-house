@@ -1,3 +1,6 @@
+import "../config/env.js";
+import { logLevelSchema } from "../config/schema.js";
+
 type LogLevel = "debug" | "info" | "warn" | "error";
 
 const LEVEL_RANK: Record<LogLevel, number> = {
@@ -8,11 +11,7 @@ const LEVEL_RANK: Record<LogLevel, number> = {
 };
 
 function resolveMinLevel(): LogLevel {
-  const raw = process.env.LOG_LEVEL?.toLowerCase();
-  if (raw === "debug" || raw === "info" || raw === "warn" || raw === "error") {
-    return raw;
-  }
-  return "info";
+  return logLevelSchema.parse(process.env.LOG_LEVEL ?? undefined);
 }
 
 export type Logger = {

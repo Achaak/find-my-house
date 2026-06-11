@@ -2,7 +2,11 @@ import type { ChatInputCommandInteraction } from "discord.js";
 import type { ListingRepository } from "../../db/listingRepository.js";
 import type { ReactionRepository } from "../../db/reactionRepository.js";
 import type { ScraperService } from "../../services/scraperService.js";
-import type { ScrapeFilters } from "../../types/listing.js";
+import type {
+  ExtendedScrapeResult,
+  ScrapeFilters,
+} from "../../types/listing.js";
+import type { DiscordCommandSettings } from "./types.js";
 import { buildAdresseCommand, handleAdresse } from "./adresse.js";
 import { buildAideCommand, handleAide } from "./aide.js";
 import { buildAnnonceCommand, handleAnnonce } from "./annonce.js";
@@ -33,13 +37,17 @@ export async function handleCommand(
   repository: ListingRepository,
   reactionRepository: ReactionRepository,
   scraperService: ScraperService,
-  defaultScrapeOptions: ScrapeFilters
+  defaultScrapeOptions: ScrapeFilters,
+  discord: DiscordCommandSettings,
+  notifyScrapeResults: (result: ExtendedScrapeResult) => Promise<void>
 ): Promise<void> {
   const ctx: CommandContext = {
     repository,
     reactionRepository,
     scraperService,
     defaultScrapeOptions,
+    discord,
+    notifyScrapeResults,
   };
 
   switch (interaction.commandName) {

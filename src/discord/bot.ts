@@ -10,13 +10,18 @@ import { Routes } from "discord-api-types/rest/v10";
 import type { ListingRepository } from "../db/listingRepository.js";
 import type { ReactionRepository } from "../db/reactionRepository.js";
 import type { ScraperService } from "../services/scraperService.js";
-import type { ScrapeFilters } from "../types/listing.js";
+import { notifyScrapeResults } from "../services/notifyScrapeResults.js";
+import type { ExtendedScrapeResult, ScrapeFilters } from "../types/listing.js";
+import { createLogger } from "../utils/logger.js";
 import { buildCommands, handleCommand } from "./commands/index.js";
+import type { DiscordCommandSettings } from "./commands/types.js";
 import { handleListingButton } from "./components.js";
 import { handleDpeButton } from "./dpeComponents.js";
 
+const log = createLogger("discord");
+
 type BotOptions = {
-  token: string;
+  discord: DiscordCommandSettings;
   clientId: string;
   guildId?: string;
   repository: ListingRepository;
@@ -27,24 +32,32 @@ type BotOptions = {
 
 export async function startDiscordBot(options: BotOptions): Promise<Client> {
   const client = new Client({ intents: [GatewayIntentBits.Guilds] });
-  const rest = new REST({ version: "10" }).setToken(options.token);
+  const rest = new REST({ version: "10" }).setToken(options.discord.token);
   const commands = buildCommands();
+  const sendScrapeNotifications = async (
+    result: ExtendedScrapeResult
+  ): Promise<void> => {
+    await notifyScrapeResults(result, {
+      token: options.discord.token,
+      channelId: options.discord.channelId,
+    });
+  };
 
   if (options.guildId) {
     await rest.put(
       Routes.applicationGuildCommands(options.clientId, options.guildId),
       { body: commands }
     );
-    console.log("[discord] Commandes enregistrées sur le serveur de dev");
+    log.info("Commandes enregistrées sur le serveur de dev");
   } else {
     await rest.put(Routes.applicationCommands(options.clientId), {
       body: commands,
     });
-    console.log("[discord] Commandes enregistrées globalement");
+    log.info("Commandes enregistrées globalement");
   }
 
   client.once(Events.ClientReady, (readyClient) => {
-    console.log(`[discord] Connecté en tant que ${readyClient.user.tag}`);
+    log.info(`Connecté en tant que ${readyClient.user.tag}`);
   });
 
   client.on(Events.InteractionCreate, (interaction) => {
@@ -56,7 +69,9 @@ export async function startDiscordBot(options: BotOptions): Promise<Client> {
             options.repository,
             options.reactionRepository,
             options.scraperService,
-            options.scrapeDefaults
+            options.scrapeDefaults,
+            options.discord,
+            sendScrapeNotifications
           );
           return;
         }
@@ -69,11 +84,11 @@ export async function startDiscordBot(options: BotOptions): Promise<Client> {
               options.reactionRepository
             )) || (await handleDpeButton(interaction, options.repository));
           if (!handled) {
-            console.warn(`[discord] Bouton non géré : ${interaction.customId}`);
+            log.warn(`Bouton non géré : ${interaction.customId}`);
           }
         }
       } catch (error) {
-        console.error("[discord] Erreur interaction:", error);
+        log.error("Erreur interaction:", error);
         if (!interaction.isRepliable()) return;
 
         const reply: InteractionReplyOptions = {
@@ -87,15 +102,12 @@ export async function startDiscordBot(options: BotOptions): Promise<Client> {
             await interaction.reply(reply);
           }
         } catch (replyError) {
-          console.error(
-            "[discord] Impossible de répondre à l'interaction:",
-            replyError
-          );
+          log.error("Impossible de répondre à l'interaction:", replyError);
         }
       }
     })();
   });
 
-  await client.login(options.token);
+  await client.login(options.discord.token);
   return client;
 }

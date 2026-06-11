@@ -1,8 +1,8 @@
-import got, { HTTPError } from "got";
-import { config } from "../../config.js";
+import { scrapeConfig } from "../../config/scrape.js";
 import type { PortalListingCriteria } from "../../types/listing.js";
 import type { GeoPoint } from "../geo/geo.js";
-import { wrapHttpError } from "../httpError.js";
+import { HTTPError, httpClient } from "../http/client.js";
+import { wrapHttpError } from "../errors/httpError.js";
 
 const SEARCH_URL = "https://api.leboncoin.fr/finder/search";
 const LOCATION_URL =
@@ -16,7 +16,7 @@ function jsonHeaders(): Record<string, string> {
   return {
     Accept: "application/json",
     "Content-Type": "application/json",
-    api_key: config.leboncoin.apiKey,
+    api_key: scrapeConfig.leboncoin.apiKey,
     "User-Agent":
       "LBC;iOS;16.4.1;iPhone;phone;AFACB532-200B-476A-98B3-B2346A97EA54;wifi;6.102.0;24.32.1930",
     "Accept-Language": "fr-FR,fr;q=0.9",
@@ -97,7 +97,7 @@ type LeboncoinSearchResult = {
 export async function resolveLeboncoinPlace(
   city: string
 ): Promise<LeboncoinPlace | null> {
-  const response = await got.post(LOCATION_URL, {
+  const response = await httpClient.post(LOCATION_URL, {
     headers: jsonHeaders(),
     json: { context: [], text: city.trim() },
     throwHttpErrors: false,
@@ -202,7 +202,7 @@ async function fetchLeboncoinPage(
   body: LeboncoinSearchBody
 ): Promise<LeboncoinSearchResult> {
   try {
-    return await got
+    return await httpClient
       .post(SEARCH_URL, {
         headers: jsonHeaders(),
         json: body,
@@ -249,7 +249,7 @@ export async function fetchLeboncoinAdById(
   listId: string
 ): Promise<LeboncoinAd | null> {
   try {
-    const ad = await got(`${CLASSIFIED_URL}/${listId}`, {
+    const ad = await httpClient(`${CLASSIFIED_URL}/${listId}`, {
       headers: jsonHeaders(),
     }).json<LeboncoinAd>();
     return ad;
