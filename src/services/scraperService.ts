@@ -5,7 +5,7 @@ import type {
   Listing,
   ScrapeFilters,
 } from "../types/listing.js";
-import { geoFilterLabel, resolveGeoFilter } from "../utils/geoFilter.js";
+import { resolveScraperGeoFilterLabel } from "../utils/geoFilter.js";
 
 export type ScrapeOptions = ScrapeFilters;
 
@@ -19,11 +19,10 @@ export class ScraperService {
     const allListings: Listing[] = [];
 
     for (const scraper of this.scrapers) {
-      const geoFilter = resolveGeoFilter(
+      const zoneLabel = resolveScraperGeoFilterLabel(
         options,
         scraper.supportsTravelTime ?? false
       );
-      const zoneLabel = geoFilterLabel(geoFilter);
       console.log(
         `[scraper] ${scraper.name} — recherche à ${options.city} (${zoneLabel})...`
       );

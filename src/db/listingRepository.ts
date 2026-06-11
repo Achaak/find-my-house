@@ -10,23 +10,15 @@ import type {
 import type { PropertyEnrichmentPatch } from "../services/enrichmentService.js";
 import { toPropertyRow } from "./listingMapper.js";
 import {
-  buildBienIciSearchFilters,
-  computeBienIciTravelZone,
-  fetchBienIciExternalIds,
-} from "../utils/bieniciApi.js";
-import {
   haversineDistanceKm,
   isWithinRadiusKm,
   type GeoPoint,
 } from "../utils/geo.js";
 import {
-  estimateDrivingRadiusKm,
   resolveGeoFilter,
+  resolveRadiusSearchFilter,
 } from "../utils/geoFilter.js";
-import {
-  resolveBienIciPlace,
-  resolveBienIciTravelOrigin,
-} from "../utils/geocode.js";
+import { resolveGeoSearchCenter } from "../utils/geocode.js";
 import { computePropertyKey } from "../utils/propertyKey.js";
 
 const propertyInclude = { publications: true } as const;
@@ -276,43 +268,16 @@ export class ListingRepository {
     const geoFilter = resolveGeoFilter(filters, true);
     const useGeoFilter = geoFilter.mode !== "city";
 
-    let center: GeoPoint | null = null;
-    let travelZoneExternalIds: Set<string> | null = null;
-    let travelRadiusFallbackKm: number | null = null;
+    let radiusFilter: { center: GeoPoint; radiusKm: number } | null = null;
 
     if (useGeoFilter) {
       if (!filters.city) return [];
-      const place = await resolveBienIciPlace(filters.city);
-      if (!place) return [];
-      center = place.center;
-
-      if (geoFilter.mode === "travel") {
-        const origin = (await resolveBienIciTravelOrigin(filters.city)) ?? {
-          center,
-          address: place.name,
-        };
-        center = origin.center;
-
-        try {
-          const zoneId = await computeBienIciTravelZone({
-            center: origin.center,
-            address: origin.address,
-            durationMinutes: geoFilter.maxTravelMinutes,
-          });
-          const apiFilters = buildBienIciSearchFilters(filters, {
-            travelTimeZone: [zoneId],
-          });
-          travelZoneExternalIds = await fetchBienIciExternalIds(apiFilters);
-        } catch (error) {
-          travelRadiusFallbackKm = estimateDrivingRadiusKm(
-            geoFilter.maxTravelMinutes
-          );
-          console.warn(
-            `[db] zone-by-time indisponible, repli sur rayon estimé (~${String(Math.round(travelRadiusFallbackKm))} km):`,
-            error
-          );
-        }
-      }
+      const searchCenter = await resolveGeoSearchCenter(filters.city);
+      if (!searchCenter) return [];
+      radiusFilter = resolveRadiusSearchFilter(
+        geoFilter,
+        searchCenter.center
+      );
     }
 
     const textFilter = filters.text?.trim();
@@ -370,10 +335,8 @@ export class ListingRepository {
               ],
             }
           : {}),
-        latitude:
-          center && geoFilter.mode === "radius" ? { not: null } : undefined,
-        longitude:
-          center && geoFilter.mode === "radius" ? { not: null } : undefined,
+        latitude: radiusFilter ? { not: null } : undefined,
+        longitude: radiusFilter ? { not: null } : undefined,
       },
       include: propertyInclude,
       orderBy: searchOrderBy(filters.sort),
@@ -381,28 +344,8 @@ export class ListingRepository {
 
     let results = rows.map(toPropertyRow);
 
-    if (travelZoneExternalIds) {
-      const externalIds = travelZoneExternalIds;
-      results = results.filter((property) =>
-        property.publications.some(
-          (publication) =>
-            publication.source === "bienici" &&
-            externalIds.has(publication.externalId)
-        )
-      );
-    } else if (center && travelRadiusFallbackKm !== null) {
-      const radiusKm = travelRadiusFallbackKm;
-      results = results.filter((property) => {
-        if (property.latitude === null || property.longitude === null)
-          return false;
-        return isWithinRadiusKm(
-          { lat: property.latitude, lng: property.longitude },
-          center,
-          radiusKm
-        );
-      });
-    } else if (center && geoFilter.mode === "radius") {
-      const radiusKm = geoFilter.radiusKm;
+    if (radiusFilter) {
+      const { center, radiusKm } = radiusFilter;
       results = results.filter((property) => {
         if (property.latitude === null || property.longitude === null)
           return false;

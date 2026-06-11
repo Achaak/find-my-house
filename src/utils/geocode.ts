@@ -69,6 +69,20 @@ export async function resolveBienIciPlace(
   };
 }
 
+/** Center for radius / travel-time search (travel origin when available). */
+export async function resolveGeoSearchCenter(
+  city: string
+): Promise<{ center: GeoPoint; placeName: string } | null> {
+  const place = await resolveBienIciPlace(city);
+  if (!place) return null;
+
+  const origin = await resolveBienIciTravelOrigin(city);
+  return {
+    center: origin?.center ?? place.center,
+    placeName: place.name,
+  };
+}
+
 /** Origin point for travel time (Bien'ici geocoder, not the bbox center). */
 export async function resolveBienIciTravelOrigin(
   city: string

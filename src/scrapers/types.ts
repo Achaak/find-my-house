@@ -4,7 +4,7 @@ export type ScraperOptions = ScrapeFilters;
 
 export type Scraper = {
   readonly name: string;
-  /** false for scrapers that only filter by radius (km). */
+  /** false when the portal has no isochrone API (travel time → estimated radius). */
   readonly supportsTravelTime?: boolean;
   scrape(options: ScraperOptions): Promise<Listing[]>;
 };

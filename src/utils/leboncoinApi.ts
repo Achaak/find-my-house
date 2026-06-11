@@ -132,7 +132,8 @@ export async function resolveLeboncoinPlace(
 /** Radius search (meters), as on leboncoin.fr/recherche?locations=... */
 export function buildLeboncoinAreaLocation(
   place: LeboncoinPlace,
-  radiusKm: number
+  radiusKm: number,
+  center: GeoPoint = place.center
 ): LeboncoinLocation {
   const defaultRadius = place.location.area?.default_radius ?? 5000;
 
@@ -144,8 +145,8 @@ export function buildLeboncoinAreaLocation(
     department_id: place.location.department_id,
     region_id: place.location.region_id,
     area: {
-      lat: place.center.lat,
-      lng: place.center.lng,
+      lat: center.lat,
+      lng: center.lng,
       radius: radiusKm * 1000,
       default_radius: defaultRadius,
     },

@@ -1,5 +1,7 @@
 import type { Listing } from "../types/listing.js";
-import { resolveGeoFilter } from "../utils/geoFilter.js";
+import { isWithinRadiusKm, type GeoPoint } from "../utils/geo.js";
+import { resolveScraperGeoFilter } from "../utils/geoFilter.js";
+import { resolveGeoSearchCenter } from "../utils/geocode.js";
 import {
   buildLeboncoinAreaLocation,
   buildLeboncoinSearchBody,
@@ -28,13 +30,37 @@ export class LeboncoinScraper implements Scraper {
       );
     }
 
-    const geoFilter = resolveGeoFilter(options, false);
-    const searchLocation =
-      geoFilter.mode === "radius"
-        ? buildLeboncoinAreaLocation(place, geoFilter.radiusKm)
-        : place.location;
+    const geoFilter = resolveScraperGeoFilter(options, false);
+    let searchLocation = place.location;
+    let radiusFilter: { center: GeoPoint; radiusKm: number } | null = null;
+
+    if (geoFilter.mode === "radius") {
+      const searchCenter =
+        options.maxTravelMinutes !== undefined
+          ? ((await resolveGeoSearchCenter(options.city))?.center ??
+            place.center)
+          : place.center;
+      searchLocation = buildLeboncoinAreaLocation(
+        place,
+        geoFilter.radiusKm,
+        searchCenter
+      );
+      radiusFilter = { center: searchCenter, radiusKm: geoFilter.radiusKm };
+    }
+
     const body = buildLeboncoinSearchBody(options, searchLocation);
-    const allAds = await fetchLeboncoinAds(body);
+    let allAds = await fetchLeboncoinAds(body);
+
+    if (radiusFilter) {
+      const { center, radiusKm } = radiusFilter;
+      allAds = allAds.filter((ad) =>
+        isWithinRadiusKm(
+          { lat: ad.location.lat, lng: ad.location.lng },
+          center,
+          radiusKm
+        )
+      );
+    }
     const scrapedAt = new Date().toISOString();
 
     return allAds.map((ad) => this.mapAd(ad, scrapedAt, place.name));

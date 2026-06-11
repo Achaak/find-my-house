@@ -290,13 +290,3 @@ export async function fetchBienIciAdById<T extends { id: string }>(
     throw error;
   }
 }
-
-export async function fetchBienIciExternalIds(
-  filters: BienIciSearchFilters
-): Promise<Set<string>> {
-  const allAds = await fetchBienIciAds<{ id: string }>(
-    filters,
-    Number.POSITIVE_INFINITY
-  );
-  return new Set(allAds.map((ad) => ad.id));
-}
