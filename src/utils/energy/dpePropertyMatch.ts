@@ -1,4 +1,4 @@
-import type { PropertyRow } from "../types/listing.js";
+import type { PropertyRow } from "../../types/listing.js";
 import type { DpeSearchResult } from "./ademeDpeApi.js";
 import {
   buildConsumptionRange,

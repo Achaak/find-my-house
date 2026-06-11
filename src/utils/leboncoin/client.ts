@@ -1,8 +1,8 @@
 import got, { HTTPError } from "got";
-import { config } from "../config.js";
-import type { PortalListingCriteria } from "../types/listing.js";
-import type { GeoPoint } from "./geo.js";
-import { wrapHttpError } from "./httpError.js";
+import { config } from "../../config.js";
+import type { PortalListingCriteria } from "../../types/listing.js";
+import type { GeoPoint } from "../geo/geo.js";
+import { wrapHttpError } from "../httpError.js";
 
 const SEARCH_URL = "https://api.leboncoin.fr/finder/search";
 const LOCATION_URL =
@@ -11,6 +11,7 @@ const LOCATION_URL =
 const CATEGORY_VENTES_IMMO = "9";
 const REAL_ESTATE_MAISON = "1";
 export const LEBONCOIN_PAGE_SIZE = 35;
+
 function jsonHeaders(): Record<string, string> {
   return {
     Accept: "application/json",
@@ -143,7 +144,6 @@ export function buildLeboncoinAreaLocation(
     area: {
       lat: center.lat,
       lng: center.lng,
-      // API rejects non-integer radius (e.g. from travel-time km estimate).
       radius: Math.round(radiusKm * 1000),
       default_radius: defaultRadius,
     },

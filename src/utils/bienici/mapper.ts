@@ -1,11 +1,11 @@
 import type { PropertyEnrichmentPatch } from "../../types/enrichment.js";
 import type { Listing } from "../../types/listing.js";
-import { normalizeEnergyClass } from "../energyClass.js";
+import { normalizeEnergyClass } from "../energy/energyClass.js";
 import {
   mergeEnergyMetrics,
   parseEnergyMetricsFromText,
-} from "../energyMetrics.js";
-import type { GeoPoint } from "../geo.js";
+} from "../energy/energyMetrics.js";
+import type { GeoPoint } from "../geo/geo.js";
 
 export type BienIciBlurInfo = {
   position?: { lat: number; lon: number };

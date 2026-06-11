@@ -1,12 +1,12 @@
 import type { Listing } from "../../types/listing.js";
-import { normalizeEnergyClass } from "../energyClass.js";
+import { normalizeEnergyClass } from "../energy/energyClass.js";
 import {
   buildSeLogerImageUrl,
   buildSeLogerListingUrl,
   parseSeLogerBedrooms,
   parseSeLogerPrice,
-  type SeLogerClassifiedCard,
-} from "../selogerApi.js";
+} from "./helpers.js";
+import type { SeLogerClassifiedCard } from "./types.js";
 
 export function mapSeLogerCardToListing(
   card: SeLogerClassifiedCard,

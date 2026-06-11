@@ -1,4 +1,4 @@
-import { parseEnergyMetricsFromText } from "../../energyMetrics.js";
+import { parseEnergyMetricsFromText } from "../../energy/energyMetrics.js";
 import type { SeLogerClassifiedCard } from "../types.js";
 import { parseSeLogerEnergyClassesFromText } from "./energyText.js";
 

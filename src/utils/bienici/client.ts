@@ -1,7 +1,7 @@
 import got, { HTTPError } from "got";
-import type { PortalListingCriteria } from "../types/listing.js";
-import type { GeoPoint } from "./geo.js";
-import { wrapHttpError } from "./httpError.js";
+import type { PortalListingCriteria } from "../../types/listing.js";
+import type { GeoPoint } from "../geo/geo.js";
+import { wrapHttpError } from "../httpError.js";
 
 const AUTH_URL =
   "https://account.bienici.com/autoAuthenticate?createGuestAccountOnFailure";

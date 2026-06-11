@@ -1,7 +1,7 @@
 import {
   mergeEnergyMetrics,
   parseEnergyMetricsFromText,
-} from "../../energyMetrics.js";
+} from "../../energy/energyMetrics.js";
 import type { SeLogerEnergyDetails } from "../types.js";
 import { parseSeLogerEnergyClassesFromText } from "./energyText.js";
 

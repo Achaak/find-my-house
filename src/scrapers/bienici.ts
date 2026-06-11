@@ -2,20 +2,19 @@ import type { Listing } from "../types/listing.js";
 import {
   buildBienIciSearchFilters,
   computeBienIciTravelZone,
+  extractBienIciAdCoords,
   fetchBienIciAds,
-  type BienIciZoneIdsByTypes,
-} from "../utils/bieniciApi.js";
-import { isWithinRadiusKm, type GeoPoint } from "../utils/geo.js";
-import { resolveGeoFilter, travelTimeRadiusKm } from "../utils/geoFilter.js";
-import {
+  mapBienIciAdToListing,
   resolveBienIciPlace,
   resolveBienIciTravelOrigin,
-} from "../utils/geocode.js";
-import {
-  extractBienIciAdCoords,
-  mapBienIciAdToListing,
   type BienIciAd,
-} from "../utils/mappers/bienici.js";
+  type BienIciZoneIdsByTypes,
+} from "../utils/bienici/index.js";
+import { isWithinRadiusKm, type GeoPoint } from "../utils/geo/geo.js";
+import {
+  resolveGeoFilter,
+  travelTimeRadiusKm,
+} from "../utils/geo/geoFilter.js";
 import type { Scraper, ScraperOptions } from "./types.js";
 
 type TravelRadiusFallback = {

@@ -1,15 +1,15 @@
 import type { PropertyEnrichmentPatch } from "../../types/enrichment.js";
 import type { Listing } from "../../types/listing.js";
+import { normalizeEnergyClass } from "../energy/energyClass.js";
+import {
+  mergeEnergyMetrics,
+  parseEnergyMetricsFromText,
+} from "../energy/energyMetrics.js";
 import {
   getLeboncoinAttribute,
   parseLeboncoinNumber,
   type LeboncoinAd,
-} from "../leboncoinApi.js";
-import { normalizeEnergyClass } from "../energyClass.js";
-import {
-  mergeEnergyMetrics,
-  parseEnergyMetricsFromText,
-} from "../energyMetrics.js";
+} from "./client.js";
 
 function leboncoinEnergyMetrics(ad: LeboncoinAd) {
   return mergeEnergyMetrics(

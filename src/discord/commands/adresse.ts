@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from "discord.js";
 import { ensurePropertyEnriched } from "../../services/enrichmentService.js";
-import { searchDpeForProperty } from "../../utils/ademeDpeApi.js";
+import { searchDpeForProperty } from "../../utils/energy/ademeDpeApi.js";
 import { buildDpeCandidateComponents } from "../dpeComponents.js";
 import { formatDpePropertySearchReply } from "../dpeFormat.js";
 import type { CommandHandler } from "./types.js";

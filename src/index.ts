@@ -11,7 +11,7 @@ import {
 import { createScrapers } from "./scrapers/index.js";
 import { ScraperService } from "./services/scraperService.js";
 import { formatVersionLine } from "./version.js";
-import { geoFilterLabel, resolveGeoFilter } from "./utils/geoFilter.js";
+import { geoFilterLabel, resolveGeoFilter } from "./utils/geo/geoFilter.js";
 import { createLogger } from "./utils/logger.js";
 
 const log = createLogger("app");

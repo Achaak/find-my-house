@@ -1,4 +1,4 @@
-import type { GeoPoint } from "../../geo.js";
+import type { GeoPoint } from "../../geo/geo.js";
 import type { SeLogerClassifiedData } from "../types.js";
 
 const FRANCE_LAT_MIN = 41;

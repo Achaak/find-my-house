@@ -19,13 +19,13 @@ import {
   haversineDistanceKm,
   isWithinRadiusKm,
   type GeoPoint,
-} from "../utils/geo.js";
+} from "../utils/geo/geo.js";
 import { createLogger } from "../utils/logger.js";
 import {
   resolveGeoFilter,
   resolveRadiusSearchFilter,
-} from "../utils/geoFilter.js";
-import { resolveGeoSearchCenter } from "../utils/geocode.js";
+} from "../utils/geo/geoFilter.js";
+import { resolveGeoSearchCenter } from "../utils/geo/geocode.js";
 import { computePropertyKey } from "../utils/propertyKey.js";
 
 const propertyInclude = { publications: true } as const;

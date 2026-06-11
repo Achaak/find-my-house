@@ -1,13 +1,13 @@
 import type { Listing } from "../types/listing.js";
-import { resolveGeoFilter } from "../utils/geoFilter.js";
-import { mapSeLogerCardToListing } from "../utils/mappers/seloger.js";
+import { resolveGeoFilter } from "../utils/geo/geoFilter.js";
 import {
   applySeLogerSearchMetadata,
   buildSeLogerLocation,
   buildSeLogerSearchUrl,
   fetchSeLogerClassifieds,
+  mapSeLogerCardToListing,
   resolveSeLogerPlace,
-} from "../utils/selogerApi.js";
+} from "../utils/seloger/index.js";
 import type { Scraper, ScraperOptions } from "./types.js";
 
 export class SeLogerScraper implements Scraper {

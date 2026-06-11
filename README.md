@@ -144,10 +144,18 @@ After migrating from the legacy schema, run `pnpm run db:reconcile` to merge exi
 src/
 ├── config.ts              # Configuration via .env
 ├── db/                    # Prisma client, listing + reaction repositories
-├── utils/                 # Geocoding, isochrone, APIs (BienIci, Leboncoin, SeLoger)
+├── types/                 # Domain types (listings, enrichment)
+├── utils/
+│   ├── bienici/           # Bien'ici client, place resolution, mapper
+│   ├── leboncoin/         # Leboncoin client, mapper
+│   ├── seloger/           # SeLoger client, parsers, mapper
+│   ├── geo/               # Coordinates, radius, travel-time filters
+│   ├── energy/            # DPE/GES classes, ADEME API, matching
+│   └── …                  # Shared helpers (logger, validation, …)
 ├── scrapers/              # Modular scrapers (bienici, leboncoin, seloger)
+├── services/              # Scraping orchestration + enrichment
+├── scripts/               # CLI utilities (scrape-once, reconcile)
 ├── discord/               # Bot, slash commands, embeds, buttons, notifications
-├── services/              # Scraping orchestration
 └── index.ts               # Entry point (bot + cron)
 prisma/
 └── schema.prisma          # Schema (properties + listing_publications + listing_reactions)
@@ -156,6 +164,6 @@ prisma/
 ## Adding a scraper
 
 1. Implement the `Scraper` interface in `src/scrapers/`
-2. Add the corresponding API client in `src/utils/` if needed
+2. Add a portal module under `src/utils/<source>/` (client, mapper, optional parsers)
 3. Register the scraper in `src/scrapers/index.ts`
 4. Document the name (lowercase) for `SCRAPE_SCRAPERS`

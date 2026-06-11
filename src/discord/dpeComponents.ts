@@ -6,8 +6,8 @@ import {
   MessageFlagsBitField,
 } from "discord.js";
 import type { ListingRepository } from "../db/listingRepository.js";
-import { fetchDpeByNumero } from "../utils/ademeDpeApi.js";
-import type { RankedDpeSearchResult } from "../utils/dpePropertyMatch.js";
+import { fetchDpeByNumero } from "../utils/energy/ademeDpeApi.js";
+import type { RankedDpeSearchResult } from "../utils/energy/dpePropertyMatch.js";
 
 const CONFIRM_PREFIX = "dpe:addr:";
 const REJECT_PREFIX = "dpe:none:";

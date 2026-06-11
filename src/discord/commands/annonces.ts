@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from "discord.js";
-import { geoFilterLabel, resolveGeoFilter } from "../../utils/geoFilter.js";
+import { geoFilterLabel, resolveGeoFilter } from "../../utils/geo/geoFilter.js";
 import { buildListingActionRow } from "../components.js";
 import { formatListingEmbed } from "../format.js";
 import type { CommandHandler } from "./types.js";

@@ -1,5 +1,5 @@
 import type { ListingSource, PropertyRow } from "../types/listing.js";
-import { formatEnergyClasses } from "../utils/energyClass.js";
+import { formatEnergyClasses } from "../utils/energy/energyClass.js";
 
 const SOURCE_LABELS: Record<ListingSource, string> = {
   bienici: "Bien'ici",

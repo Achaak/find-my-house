@@ -1,6 +1,6 @@
 import type { PropertyRow } from "../types/listing.js";
-import type { RankedDpeSearchResult } from "../utils/dpePropertyMatch.js";
-import { formatEnergyClasses } from "../utils/energyClass.js";
+import type { RankedDpeSearchResult } from "../utils/energy/dpePropertyMatch.js";
+import { formatEnergyClasses } from "../utils/energy/energyClass.js";
 import { formatPrice } from "./format.js";
 
 const OBSERVATOIRE_URL =

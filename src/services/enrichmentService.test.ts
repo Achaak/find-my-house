@@ -2,34 +2,39 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestRepository } from "../test/db.js";
 import { makeListing, makePropertyRow } from "../test/listingFixtures.js";
 import type { ListingRepository } from "../db/listingRepository.js";
-import { fetchBienIciAdById } from "../utils/bieniciApi.js";
-import { fetchLeboncoinAdById } from "../utils/leboncoinApi.js";
+import { fetchBienIciAdById } from "../utils/bienici/index.js";
+import { fetchLeboncoinAdById } from "../utils/leboncoin/index.js";
 import {
   fetchSeLogerListingDetails,
   SeLogerAccessBlockedError,
-} from "../utils/selogerApi.js";
+} from "../utils/seloger/index.js";
 import {
   enrichProperty,
   ensurePropertyEnriched,
   propertyNeedsEnrichment,
 } from "./enrichmentService.js";
 
-vi.mock("../utils/bieniciApi.js", () => ({
-  fetchBienIciAdById: vi.fn(),
-}));
-
-vi.mock("../utils/leboncoinApi.js", async (importOriginal) => {
+vi.mock("../utils/bienici/index.js", async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import("../utils/leboncoinApi.js")>();
+    await importOriginal<typeof import("../utils/bienici/index.js")>();
+  return {
+    ...actual,
+    fetchBienIciAdById: vi.fn(),
+  };
+});
+
+vi.mock("../utils/leboncoin/index.js", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../utils/leboncoin/index.js")>();
   return {
     ...actual,
     fetchLeboncoinAdById: vi.fn(),
   };
 });
 
-vi.mock("../utils/selogerApi.js", async (importOriginal) => {
+vi.mock("../utils/seloger/index.js", async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import("../utils/selogerApi.js")>();
+    await importOriginal<typeof import("../utils/seloger/index.js")>();
   return {
     ...actual,
     fetchSeLogerListingDetails: vi.fn(),

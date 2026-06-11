@@ -1,5 +1,5 @@
 import got, { HTTPError } from "got";
-import type { PropertyRow } from "../types/listing.js";
+import type { PropertyRow } from "../../types/listing.js";
 import {
   buildAdemeSearchParamVariants,
   formatDpeSearchCriteria,

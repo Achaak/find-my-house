@@ -1,4 +1,4 @@
-import type { ScrapeFilters } from "../types/listing.js";
+import type { ScrapeFilters } from "../../types/listing.js";
 import type { GeoPoint } from "./geo.js";
 
 export type GeoFilterMode = "travel" | "radius" | "city";

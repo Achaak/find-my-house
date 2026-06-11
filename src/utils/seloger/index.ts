@@ -19,6 +19,7 @@ export {
   buildSeLogerLocation,
   buildSeLogerSearchUrl,
 } from "./place.js";
+export { mapSeLogerCardToListing } from "./mapper.js";
 export { applySeLogerSearchMetadata } from "./parsers/searchMetadata.js";
 export { parseSeLogerSearchHtml } from "./parsers/searchHtml.js";
 export { parseSeLogerDetailEnergy } from "./parsers/detailEnergy.js";

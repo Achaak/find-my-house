@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from "discord.js";
 import { config } from "../../config.js";
-import { geoFilterLabel, resolveGeoFilter } from "../../utils/geoFilter.js";
+import { geoFilterLabel, resolveGeoFilter } from "../../utils/geo/geoFilter.js";
 import {
   sendNewListingNotifications,
   sendPriceDropNotifications,

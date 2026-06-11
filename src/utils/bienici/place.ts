@@ -1,5 +1,5 @@
-import { fetchBienIciSuggest } from "./bieniciSuggest.js";
-import { bboxCenter, type GeoPoint } from "./geo.js";
+import { bboxCenter, type GeoPoint } from "../geo/geo.js";
+import { fetchBienIciSuggest } from "./suggest.js";
 
 export type BienIciPlace = {
   name: string;
@@ -44,20 +44,6 @@ export async function resolveBienIciPlace(
     center: bboxCenter(match.boundingBox),
     cityZoneIds: match.zoneIds,
     departmentZoneIds,
-  };
-}
-
-/** Center for radius / travel-time search (travel origin when available). */
-export async function resolveGeoSearchCenter(
-  city: string
-): Promise<{ center: GeoPoint; placeName: string } | null> {
-  const place = await resolveBienIciPlace(city);
-  if (!place) return null;
-
-  const origin = await resolveBienIciTravelOrigin(city);
-  return {
-    center: origin?.center ?? place.center,
-    placeName: place.name,
   };
 }
 

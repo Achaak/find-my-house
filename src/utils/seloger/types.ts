@@ -1,5 +1,5 @@
-import type { EnergyMetrics } from "../energyMetrics.js";
-import type { GeoPoint } from "../geo.js";
+import type { EnergyMetrics } from "../energy/energyMetrics.js";
+import type { GeoPoint } from "../geo/geo.js";
 
 export const BASE_URL = "https://www.seloger.com";
 export const IMAGE_BASE_URL = "https://v.seloger.com/s/width/800";

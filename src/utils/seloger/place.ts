@@ -1,9 +1,9 @@
 import got from "got";
 import type { PortalListingCriteria } from "../../types/listing.js";
-import { fetchBienIciSuggest } from "../bieniciSuggest.js";
-import { bboxCenter, type GeoPoint } from "../geo.js";
-import { resolveBienIciTravelOrigin } from "../geocode.js";
-import { travelTimeRadiusKm, type GeoFilter } from "../geoFilter.js";
+import { fetchBienIciSuggest } from "../bienici/suggest.js";
+import { resolveBienIciTravelOrigin } from "../bienici/place.js";
+import { bboxCenter, type GeoPoint } from "../geo/geo.js";
+import { travelTimeRadiusKm, type GeoFilter } from "../geo/geoFilter.js";
 import { getSeLogerHeaders } from "./headers.js";
 import { BASE_URL, type SeLogerPlace } from "./types.js";
 

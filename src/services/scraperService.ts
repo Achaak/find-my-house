@@ -7,7 +7,7 @@ import type {
 } from "../types/listing.js";
 import { createLogger } from "../utils/logger.js";
 import { validateListings } from "../utils/listingValidation.js";
-import { resolveScraperGeoFilterLabel } from "../utils/geoFilter.js";
+import { resolveScraperGeoFilterLabel } from "../utils/geo/geoFilter.js";
 
 export type ScrapeOptions = ScrapeFilters;
 

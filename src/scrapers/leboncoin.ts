@@ -1,14 +1,14 @@
 import type { Listing } from "../types/listing.js";
-import { isWithinRadiusKm, type GeoPoint } from "../utils/geo.js";
-import { resolveScraperGeoFilter } from "../utils/geoFilter.js";
-import { resolveGeoSearchCenter } from "../utils/geocode.js";
 import {
   buildLeboncoinAreaLocation,
   buildLeboncoinSearchBody,
   fetchLeboncoinAds,
+  mapLeboncoinAdToListing,
   resolveLeboncoinPlace,
-} from "../utils/leboncoinApi.js";
-import { mapLeboncoinAdToListing } from "../utils/mappers/leboncoin.js";
+} from "../utils/leboncoin/index.js";
+import { isWithinRadiusKm, type GeoPoint } from "../utils/geo/geo.js";
+import { resolveScraperGeoFilter } from "../utils/geo/geoFilter.js";
+import { resolveGeoSearchCenter } from "../utils/geo/geocode.js";
 import type { Scraper, ScraperOptions } from "./types.js";
 
 export class LeboncoinScraper implements Scraper {

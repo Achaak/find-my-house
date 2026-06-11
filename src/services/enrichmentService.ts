@@ -5,18 +5,20 @@ import type {
   PropertyRow,
   PublicationRow,
 } from "../types/listing.js";
-import { fetchBienIciAdById } from "../utils/bieniciApi.js";
-import { normalizeEnergyClass } from "../utils/energyClass.js";
-import { fetchLeboncoinAdById } from "../utils/leboncoinApi.js";
 import {
+  fetchBienIciAdById,
   mapBienIciAdToEnrichmentPatch,
   type BienIciAd,
-} from "../utils/mappers/bienici.js";
-import { mapLeboncoinAdToEnrichmentPatch } from "../utils/mappers/leboncoin.js";
+} from "../utils/bienici/index.js";
+import { normalizeEnergyClass } from "../utils/energy/energyClass.js";
+import {
+  fetchLeboncoinAdById,
+  mapLeboncoinAdToEnrichmentPatch,
+} from "../utils/leboncoin/index.js";
 import {
   fetchSeLogerListingDetails,
   SeLogerAccessBlockedError,
-} from "../utils/selogerApi.js";
+} from "../utils/seloger/index.js";
 
 export type { PropertyEnrichmentPatch } from "../types/enrichment.js";
 

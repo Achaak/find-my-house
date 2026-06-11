@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  buildLeboncoinAreaLocation,
-  type LeboncoinPlace,
-} from "./leboncoinApi.js";
-import { travelTimeRadiusKm } from "./geoFilter.js";
+import { travelTimeRadiusKm } from "../geo/geoFilter.js";
+import { buildLeboncoinAreaLocation, type LeboncoinPlace } from "./client.js";
 
 const parisPlace: LeboncoinPlace = {
   name: "Paris (75000)",
