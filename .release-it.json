@@ -1,0 +1,21 @@
+{
+  "git": {
+    "commitMessage": "chore: release v${version}",
+    "tagName": "v${version}",
+    "requireBranch": "main"
+  },
+  "github": {
+    "release": true
+  },
+  "npm": {
+    "publish": false
+  },
+  "plugins": {
+    "@release-it/bumper": {
+      "out": "find-my-house/config.yaml"
+    }
+  },
+  "hooks": {
+    "before:init": ["pnpm lint", "pnpm format:check"]
+  }
+}

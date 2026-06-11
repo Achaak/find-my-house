@@ -3,6 +3,7 @@ name: Publish Docker image
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   workflow_dispatch:
 
 permissions:
@@ -25,6 +26,19 @@ jobs:
       - name: Set lowercase image owner
         run: echo "IMAGE_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
 
+      - name: Read app version
+        run: echo "APP_VERSION=$(jq -r .version package.json)" >> "$GITHUB_ENV"
+
+      - name: Verify version sync
+        run: |
+          PKG_VER=$(jq -r .version package.json)
+          CFG_VER=$(grep '^version:' find-my-house/config.yaml | sed 's/version: "\(.*\)"/\1/')
+          if [ "$PKG_VER" != "$CFG_VER" ]; then
+            echo "Version mismatch: package.json=$PKG_VER, config.yaml=$CFG_VER"
+            echo "Run: pnpm release:patch (or sync config.yaml manually)"
+            exit 1
+          fi
+
       - uses: docker/setup-qemu-action@v3
 
       - uses: docker/setup-buildx-action@v3
@@ -41,6 +55,9 @@ jobs:
           file: ./Dockerfile
           platforms: ${{ matrix.platform }}
           push: true
+          build-args: |
+            GIT_COMMIT=${{ github.sha }}
           tags: |
             ghcr.io/${{ env.IMAGE_OWNER }}/find-my-home-${{ matrix.ha_arch }}:latest
+            ghcr.io/${{ env.IMAGE_OWNER }}/find-my-home-${{ matrix.ha_arch }}:${{ env.APP_VERSION }}
             ghcr.io/${{ env.IMAGE_OWNER }}/find-my-home-${{ matrix.ha_arch }}:${{ github.sha }}

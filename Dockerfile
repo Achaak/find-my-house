@@ -8,6 +8,8 @@ RUN corepack enable && corepack prepare pnpm@9.15.3 --activate
 
 WORKDIR /app
 
+ARG GIT_COMMIT
+ENV GIT_COMMIT=$GIT_COMMIT
 ENV DATABASE_URL=file:/data/listings.db
 ENV HUSKY=0
 

@@ -11,6 +11,7 @@ import {
 } from "./discord/notifications.js";
 import { createScrapers } from "./scrapers/index.js";
 import { ScraperService } from "./services/scraperService.js";
+import { formatVersionLine } from "./version.js";
 import { geoFilterLabel, resolveGeoFilter } from "./utils/geoFilter.js";
 
 async function shutdown(): Promise<void> {
@@ -38,7 +39,7 @@ async function main(): Promise<void> {
 
   const geoFilter = resolveGeoFilter(scrapeOptions, true);
 
-  console.log("[app] Démarrage de Find My House...");
+  console.log(`[app] Démarrage de Find My House ${formatVersionLine()}...`);
   console.log(`[app] Base: ${config.database.url}`);
   console.log(
     `[app] Scrapers actifs: ${scrapers.map((s) => s.name).join(", ") || "aucun"}`

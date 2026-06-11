@@ -11,6 +11,7 @@ import {
   sendNewListingNotifications,
   sendPriceDropNotifications,
 } from "./notifications.js";
+import { getBuildInfo } from "../version.js";
 
 export function buildCommands() {
   return [
@@ -151,6 +152,10 @@ export function buildCommands() {
     new SlashCommandBuilder()
       .setName("stats")
       .setDescription("Statistiques de la base d'annonces"),
+
+    new SlashCommandBuilder()
+      .setName("version")
+      .setDescription("Afficher la version de l'application"),
 
     new SlashCommandBuilder()
       .setName("aide")
@@ -564,6 +569,16 @@ export async function handleCommand(
       return;
     }
 
+    case "version": {
+      const { version, commit } = getBuildInfo();
+      const lines = [`**Find My House** v${version}`];
+      if (commit) {
+        lines.push(`Commit : \`${commit.slice(0, 7)}\``);
+      }
+      await interaction.reply(lines.join("\n"));
+      return;
+    }
+
     case "aide": {
       await interaction.reply(
         [
@@ -576,6 +591,7 @@ export async function handleCommand(
           "_Cliquez sur ❤️ ou 👎 sous une annonce pour l'ajouter ou la retirer._",
           "`/scraper` — Lancer un scraping (critères définis dans le .env)",
           "`/stats` — Statistiques de la base",
+          "`/version` — Version de l'application",
           "`/aide` — Afficher cette aide",
         ].join("\n")
       );

@@ -63,6 +63,19 @@ pnpm run scrape
 pnpm run build && pnpm start
 ```
 
+## Versioning
+
+Versioning uses [release-it](https://github.com/release-it/release-it) with [@release-it/bumper](https://github.com/release-it/bumper) (config in `.release-it.json`):
+
+| Command              | Action                                                                               |
+| -------------------- | ------------------------------------------------------------------------------------ |
+| `pnpm release:patch` | Bump patch, sync `find-my-house/config.yaml`, commit, tag `v*`, push, GitHub release |
+| `pnpm release:minor` | Bump minor version                                                                   |
+| `pnpm release:major` | Bump major version                                                                   |
+| `pnpm release`       | Interactive release (choose increment)                                               |
+
+Requires `gh` CLI authenticated (`gh auth login`) for the GitHub release step. CI builds Docker images tagged with the version (`:1.0.0`, `:latest`, and the commit SHA).
+
 ## Deployment
 
 ### Home Assistant OS (Raspberry Pi 4)
@@ -78,7 +91,9 @@ The Docker image is **pre-built on GitHub Actions** (GHCR) — the Pi downloads 
 
 Variables are set through the HA UI (no `.env`). SQLite: persistent volume `/data/listings.db`.
 
-**Updates**: `git push` to `main`, wait for the Actions build, bump `version` in `find-my-house/config.yaml`, then **Apps → Rebuild → Restart**.
+**Updates**: run `pnpm release:patch` (or `minor` / `major`) — release-it bumps, syncs `config.yaml`, pushes, and creates the GitHub release. Wait for the Actions build, then **Apps → Update** (or Rebuild → Restart).
+
+Version is managed in `package.json` and synced automatically to `find-my-house/config.yaml`. Use `/version` in Discord to check the running build.
 
 **SSH alternative** (Terminal & SSH add-on):
 
@@ -106,6 +121,7 @@ docker compose up -d --build
 | `/pas-jaime ajouter\|retirer\|liste` | Manage disliked listings                                                                                                                                                      |
 | `/scraper`                           | Run a manual scrape (`.env` criteria)                                                                                                                                         |
 | `/stats`                             | Database statistics                                                                                                                                                           |
+| `/version`                           | Application version                                                                                                                                                           |
 | `/aide`                              | Help                                                                                                                                                                          |
 
 The **❤️ Like** and **👎 Dislike** buttons under each listing let you add or remove a reaction in one click (ephemeral reply, visible only to you). Clicking an already active button removes the reaction.
