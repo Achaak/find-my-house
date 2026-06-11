@@ -6,7 +6,12 @@ export interface Listing {
   title: string;
   price: number;
   surface: number | null;
+  landSurface: number | null;
   rooms: number | null;
+  bedrooms: number | null;
+  isNewProperty: boolean | null;
+  latitude: number | null;
+  longitude: number | null;
   city: string;
   postalCode: string | null;
   url: string;
@@ -14,6 +19,31 @@ export interface Listing {
   imageUrl: string | null;
   propertyType: string | null;
   scrapedAt: string;
+}
+
+export interface ListingSearchFilters {
+  city?: string;
+  maxPrice?: number;
+  minSurface?: number;
+  minLandSurface?: number;
+  minRooms?: number;
+  minBedrooms?: number;
+  ancienOnly?: boolean;
+  maxTravelMinutes?: number;
+  radiusKm?: number;
+  limit?: number;
+}
+
+export interface ScrapeFilters {
+  city: string;
+  maxPrice: number;
+  minSurface: number;
+  minLandSurface?: number;
+  minRooms?: number;
+  minBedrooms?: number;
+  ancienOnly?: boolean;
+  radiusKm?: number;
+  maxTravelMinutes?: number;
 }
 
 export interface ListingRow extends Listing {

@@ -1,5 +1,13 @@
 import type { Listing as PrismaListing, PrismaClient } from "../generated/prisma/client.js";
-import type { Listing, ListingRow, ScrapeResult } from "../types/listing.js";
+import type { Listing, ListingRow, ListingSearchFilters, ScrapeResult } from "../types/listing.js";
+import {
+  buildBienIciSearchFilters,
+  computeBienIciTravelZone,
+  fetchBienIciExternalIds,
+} from "../utils/bieniciApi.js";
+import { haversineDistanceKm, isWithinRadiusKm, type GeoPoint } from "../utils/geo.js";
+import { resolveGeoFilter } from "../utils/geoFilter.js";
+import { resolveBienIciPlace, resolveBienIciTravelOrigin } from "../utils/geocode.js";
 
 function toListingRow(row: PrismaListing): ListingRow {
   return {
@@ -9,7 +17,12 @@ function toListingRow(row: PrismaListing): ListingRow {
     title: row.title,
     price: row.price,
     surface: row.surface,
+    landSurface: row.landSurface,
     rooms: row.rooms,
+    bedrooms: row.bedrooms,
+    isNewProperty: row.isNewProperty,
+    latitude: row.latitude,
+    longitude: row.longitude,
     city: row.city,
     postalCode: row.postalCode,
     url: row.url,
@@ -29,7 +42,12 @@ function toCreateData(listing: Listing) {
     title: listing.title,
     price: listing.price,
     surface: listing.surface,
+    landSurface: listing.landSurface,
     rooms: listing.rooms,
+    bedrooms: listing.bedrooms,
+    isNewProperty: listing.isNewProperty,
+    latitude: listing.latitude,
+    longitude: listing.longitude,
     city: listing.city,
     postalCode: listing.postalCode,
     url: listing.url,
@@ -53,7 +71,6 @@ export class ListingRepository {
           { url: listing.url },
         ],
       },
-      select: { id: true, price: true, title: true },
     });
 
     if (!existing) {
@@ -62,7 +79,20 @@ export class ListingRepository {
     }
 
     const hasChanges =
-      existing.price !== listing.price || existing.title !== listing.title;
+      existing.price !== listing.price ||
+      existing.title !== listing.title ||
+      existing.surface !== listing.surface ||
+      existing.landSurface !== listing.landSurface ||
+      existing.rooms !== listing.rooms ||
+      existing.bedrooms !== listing.bedrooms ||
+      existing.isNewProperty !== listing.isNewProperty ||
+      existing.latitude !== listing.latitude ||
+      existing.longitude !== listing.longitude ||
+      existing.city !== listing.city ||
+      existing.postalCode !== listing.postalCode ||
+      existing.description !== listing.description ||
+      existing.imageUrl !== listing.imageUrl ||
+      existing.propertyType !== listing.propertyType;
 
     if (!hasChanges) {
       return { status: "skipped" };
@@ -107,25 +137,101 @@ export class ListingRepository {
     return rows.map(toListingRow);
   }
 
-  async search(filters: {
-    city?: string;
-    maxPrice?: number;
-    minSurface?: number;
-    limit?: number;
-  }): Promise<ListingRow[]> {
+  async search(filters: ListingSearchFilters): Promise<ListingRow[]> {
+    const geoFilter = resolveGeoFilter(filters, true);
+    const useGeoFilter = geoFilter.mode !== "city";
+
+    let center: GeoPoint | null = null;
+    let travelZoneExternalIds: Set<string> | null = null;
+
+    if (useGeoFilter) {
+      if (!filters.city) return [];
+      const place = await resolveBienIciPlace(filters.city);
+      if (!place) return [];
+      center = place.center;
+
+      if (geoFilter.mode === "travel") {
+        const origin =
+          (await resolveBienIciTravelOrigin(filters.city)) ?? {
+            center,
+            address: place.name,
+          };
+        const zoneId = await computeBienIciTravelZone({
+          center: origin.center,
+          address: origin.address,
+          durationMinutes: geoFilter.maxTravelMinutes!,
+        });
+        const apiFilters = buildBienIciSearchFilters(filters, {
+          travelTimeZone: [zoneId],
+        });
+        travelZoneExternalIds = await fetchBienIciExternalIds(apiFilters);
+      }
+    }
+
     const rows = await this.prisma.listing.findMany({
       where: {
-        city: filters.city ? { contains: filters.city } : undefined,
+        city:
+          filters.city && !useGeoFilter
+            ? { contains: filters.city }
+            : undefined,
         price: filters.maxPrice !== undefined ? { lte: filters.maxPrice } : undefined,
         surface:
           filters.minSurface !== undefined
             ? { gte: filters.minSurface }
             : undefined,
+        landSurface:
+          filters.minLandSurface !== undefined
+            ? { gte: filters.minLandSurface }
+            : undefined,
+        rooms:
+          filters.minRooms !== undefined ? { gte: filters.minRooms } : undefined,
+        bedrooms:
+          filters.minBedrooms !== undefined
+            ? { gte: filters.minBedrooms }
+            : undefined,
+        isNewProperty: filters.ancienOnly ? { not: true } : undefined,
+        latitude: center && geoFilter.mode === "radius" ? { not: null } : undefined,
+        longitude: center && geoFilter.mode === "radius" ? { not: null } : undefined,
       },
       orderBy: { price: "asc" },
-      take: filters.limit ?? 10,
     });
-    return rows.map(toListingRow);
+
+    let results = rows.map(toListingRow);
+
+    if (travelZoneExternalIds) {
+      results = results.filter(
+        (listing) =>
+          listing.source === "bienici" &&
+          travelZoneExternalIds!.has(listing.externalId)
+      );
+    } else if (center && geoFilter.mode === "radius") {
+      results = results.filter((listing) => {
+        if (listing.latitude === null || listing.longitude === null) return false;
+        return isWithinRadiusKm(
+          { lat: listing.latitude, lng: listing.longitude },
+          center,
+          geoFilter.radiusKm!
+        );
+      });
+
+      results.sort((a, b) => {
+        const distA = haversineDistanceKm(
+          center.lat,
+          center.lng,
+          a.latitude!,
+          a.longitude!
+        );
+        const distB = haversineDistanceKm(
+          center.lat,
+          center.lng,
+          b.latitude!,
+          b.longitude!
+        );
+        return distA - distB;
+      });
+    }
+
+    return results.slice(0, filters.limit ?? 10);
   }
 
   async count(): Promise<number> {

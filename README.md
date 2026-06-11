@@ -4,9 +4,11 @@ Bot Discord + scraper d'annonces immobilières françaises, avec stockage SQLite
 
 ## Fonctionnalités
 
-- Scraping d'annonces via Playwright (BienIci, extensible à d'autres sources)
+- Scraping d'annonces via l'API BienIci (extensible à d'autres sources)
+- Filtres avancés : terrain, pièces, chambres, ancien/neuf, rayon km ou temps de trajet en voiture
 - Stockage SQLite via Prisma 7 avec contraintes d'unicité (pas de doublons)
 - Bot Discord avec commandes slash interactives
+- Notifications de nouvelles annonces dans un canal Discord
 - Scraping automatique planifié via cron
 
 ## Prérequis
@@ -19,7 +21,6 @@ Bot Discord + scraper d'annonces immobilières françaises, avec stockage SQLite
 
 ```bash
 pnpm install
-pnpm run browser:install
 cp .env.example .env
 # Remplir les variables dans .env
 pnpm run db:migrate
@@ -32,11 +33,20 @@ pnpm run db:migrate
 | `DISCORD_TOKEN` | Token du bot Discord |
 | `DISCORD_CLIENT_ID` | ID de l'application Discord |
 | `DISCORD_GUILD_ID` | (Optionnel) ID du serveur pour enregistrer les commandes en dev |
-| `SCRAPE_CITY` | Ville par défaut (ex: Paris) |
+| `DISCORD_CHANNEL_ID` | (Optionnel) Canal pour les notifications de nouvelles annonces. Le bot doit avoir les permissions **Send Messages** et **Embed Links** sur ce canal. |
+| `SCRAPE_CITY` | Ville de référence (ex: Paris) |
 | `SCRAPE_MAX_PRICE` | Prix maximum en euros |
 | `SCRAPE_MIN_SURFACE` | Surface minimum en m² |
+| `SCRAPE_MIN_LAND_SURFACE` | (Optionnel) Terrain minimum en m² |
+| `SCRAPE_MIN_ROOMS` | (Optionnel) Nombre de pièces minimum |
+| `SCRAPE_MIN_BEDROOMS` | (Optionnel) Nombre de chambres minimum |
+| `SCRAPE_ANCIEN_ONLY` | (Optionnel) `true` pour exclure le neuf |
+| `SCRAPE_MAX_TRAVEL_MINUTES` | (Optionnel) Temps de trajet max en voiture depuis `SCRAPE_CITY`. Prioritaire sur `SCRAPE_RADIUS_KM`. |
+| `SCRAPE_RADIUS_KM` | (Optionnel) Rayon de recherche en km (utilisé si `SCRAPE_MAX_TRAVEL_MINUTES` n'est pas défini) |
 | `SCRAPE_CRON` | Expression cron (défaut: toutes les 2h) |
 | `DATABASE_URL` | URL Prisma SQLite (ex: `file:./data/listings.db`) |
+
+> **Migration Discord** : remplacez l'ancienne variable `DISCORD_WEBHOOK_URL` par `DISCORD_CHANNEL_ID`. Les notifications passent désormais par le bot (REST API) plutôt qu'un webhook.
 
 ## Lancement
 
@@ -55,9 +65,9 @@ pnpm run build && pnpm start
 
 | Commande | Description |
 |---|---|
-| `/annonces` | Rechercher des annonces (ville, prix max, surface min) |
+| `/annonces` | Rechercher des annonces (ville, prix, surface, terrain, pièces, chambres, ancien, rayon km…) |
 | `/annonce id:123` | Détail d'une annonce |
-| `/scraper` | Lancer un scraping manuel |
+| `/scraper` | Lancer un scraping manuel (critères du `.env`) |
 | `/stats` | Statistiques de la base |
 | `/aide` | Aide |
 
@@ -67,7 +77,7 @@ Deux contraintes empêchent les doublons :
 - `UNIQUE(source, external_id)` — même annonce sur la même source
 - `UNIQUE(url)` — même URL quelle que soit la source
 
-Si une annonce existe déjà sans changement (prix/titre), elle est ignorée. Si le prix ou le titre change, elle est mise à jour.
+Si une annonce existe déjà sans changement, elle est ignorée. Si un champ change (prix, titre, coordonnées, etc.), elle est mise à jour.
 
 ## Architecture
 
@@ -75,13 +85,13 @@ Si une annonce existe déjà sans changement (prix/titre), elle est ignorée. Si
 src/
 ├── config.ts           # Configuration via .env
 ├── db/                 # Prisma client + repository
-prisma/
-└── schema.prisma       # Schéma de la base
-prisma.config.ts        # Config Prisma 7 (URL, migrations)
-├── scrapers/           # Playwright + scrapers modulaires (BienIci, ...)
-├── discord/            # Bot + commandes slash
+├── utils/              # Géolocalisation, isochrone, calculs geo
+├── scrapers/           # Scrapers modulaires (BienIci, ...)
+├── discord/            # Bot + commandes slash + notifications
 ├── services/           # Orchestration du scraping
 └── index.ts            # Point d'entrée
+prisma/
+└── schema.prisma       # Schéma de la base
 ```
 
 ## Ajouter un scraper

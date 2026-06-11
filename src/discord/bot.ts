@@ -1,12 +1,10 @@
-import {
-  Client,
-  Events,
-  GatewayIntentBits,
-  REST,
-  Routes,
-} from "discord.js";
+import { REST } from "@discordjs/rest";
+import { GatewayIntentBits } from "discord-api-types/gateway/v10";
+import { Client, Events } from "discord.js";
+import { Routes } from "discord-api-types/rest/v10";
 import type { ListingRepository } from "../db/listingRepository.js";
 import type { ScraperService } from "../services/scraperService.js";
+import type { ScrapeFilters } from "../types/listing.js";
 import { buildCommands, handleCommand } from "./commands.js";
 
 interface BotOptions {
@@ -15,7 +13,7 @@ interface BotOptions {
   guildId?: string;
   repository: ListingRepository;
   scraperService: ScraperService;
-  scrapeDefaults: { city: string; maxPrice: number; minSurface: number };
+  scrapeDefaults: ScrapeFilters;
 }
 
 export async function startDiscordBot(options: BotOptions): Promise<Client> {

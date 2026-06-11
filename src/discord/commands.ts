@@ -5,8 +5,10 @@ import {
 import type { ListingRepository } from "../db/listingRepository.js";
 import type { ScraperService } from "../services/scraperService.js";
 import { config } from "../config.js";
+import type { ScrapeFilters } from "../types/listing.js";
+import { geoFilterLabel, resolveGeoFilter } from "../utils/geoFilter.js";
 import { formatListing, formatListingEmbed } from "./format.js";
-import { sendNewListingNotifications } from "./webhook.js";
+import { sendNewListingNotifications } from "./notifications.js";
 
 export function buildCommands() {
   return [
@@ -30,6 +32,38 @@ export function buildCommands() {
       )
       .addIntegerOption((opt) =>
         opt
+          .setName("terrain_min")
+          .setDescription("Terrain minimum en m²")
+          .setRequired(false)
+      )
+      .addIntegerOption((opt) =>
+        opt
+          .setName("pieces_min")
+          .setDescription("Nombre de pièces minimum")
+          .setRequired(false)
+      )
+      .addIntegerOption((opt) =>
+        opt
+          .setName("chambres_min")
+          .setDescription("Nombre de chambres minimum")
+          .setRequired(false)
+      )
+      .addBooleanOption((opt) =>
+        opt
+          .setName("ancien")
+          .setDescription("Uniquement les biens anciens (pas de neuf)")
+          .setRequired(false)
+      )
+      .addIntegerOption((opt) =>
+        opt
+          .setName("rayon_km")
+          .setDescription("Rayon de recherche en kilomètres (nécessite une ville)")
+          .setMinValue(1)
+          .setMaxValue(100)
+          .setRequired(false)
+      )
+      .addIntegerOption((opt) =>
+        opt
           .setName("limite")
           .setDescription("Nombre de résultats (max 10)")
           .setMinValue(1)
@@ -46,15 +80,8 @@ export function buildCommands() {
 
     new SlashCommandBuilder()
       .setName("scraper")
-      .setDescription("Lancer un scraping manuel")
-      .addStringOption((opt) =>
-        opt.setName("ville").setDescription("Ville à scraper").setRequired(false)
-      )
-      .addIntegerOption((opt) =>
-        opt
-          .setName("prix_max")
-          .setDescription("Prix maximum en euros")
-          .setRequired(false)
+      .setDescription(
+        "Lancer un scraping avec les critères définis dans les variables d'environnement"
       ),
 
     new SlashCommandBuilder()
@@ -71,7 +98,7 @@ export async function handleCommand(
   interaction: ChatInputCommandInteraction,
   repository: ListingRepository,
   scraperService: ScraperService,
-  defaultScrapeOptions: { city: string; maxPrice: number; minSurface: number }
+  defaultScrapeOptions: ScrapeFilters
 ): Promise<void> {
   const { commandName } = interaction;
 
@@ -81,17 +108,46 @@ export async function handleCommand(
       const maxPrice = interaction.options.getInteger("prix_max") ?? undefined;
       const minSurface =
         interaction.options.getInteger("surface_min") ?? undefined;
+      const minLandSurface =
+        interaction.options.getInteger("terrain_min") ?? undefined;
+      const minRooms = interaction.options.getInteger("pieces_min") ?? undefined;
+      const minBedrooms =
+        interaction.options.getInteger("chambres_min") ?? undefined;
+      const ancienOnly = interaction.options.getBoolean("ancien") ?? undefined;
+      const radiusKm = interaction.options.getInteger("rayon_km") ?? undefined;
+      const maxTravelMinutes =
+        radiusKm === undefined
+          ? defaultScrapeOptions.maxTravelMinutes
+          : undefined;
       const limit = interaction.options.getInteger("limite") ?? 5;
+      const geoFilter = resolveGeoFilter({ maxTravelMinutes, radiusKm }, true);
+
+      if (geoFilter.mode !== "city" && !city) {
+        await interaction.reply(
+          "Pour un filtre géographique, précisez une **ville**."
+        );
+        return;
+      }
 
       const listings = await repository.search({
         city,
         maxPrice,
         minSurface,
+        minLandSurface,
+        minRooms,
+        minBedrooms,
+        ancienOnly,
+        maxTravelMinutes,
+        radiusKm,
         limit,
       });
 
       if (listings.length === 0) {
-        await interaction.reply("Aucune annonce trouvée avec ces critères.");
+        await interaction.reply(
+          geoFilter.mode !== "city"
+            ? `Aucune annonce trouvée dans cette zone (${geoFilterLabel(geoFilter)}).`
+            : "Aucune annonce trouvée avec ces critères."
+        );
         return;
       }
 
@@ -116,28 +172,26 @@ export async function handleCommand(
     case "scraper": {
       await interaction.deferReply();
 
-      const city =
-        interaction.options.getString("ville") ?? defaultScrapeOptions.city;
-      const maxPrice =
-        interaction.options.getInteger("prix_max") ??
-        defaultScrapeOptions.maxPrice;
+      const { city, radiusKm, maxTravelMinutes } = defaultScrapeOptions;
+      const result = await scraperService.run(defaultScrapeOptions);
 
-      const result = await scraperService.run({
-        city,
-        maxPrice,
-        minSurface: defaultScrapeOptions.minSurface,
-      });
-
-      if (config.discord.webhookUrl && result.insertedListings.length > 0) {
+      if (config.discord.channelId && result.insertedListings.length > 0) {
         await sendNewListingNotifications(
-          config.discord.webhookUrl,
+          config.discord.token,
+          config.discord.channelId,
           result.insertedListings
         );
       }
 
+      const scrapeGeoFilter = resolveGeoFilter({ maxTravelMinutes, radiusKm }, true);
+      const zoneLabel =
+        scrapeGeoFilter.mode === "city"
+          ? ""
+          : ` (${geoFilterLabel(scrapeGeoFilter)})`;
+
       await interaction.editReply(
         [
-          `Scraping terminé pour **${city}**`,
+          `Scraping terminé pour **${city}**${zoneLabel}`,
           `📥 ${result.found} trouvées`,
           `✅ ${result.inserted} nouvelles`,
           `🔄 ${result.updated} mises à jour`,
@@ -170,9 +224,9 @@ export async function handleCommand(
         [
           "**Find My House** — Commandes disponibles:",
           "",
-          "`/annonces` — Rechercher des annonces (ville, prix max, surface min)",
+          "`/annonces` — Rechercher (prix, terrain, pièces, chambres, ancien, rayon km…)",
           "`/annonce id:123` — Détail d'une annonce",
-          "`/scraper` — Lancer un scraping manuel",
+          "`/scraper` — Lancer un scraping (critères définis dans le .env)",
           "`/stats` — Statistiques de la base",
           "`/aide` — Afficher cette aide",
         ].join("\n")

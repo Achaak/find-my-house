@@ -1,12 +1,9 @@
 import type { ListingRepository } from "../db/listingRepository.js";
 import type { Scraper } from "../scrapers/types.js";
-import type { Listing, ListingRow, ScrapeResult } from "../types/listing.js";
+import type { Listing, ListingRow, ScrapeFilters, ScrapeResult } from "../types/listing.js";
+import { geoFilterLabel, resolveGeoFilter } from "../utils/geoFilter.js";
 
-export interface ScrapeOptions {
-  city: string;
-  maxPrice: number;
-  minSurface: number;
-}
+export type ScrapeOptions = ScrapeFilters;
 
 export class ScraperService {
   constructor(
@@ -16,11 +13,18 @@ export class ScraperService {
 
   async run(
     options: ScrapeOptions
-  ): Promise<ScrapeResult & { listings: Listing[]; insertedListings: ListingRow[] }> {
+  ): Promise<ScrapeResult & { insertedListings: ListingRow[] }> {
     const allListings: Listing[] = [];
 
     for (const scraper of this.scrapers) {
-      console.log(`[scraper] ${scraper.name} — recherche à ${options.city}...`);
+      const geoFilter = resolveGeoFilter(
+        options,
+        scraper.supportsTravelTime ?? false
+      );
+      const zoneLabel = geoFilterLabel(geoFilter);
+      console.log(
+        `[scraper] ${scraper.name} — recherche à ${options.city} (${zoneLabel})...`
+      );
       try {
         const listings = await scraper.scrape(options);
         console.log(`[scraper] ${scraper.name} — ${listings.length} annonces trouvées`);
@@ -32,6 +36,6 @@ export class ScraperService {
 
     const { insertedListings, ...result } =
       await this.repository.upsertMany(allListings);
-    return { ...result, listings: allListings, insertedListings };
+    return { ...result, insertedListings };
   }
 }

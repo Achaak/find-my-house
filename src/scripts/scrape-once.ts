@@ -1,21 +1,26 @@
 import { config } from "../config.js";
 import { ListingRepository } from "../db/listingRepository.js";
 import { disconnectPrisma, getPrisma } from "../db/prisma.js";
-import { sendNewListingNotifications } from "../discord/webhook.js";
-import { BrowserManager, createScrapers } from "../scrapers/index.js";
+import { sendNewListingNotifications } from "../discord/notifications.js";
+import { createScrapers } from "../scrapers/index.js";
 import { ScraperService } from "../services/scraperService.js";
 
 async function main(): Promise<void> {
   const prisma = getPrisma(config.database.url);
   const repository = new ListingRepository(prisma);
-  const browser = new BrowserManager();
-  const scraperService = new ScraperService(createScrapers(browser), repository);
+  const scraperService = new ScraperService(createScrapers(), repository);
 
   try {
     const result = await scraperService.run({
       city: config.scrape.city,
       maxPrice: config.scrape.maxPrice,
       minSurface: config.scrape.minSurface,
+      minLandSurface: config.scrape.minLandSurface,
+      minRooms: config.scrape.minRooms,
+      minBedrooms: config.scrape.minBedrooms,
+      ancienOnly: config.scrape.ancienOnly,
+      radiusKm: config.scrape.radiusKm,
+      maxTravelMinutes: config.scrape.maxTravelMinutes,
     });
 
     console.log("Résultat du scraping:");
@@ -25,15 +30,15 @@ async function main(): Promise<void> {
     console.log(`  Ignorées:   ${result.skipped}`);
     console.log(`  Total BDD:  ${await repository.count()}`);
 
-    if (config.discord.webhookUrl && result.insertedListings.length > 0) {
-      await sendNewListingNotifications(
-        config.discord.webhookUrl,
+    if (config.discord.channelId && result.insertedListings.length > 0) {
+      const sent = await sendNewListingNotifications(
+        config.discord.token,
+        config.discord.channelId,
         result.insertedListings
       );
-      console.log(`  Discord:    ${result.insertedListings.length} notification(s) envoyée(s)`);
+      console.log(`  Discord:    ${sent} notification(s) envoyée(s)`);
     }
   } finally {
-    await browser.close();
     await disconnectPrisma();
   }
 }

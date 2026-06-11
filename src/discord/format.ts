@@ -13,7 +13,14 @@ export function formatListing(listing: ListingRow): string {
     `**#${listing.id}** — ${listing.title}`,
     `💰 ${formatPrice(listing.price)}`,
     listing.surface ? `📐 ${listing.surface} m²` : null,
+    listing.landSurface ? `🌳 ${listing.landSurface} m² terrain` : null,
     listing.rooms ? `🛏️ ${listing.rooms} pièces` : null,
+    listing.bedrooms ? `🛌 ${listing.bedrooms} chambres` : null,
+    listing.isNewProperty === false
+      ? "🏠 Ancien"
+      : listing.isNewProperty === true
+        ? "🏗️ Neuf"
+        : null,
     `📍 ${listing.city}${listing.postalCode ? ` (${listing.postalCode})` : ""}`,
     `🔗 ${listing.url}`,
     `_Source: ${listing.source} — ${new Date(listing.scrapedAt).toLocaleString("fr-FR")}_`,
@@ -29,7 +36,14 @@ export function formatListingEmbed(listing: ListingRow) {
     description: [
       `**Prix:** ${formatPrice(listing.price)}`,
       listing.surface ? `**Surface:** ${listing.surface} m²` : null,
+      listing.landSurface ? `**Terrain:** ${listing.landSurface} m²` : null,
       listing.rooms ? `**Pièces:** ${listing.rooms}` : null,
+      listing.bedrooms ? `**Chambres:** ${listing.bedrooms}` : null,
+      listing.isNewProperty === false
+        ? "**État:** Ancien"
+        : listing.isNewProperty === true
+          ? "**État:** Neuf"
+          : null,
       `**Ville:** ${listing.city}${listing.postalCode ? ` (${listing.postalCode})` : ""}`,
       listing.propertyType ? `**Type:** ${listing.propertyType}` : null,
     ]

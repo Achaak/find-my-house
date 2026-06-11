@@ -14,7 +14,12 @@ model Listing {
   title        String
   price        Int
   surface      Float?
+  landSurface  Float?   @map("land_surface")
   rooms        Int?
+  bedrooms     Int?
+  isNewProperty Boolean? @map("is_new_property")
+  latitude     Float?
+  longitude    Float?
   city         String
   postalCode   String?  @map("postal_code")
   url          String   @unique
