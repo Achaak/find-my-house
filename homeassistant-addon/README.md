@@ -1,6 +1,6 @@
 # Déploiement sur Home Assistant (Raspberry Pi 4)
 
-Ce guide installe **Find My House** comme add-on local sur Home Assistant OS.
+Ce guide installe **Find My House** comme app locale sur Home Assistant OS (anciennement « add-on »).
 
 ## Prérequis
 
@@ -10,9 +10,13 @@ Ce guide installe **Find My House** comme add-on local sur Home Assistant OS.
 
 ## Installation
 
-### 1. Copier le projet sur le Pi
+### 1. Copier le projet **entier** sur le Pi
 
-Clonez ce dépôt dans le dossier des add-ons locaux :
+> **Important** : copiez tout le dépôt (`package.json`, `src/`, `prisma/`, `Dockerfile`, etc.), pas seulement le dossier `homeassistant-addon/`.
+
+**Via Samba** (recommandé) : installez l'app **Samba share**, connectez-vous à `smb://homeassistant.local/addons`, créez `local/find-my-house/` et copiez-y **tout le projet**.
+
+**Via git** (terminal avec accès host) :
 
 ```bash
 cd /addons/local
@@ -20,28 +24,27 @@ git clone https://github.com/VOTRE-UTILISATEUR/find-my-house.git find-my-house
 cd find-my-house
 ```
 
-> Si `/addons/local` n'existe pas, installez l'add-on **Samba share** ou **SSH & Web Terminal** depuis le store Home Assistant.
-
-### 2. Préparer l'add-on
+### 2. Préparer l'app
 
 ```bash
 ./scripts/install-ha-addon.sh
+./scripts/verify-ha-addon.sh
 ```
 
-Ce script copie `config.yaml` à la racine du dépôt (requis par le Supervisor HA).
+Le script copie à la racine les 3 fichiers requis par le Supervisor : `config.yaml`, `Dockerfile`, `run.sh`.
 
-### 3. Activer l'add-on dans Home Assistant
+### 3. Installer dans Home Assistant
 
-1. **Paramètres** → **Add-ons** → **Add-on store**
-2. Menu **⋮** en haut à droite → **Vérifier les mises à jour** (pour détecter l'add-on local)
-3. L'add-on **Find My House** apparaît sous **Local add-ons**
+1. **Paramètres** → **Apps** (anciennement Add-ons)
+2. Menu **⋮** en haut à droite → **Vérifier les mises à jour**
+3. L'app **Find My House** apparaît sous **Apps locales**
 4. Cliquez **Installer** (le premier build prend 10–20 min sur Pi 4 : compilation de `better-sqlite3`)
 5. Onglet **Configuration** : renseignez au minimum :
    - `discord_token`
    - `discord_client_id`
    - `discord_channel_id` (pour les notifications)
    - vos critères de recherche (`scrape_city`, `scrape_max_price`, etc.)
-6. **Démarrer** l'add-on et activer **Démarrer au boot**
+6. **Démarrer** l'app et activer **Démarrer au démarrage**
 
 ### 4. Production Discord
 
@@ -66,11 +69,11 @@ cd /addons/local/find-my-house
 git pull
 ```
 
-Puis dans HA : **Add-ons** → **Find My House** → **Reconstruire** → **Redémarrer**.
+Puis dans HA : **Apps** → **Find My House** → **Reconstruire** → **Redémarrer**.
 
 ## Logs
 
-**Paramètres** → **Add-ons** → **Find My House** → onglet **Log**
+**Paramètres** → **Apps** → **Find My House** → onglet **Log**
 
 Vous devriez voir :
 
@@ -81,12 +84,13 @@ Vous devriez voir :
 
 ## Dépannage
 
-| Problème                          | Solution                                                                                        |
-| --------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Build échoue sur `better-sqlite3` | Vérifiez que le Pi est en **aarch64** (OS 64 bits). Le premier build est long, attendez 20 min. |
-| Bot hors ligne sur Discord        | Vérifiez `discord_token` dans la config add-on                                                  |
-| Pas de notifications              | Vérifiez `discord_channel_id` et les permissions du bot sur ce canal                            |
-| Commandes slash absentes          | Retirez `discord_guild_id`, redémarrez l'add-on, attendez quelques minutes                      |
+| Problème                          | Solution                                                                                                                              |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `dockerfile is missing`           | Copiez le dépôt **entier** dans `addons/local/find-my-house/`, puis `./scripts/install-ha-addon.sh` et `./scripts/verify-ha-addon.sh` |
+| Build échoue sur `better-sqlite3` | Vérifiez que le Pi est en **aarch64** (OS 64 bits). Le premier build est long, attendez 20 min.                                       |
+| Bot hors ligne sur Discord        | Vérifiez `discord_token` dans la config add-on                                                                                        |
+| Pas de notifications              | Vérifiez `discord_channel_id` et les permissions du bot sur ce canal                                                                  |
+| Commandes slash absentes          | Retirez `discord_guild_id`, redémarrez l'add-on, attendez quelques minutes                                                            |
 
 ## Alternative : Docker Compose (hors HA)
 
