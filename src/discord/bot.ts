@@ -7,14 +7,14 @@ import type { ScraperService } from "../services/scraperService.js";
 import type { ScrapeFilters } from "../types/listing.js";
 import { buildCommands, handleCommand } from "./commands.js";
 
-interface BotOptions {
+type BotOptions = {
   token: string;
   clientId: string;
   guildId?: string;
   repository: ListingRepository;
   scraperService: ScraperService;
   scrapeDefaults: ScrapeFilters;
-}
+};
 
 export async function startDiscordBot(options: BotOptions): Promise<Client> {
   const client = new Client({ intents: [GatewayIntentBits.Guilds] });
@@ -38,25 +38,27 @@ export async function startDiscordBot(options: BotOptions): Promise<Client> {
     console.log(`[discord] Connecté en tant que ${readyClient.user.tag}`);
   });
 
-  client.on(Events.InteractionCreate, async (interaction) => {
-    if (!interaction.isChatInputCommand()) return;
+  client.on(Events.InteractionCreate, (interaction) => {
+    void (async () => {
+      if (!interaction.isChatInputCommand()) return;
 
-    try {
-      await handleCommand(
-        interaction,
-        options.repository,
-        options.scraperService,
-        options.scrapeDefaults
-      );
-    } catch (error) {
-      console.error("[discord] Erreur commande:", error);
-      const reply = { content: "Une erreur est survenue.", ephemeral: true };
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp(reply);
-      } else {
-        await interaction.reply(reply);
+      try {
+        await handleCommand(
+          interaction,
+          options.repository,
+          options.scraperService,
+          options.scrapeDefaults
+        );
+      } catch (error) {
+        console.error("[discord] Erreur commande:", error);
+        const reply = { content: "Une erreur est survenue.", ephemeral: true };
+        if (interaction.replied || interaction.deferred) {
+          await interaction.followUp(reply);
+        } else {
+          await interaction.reply(reply);
+        }
       }
-    }
+    })();
   });
 
   await client.login(options.token);

@@ -1,7 +1,7 @@
-export interface GeoPoint {
+export type GeoPoint = {
   lat: number;
   lng: number;
-}
+};
 
 export function haversineDistanceKm(
   lat1: number,
@@ -35,5 +35,8 @@ export function isWithinRadiusKm(
   center: GeoPoint,
   radiusKm: number
 ): boolean {
-  return haversineDistanceKm(center.lat, center.lng, point.lat, point.lng) <= radiusKm;
+  return (
+    haversineDistanceKm(center.lat, center.lng, point.lat, point.lng) <=
+    radiusKm
+  );
 }

@@ -5,8 +5,10 @@ import { PrismaClient } from "../generated/prisma/client.js";
 
 let prisma: PrismaClient | undefined;
 
+const SQLITE_FILE_URL = /^file:(.+)$/;
+
 function ensureDatabaseDir(databaseUrl: string): void {
-  const match = databaseUrl.match(/^file:(.+)$/);
+  const match = SQLITE_FILE_URL.exec(databaseUrl);
   if (!match) return;
 
   const dbPath = match[1].startsWith("/")

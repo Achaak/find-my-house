@@ -1,13 +1,28 @@
-import type { Listing as PrismaListing, PrismaClient } from "../generated/prisma/client.js";
-import type { Listing, ListingRow, ListingSearchFilters, ScrapeResult } from "../types/listing.js";
+import type {
+  Listing as PrismaListing,
+  PrismaClient,
+} from "../generated/prisma/client.js";
+import type {
+  Listing,
+  ListingRow,
+  ListingSearchFilters,
+  ScrapeResult,
+} from "../types/listing.js";
 import {
   buildBienIciSearchFilters,
   computeBienIciTravelZone,
   fetchBienIciExternalIds,
 } from "../utils/bieniciApi.js";
-import { haversineDistanceKm, isWithinRadiusKm, type GeoPoint } from "../utils/geo.js";
+import {
+  haversineDistanceKm,
+  isWithinRadiusKm,
+  type GeoPoint,
+} from "../utils/geo.js";
 import { resolveGeoFilter } from "../utils/geoFilter.js";
-import { resolveBienIciPlace, resolveBienIciTravelOrigin } from "../utils/geocode.js";
+import {
+  resolveBienIciPlace,
+  resolveBienIciTravelOrigin,
+} from "../utils/geocode.js";
 
 function toListingRow(row: PrismaListing): ListingRow {
   return {
@@ -74,7 +89,9 @@ export class ListingRepository {
     });
 
     if (!existing) {
-      const row = await this.prisma.listing.create({ data: toCreateData(listing) });
+      const row = await this.prisma.listing.create({
+        data: toCreateData(listing),
+      });
       return { status: "inserted", row: toListingRow(row) };
     }
 
@@ -151,15 +168,14 @@ export class ListingRepository {
       center = place.center;
 
       if (geoFilter.mode === "travel") {
-        const origin =
-          (await resolveBienIciTravelOrigin(filters.city)) ?? {
-            center,
-            address: place.name,
-          };
+        const origin = (await resolveBienIciTravelOrigin(filters.city)) ?? {
+          center,
+          address: place.name,
+        };
         const zoneId = await computeBienIciTravelZone({
           center: origin.center,
           address: origin.address,
-          durationMinutes: geoFilter.maxTravelMinutes!,
+          durationMinutes: geoFilter.maxTravelMinutes,
         });
         const apiFilters = buildBienIciSearchFilters(filters, {
           travelTimeZone: [zoneId],
@@ -174,7 +190,10 @@ export class ListingRepository {
           filters.city && !useGeoFilter
             ? { contains: filters.city }
             : undefined,
-        price: filters.maxPrice !== undefined ? { lte: filters.maxPrice } : undefined,
+        price:
+          filters.maxPrice !== undefined
+            ? { lte: filters.maxPrice }
+            : undefined,
         surface:
           filters.minSurface !== undefined
             ? { gte: filters.minSurface }
@@ -184,14 +203,18 @@ export class ListingRepository {
             ? { gte: filters.minLandSurface }
             : undefined,
         rooms:
-          filters.minRooms !== undefined ? { gte: filters.minRooms } : undefined,
+          filters.minRooms !== undefined
+            ? { gte: filters.minRooms }
+            : undefined,
         bedrooms:
           filters.minBedrooms !== undefined
             ? { gte: filters.minBedrooms }
             : undefined,
         isNewProperty: filters.ancienOnly ? { not: true } : undefined,
-        latitude: center && geoFilter.mode === "radius" ? { not: null } : undefined,
-        longitude: center && geoFilter.mode === "radius" ? { not: null } : undefined,
+        latitude:
+          center && geoFilter.mode === "radius" ? { not: null } : undefined,
+        longitude:
+          center && geoFilter.mode === "radius" ? { not: null } : undefined,
       },
       orderBy: { price: "asc" },
     });
@@ -199,33 +222,43 @@ export class ListingRepository {
     let results = rows.map(toListingRow);
 
     if (travelZoneExternalIds) {
+      const externalIds = travelZoneExternalIds;
       results = results.filter(
         (listing) =>
-          listing.source === "bienici" &&
-          travelZoneExternalIds!.has(listing.externalId)
+          listing.source === "bienici" && externalIds.has(listing.externalId)
       );
     } else if (center && geoFilter.mode === "radius") {
+      const radiusKm = geoFilter.radiusKm;
       results = results.filter((listing) => {
-        if (listing.latitude === null || listing.longitude === null) return false;
+        if (listing.latitude === null || listing.longitude === null)
+          return false;
         return isWithinRadiusKm(
           { lat: listing.latitude, lng: listing.longitude },
           center,
-          geoFilter.radiusKm!
+          radiusKm
         );
       });
 
       results.sort((a, b) => {
+        if (
+          a.latitude === null ||
+          a.longitude === null ||
+          b.latitude === null ||
+          b.longitude === null
+        ) {
+          return 0;
+        }
         const distA = haversineDistanceKm(
           center.lat,
           center.lng,
-          a.latitude!,
-          a.longitude!
+          a.latitude,
+          a.longitude
         );
         const distB = haversineDistanceKm(
           center.lat,
           center.lng,
-          b.latitude!,
-          b.longitude!
+          b.latitude,
+          b.longitude
         );
         return distA - distB;
       });

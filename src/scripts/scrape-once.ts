@@ -24,11 +24,11 @@ async function main(): Promise<void> {
     });
 
     console.log("Résultat du scraping:");
-    console.log(`  Trouvées:   ${result.found}`);
-    console.log(`  Nouvelles:  ${result.inserted}`);
-    console.log(`  MAJ:        ${result.updated}`);
-    console.log(`  Ignorées:   ${result.skipped}`);
-    console.log(`  Total BDD:  ${await repository.count()}`);
+    console.log(`  Trouvées:   ${String(result.found)}`);
+    console.log(`  Nouvelles:  ${String(result.inserted)}`);
+    console.log(`  MAJ:        ${String(result.updated)}`);
+    console.log(`  Ignorées:   ${String(result.skipped)}`);
+    console.log(`  Total BDD:  ${String(await repository.count())}`);
 
     if (config.discord.channelId && result.insertedListings.length > 0) {
       const sent = await sendNewListingNotifications(
@@ -36,14 +36,14 @@ async function main(): Promise<void> {
         config.discord.channelId,
         result.insertedListings
       );
-      console.log(`  Discord:    ${sent} notification(s) envoyée(s)`);
+      console.log(`  Discord:    ${String(sent)} notification(s) envoyée(s)`);
     }
   } finally {
     await disconnectPrisma();
   }
 }
 
-main().catch((error) => {
+main().catch((error: unknown) => {
   console.error(error);
   process.exit(1);
 });

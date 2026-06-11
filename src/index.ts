@@ -44,7 +44,7 @@ async function main(): Promise<void> {
       try {
         const result = await scraperService.run(scrapeOptions);
         console.log(
-          `[cron] Résultat: ${result.inserted} nouvelles, ${result.updated} MAJ, ${result.skipped} ignorées`
+          `[cron] Résultat: ${String(result.inserted)} nouvelles, ${String(result.updated)} MAJ, ${String(result.skipped)} ignorées`
         );
         if (config.discord.channelId && result.insertedListings.length > 0) {
           const sent = await sendNewListingNotifications(
@@ -52,7 +52,9 @@ async function main(): Promise<void> {
             config.discord.channelId,
             result.insertedListings
           );
-          console.log(`[cron] Discord: ${sent} notification(s) envoyée(s)`);
+          console.log(
+            `[cron] Discord: ${String(sent)} notification(s) envoyée(s)`
+          );
         }
       } catch (error) {
         console.error("[cron] Erreur scraping:", error);
@@ -80,7 +82,7 @@ async function main(): Promise<void> {
   });
 }
 
-main().catch((error) => {
+main().catch((error: unknown) => {
   console.error("[app] Erreur fatale:", error);
   process.exit(1);
 });

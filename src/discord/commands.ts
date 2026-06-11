@@ -1,7 +1,4 @@
-import {
-  ChatInputCommandInteraction,
-  SlashCommandBuilder,
-} from "discord.js";
+import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import type { ListingRepository } from "../db/listingRepository.js";
 import type { ScraperService } from "../services/scraperService.js";
 import { config } from "../config.js";
@@ -16,7 +13,10 @@ export function buildCommands() {
       .setName("annonces")
       .setDescription("Rechercher des annonces enregistrées")
       .addStringOption((opt) =>
-        opt.setName("ville").setDescription("Filtrer par ville").setRequired(false)
+        opt
+          .setName("ville")
+          .setDescription("Filtrer par ville")
+          .setRequired(false)
       )
       .addIntegerOption((opt) =>
         opt
@@ -57,7 +57,9 @@ export function buildCommands() {
       .addIntegerOption((opt) =>
         opt
           .setName("rayon_km")
-          .setDescription("Rayon de recherche en kilomètres (nécessite une ville)")
+          .setDescription(
+            "Rayon de recherche en kilomètres (nécessite une ville)"
+          )
           .setMinValue(1)
           .setMaxValue(100)
           .setRequired(false)
@@ -110,7 +112,8 @@ export async function handleCommand(
         interaction.options.getInteger("surface_min") ?? undefined;
       const minLandSurface =
         interaction.options.getInteger("terrain_min") ?? undefined;
-      const minRooms = interaction.options.getInteger("pieces_min") ?? undefined;
+      const minRooms =
+        interaction.options.getInteger("pieces_min") ?? undefined;
       const minBedrooms =
         interaction.options.getInteger("chambres_min") ?? undefined;
       const ancienOnly = interaction.options.getBoolean("ancien") ?? undefined;
@@ -161,7 +164,7 @@ export async function handleCommand(
       const listing = await repository.findById(id);
 
       if (!listing) {
-        await interaction.reply(`Annonce #${id} introuvable.`);
+        await interaction.reply(`Annonce #${String(id)} introuvable.`);
         return;
       }
 
@@ -183,7 +186,10 @@ export async function handleCommand(
         );
       }
 
-      const scrapeGeoFilter = resolveGeoFilter({ maxTravelMinutes, radiusKm }, true);
+      const scrapeGeoFilter = resolveGeoFilter(
+        { maxTravelMinutes, radiusKm },
+        true
+      );
       const zoneLabel =
         scrapeGeoFilter.mode === "city"
           ? ""
@@ -192,11 +198,11 @@ export async function handleCommand(
       await interaction.editReply(
         [
           `Scraping terminé pour **${city}**${zoneLabel}`,
-          `📥 ${result.found} trouvées`,
-          `✅ ${result.inserted} nouvelles`,
-          `🔄 ${result.updated} mises à jour`,
-          `⏭️ ${result.skipped} inchangées (pas de doublon)`,
-          `📊 Total en base: **${await repository.count()}** annonces`,
+          `📥 ${String(result.found)} trouvées`,
+          `✅ ${String(result.inserted)} nouvelles`,
+          `🔄 ${String(result.updated)} mises à jour`,
+          `⏭️ ${String(result.skipped)} inchangées (pas de doublon)`,
+          `📊 Total en base: **${String(await repository.count())}** annonces`,
         ].join("\n")
       );
       return;
@@ -207,11 +213,13 @@ export async function handleCommand(
       const recent = await repository.findRecent(3);
 
       const lines = [
-        `📊 **${total}** annonces en base`,
+        `📊 **${String(total)}** annonces en base`,
         "",
         "**Dernières annonces:**",
         recent.length > 0
-          ? recent.map((l) => `• #${l.id} — ${l.title} (${l.city})`).join("\n")
+          ? recent
+              .map((l) => `• #${String(l.id)} — ${l.title} (${l.city})`)
+              .join("\n")
           : "_Aucune annonce pour le moment_",
       ];
 

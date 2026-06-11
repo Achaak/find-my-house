@@ -10,12 +10,12 @@ export function formatPrice(price: number): string {
 
 export function formatListing(listing: ListingRow): string {
   const parts = [
-    `**#${listing.id}** — ${listing.title}`,
+    `**#${String(listing.id)}** — ${listing.title}`,
     `💰 ${formatPrice(listing.price)}`,
-    listing.surface ? `📐 ${listing.surface} m²` : null,
-    listing.landSurface ? `🌳 ${listing.landSurface} m² terrain` : null,
-    listing.rooms ? `🛏️ ${listing.rooms} pièces` : null,
-    listing.bedrooms ? `🛌 ${listing.bedrooms} chambres` : null,
+    listing.surface ? `📐 ${String(listing.surface)} m²` : null,
+    listing.landSurface ? `🌳 ${String(listing.landSurface)} m² terrain` : null,
+    listing.rooms ? `🛏️ ${String(listing.rooms)} pièces` : null,
+    listing.bedrooms ? `🛌 ${String(listing.bedrooms)} chambres` : null,
     listing.isNewProperty === false
       ? "🏠 Ancien"
       : listing.isNewProperty === true
@@ -35,10 +35,12 @@ export function formatListingEmbed(listing: ListingRow) {
     url: listing.url,
     description: [
       `**Prix:** ${formatPrice(listing.price)}`,
-      listing.surface ? `**Surface:** ${listing.surface} m²` : null,
-      listing.landSurface ? `**Terrain:** ${listing.landSurface} m²` : null,
-      listing.rooms ? `**Pièces:** ${listing.rooms}` : null,
-      listing.bedrooms ? `**Chambres:** ${listing.bedrooms}` : null,
+      listing.surface ? `**Surface:** ${String(listing.surface)} m²` : null,
+      listing.landSurface
+        ? `**Terrain:** ${String(listing.landSurface)} m²`
+        : null,
+      listing.rooms ? `**Pièces:** ${String(listing.rooms)}` : null,
+      listing.bedrooms ? `**Chambres:** ${String(listing.bedrooms)}` : null,
       listing.isNewProperty === false
         ? "**État:** Ancien"
         : listing.isNewProperty === true
@@ -51,7 +53,7 @@ export function formatListingEmbed(listing: ListingRow) {
       .join("\n"),
     image: listing.imageUrl ? { url: listing.imageUrl } : undefined,
     footer: {
-      text: `#${listing.id} • ${listing.source} • ${new Date(listing.scrapedAt).toLocaleString("fr-FR")}`,
+      text: `#${String(listing.id)} • ${listing.source} • ${new Date(listing.scrapedAt).toLocaleString("fr-FR")}`,
     },
   };
 }

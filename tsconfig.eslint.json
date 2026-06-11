@@ -1,0 +1,4 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["src/**/*", "prisma.config.ts", "eslint.config.js"]
+}

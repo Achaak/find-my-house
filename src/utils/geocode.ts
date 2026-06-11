@@ -1,6 +1,6 @@
 import { bboxCenter, type GeoPoint } from "./geo.js";
 
-interface BienIciSuggestResult {
+type BienIciSuggestResult = {
   name: string;
   type?: string;
   insee_code?: string;
@@ -11,27 +11,27 @@ interface BienIciSuggestResult {
     north: number;
   };
   zoneIds?: string[];
-}
+};
 
-export interface BienIciPlace {
+export type BienIciPlace = {
   name: string;
   center: GeoPoint;
   cityZoneIds: string[];
   departmentZoneIds: string[];
-}
+};
 
-export interface BienIciTravelOrigin {
+export type BienIciTravelOrigin = {
   address: string;
   center: GeoPoint;
-}
+};
 
-interface BienIciGeocoderSuggestion {
+type BienIciGeocoderSuggestion = {
   text?: string;
   label?: string;
   name?: string;
   centroid?: { coordinates: [number, number] };
   tags?: string[];
-}
+};
 
 async function fetchSuggest(query: string): Promise<BienIciSuggestResult[]> {
   const response = await fetch(
@@ -89,7 +89,9 @@ export async function resolveBienIciTravelOrigin(
         r.centroid?.coordinates &&
         r.tags?.includes("municipality")
     ) ??
-    results.find((r) => r.centroid?.coordinates && r.tags?.includes("municipality")) ??
+    results.find(
+      (r) => r.centroid?.coordinates && r.tags?.includes("municipality")
+    ) ??
     results.find((r) => r.centroid?.coordinates);
 
   if (!match?.centroid?.coordinates) return null;

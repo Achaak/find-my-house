@@ -1,6 +1,6 @@
-export type ListingSource = "bienici" | "seloger";
+export type ListingSource = "bienici" | "seloger" | "leboncoin";
 
-export interface Listing {
+export type Listing = {
   externalId: string;
   source: ListingSource;
   title: string;
@@ -19,9 +19,9 @@ export interface Listing {
   imageUrl: string | null;
   propertyType: string | null;
   scrapedAt: string;
-}
+};
 
-export interface ListingSearchFilters {
+export type ListingSearchFilters = {
   city?: string;
   maxPrice?: number;
   minSurface?: number;
@@ -32,9 +32,9 @@ export interface ListingSearchFilters {
   maxTravelMinutes?: number;
   radiusKm?: number;
   limit?: number;
-}
+};
 
-export interface ScrapeFilters {
+export type ScrapeFilters = {
   city: string;
   maxPrice: number;
   minSurface: number;
@@ -44,17 +44,17 @@ export interface ScrapeFilters {
   ancienOnly?: boolean;
   radiusKm?: number;
   maxTravelMinutes?: number;
-}
+};
 
-export interface ListingRow extends Listing {
+export type ListingRow = Listing & {
   id: number;
   createdAt: string;
   updatedAt: string;
-}
+};
 
-export interface ScrapeResult {
+export type ScrapeResult = {
   found: number;
   inserted: number;
   updated: number;
   skipped: number;
-}
+};

@@ -1,6 +1,11 @@
 import type { ListingRepository } from "../db/listingRepository.js";
 import type { Scraper } from "../scrapers/types.js";
-import type { Listing, ListingRow, ScrapeFilters, ScrapeResult } from "../types/listing.js";
+import type {
+  Listing,
+  ListingRow,
+  ScrapeFilters,
+  ScrapeResult,
+} from "../types/listing.js";
 import { geoFilterLabel, resolveGeoFilter } from "../utils/geoFilter.js";
 
 export type ScrapeOptions = ScrapeFilters;
@@ -27,7 +32,9 @@ export class ScraperService {
       );
       try {
         const listings = await scraper.scrape(options);
-        console.log(`[scraper] ${scraper.name} — ${listings.length} annonces trouvées`);
+        console.log(
+          `[scraper] ${scraper.name} — ${String(listings.length)} annonces trouvées`
+        );
         allListings.push(...listings);
       } catch (error) {
         console.error(`[scraper] ${scraper.name} — erreur:`, error);

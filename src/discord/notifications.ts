@@ -15,7 +15,7 @@ export async function sendNewListingNotifications(
   const header =
     count === 1
       ? "🏠 **1 nouvelle annonce**"
-      : `🏠 **${count} nouvelles annonces**`;
+      : `🏠 **${String(count)} nouvelles annonces**`;
 
   let sent = 0;
 
@@ -31,7 +31,7 @@ export async function sendNewListingNotifications(
       sent += batch.length;
     } catch (error) {
       console.error(
-        `[discord] Erreur envoi notification (lot ${Math.floor(i / 10) + 1}):`,
+        `[discord] Erreur envoi notification (lot ${String(Math.floor(i / 10) + 1)}):`,
         error
       );
     }

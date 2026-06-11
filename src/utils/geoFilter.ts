@@ -2,11 +2,10 @@ import type { ScrapeFilters } from "../types/listing.js";
 
 export type GeoFilterMode = "travel" | "radius" | "city";
 
-export interface GeoFilter {
-  mode: GeoFilterMode;
-  maxTravelMinutes?: number;
-  radiusKm?: number;
-}
+export type GeoFilter =
+  | { mode: "travel"; maxTravelMinutes: number }
+  | { mode: "radius"; radiusKm: number }
+  | { mode: "city" };
 
 type GeoFilterOptions = Pick<ScrapeFilters, "maxTravelMinutes" | "radiusKm">;
 
@@ -31,10 +30,10 @@ export function resolveGeoFilter(
 
 export function geoFilterLabel(filter: GeoFilter): string {
   if (filter.mode === "travel") {
-    return `${filter.maxTravelMinutes} min en voiture`;
+    return `${String(filter.maxTravelMinutes)} min en voiture`;
   }
   if (filter.mode === "radius") {
-    return `rayon ${filter.radiusKm} km`;
+    return `rayon ${String(filter.radiusKm)} km`;
   }
   return "ville";
 }

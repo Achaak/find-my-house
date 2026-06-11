@@ -7,15 +7,18 @@ import {
 } from "../utils/bieniciApi.js";
 import { isWithinRadiusKm, type GeoPoint } from "../utils/geo.js";
 import { resolveGeoFilter } from "../utils/geoFilter.js";
-import { resolveBienIciPlace, resolveBienIciTravelOrigin } from "../utils/geocode.js";
+import {
+  resolveBienIciPlace,
+  resolveBienIciTravelOrigin,
+} from "../utils/geocode.js";
 import type { Scraper, ScraperOptions } from "./types.js";
 
-interface BienIciBlurInfo {
+type BienIciBlurInfo = {
   position?: { lat: number; lon: number };
   centroid?: { lat: number; lon: number };
-}
+};
 
-interface BienIciAd {
+type BienIciAd = {
   id: string;
   title: string;
   price: number;
@@ -28,10 +31,10 @@ interface BienIciAd {
   city: string;
   postalCode?: string;
   description?: string;
-  photos?: Array<{ url_photo: string }>;
+  photos?: { url_photo: string }[];
   propertyType?: string;
   url?: string;
-}
+};
 
 function extractAdCoords(ad: BienIciAd): GeoPoint | null {
   const position = ad.blurInfo?.position ?? ad.blurInfo?.centroid;
@@ -46,15 +49,14 @@ async function resolveZoneIdsByTypes(
   const geoFilter = resolveGeoFilter(options, true);
 
   if (geoFilter.mode === "travel") {
-    const origin =
-      (await resolveBienIciTravelOrigin(options.city)) ?? {
-        center: place.center,
-        address: place.name,
-      };
+    const origin = (await resolveBienIciTravelOrigin(options.city)) ?? {
+      center: place.center,
+      address: place.name,
+    };
     const zoneId = await computeBienIciTravelZone({
       center: origin.center,
       address: origin.address,
-      durationMinutes: geoFilter.maxTravelMinutes!,
+      durationMinutes: geoFilter.maxTravelMinutes,
     });
     return { travelTimeZone: [zoneId] };
   }
@@ -77,13 +79,18 @@ export class BienIciScraper implements Scraper {
   async scrape(options: ScraperOptions): Promise<Listing[]> {
     const place = await resolveBienIciPlace(options.city);
     if (!place) {
-      throw new Error(`Impossible de géolocaliser "${options.city}" sur BienIci`);
+      throw new Error(
+        `Impossible de géolocaliser "${options.city}" sur BienIci`
+      );
     }
 
     const geoFilter = resolveGeoFilter(options, true);
     const zoneIdsByTypes = await resolveZoneIdsByTypes(options, place);
 
-    if (!zoneIdsByTypes.zoneIds?.length && !zoneIdsByTypes.travelTimeZone?.length) {
+    if (
+      !zoneIdsByTypes.zoneIds?.length &&
+      !zoneIdsByTypes.travelTimeZone?.length
+    ) {
       throw new Error(`Aucune zone BienIci trouvée pour "${options.city}"`);
     }
 
@@ -92,11 +99,11 @@ export class BienIciScraper implements Scraper {
     const scrapedAt = new Date().toISOString();
 
     if (geoFilter.mode === "radius") {
+      const radiusKm = geoFilter.radiusKm;
       allAds = allAds.filter((ad) => {
         const coords = extractAdCoords(ad);
         return (
-          coords !== null &&
-          isWithinRadiusKm(coords, place.center, geoFilter.radiusKm!)
+          coords !== null && isWithinRadiusKm(coords, place.center, radiusKm)
         );
       });
     }
@@ -104,7 +111,11 @@ export class BienIciScraper implements Scraper {
     return allAds.map((ad) => this.mapAd(ad, scrapedAt, place.name));
   }
 
-  private mapAd(ad: BienIciAd, scrapedAt: string, fallbackCity: string): Listing {
+  private mapAd(
+    ad: BienIciAd,
+    scrapedAt: string,
+    fallbackCity: string
+  ): Listing {
     const url = ad.url ?? `https://www.bienici.com/annonce/${ad.id}`;
     const coords = extractAdCoords(ad);
 
@@ -120,7 +131,7 @@ export class BienIciScraper implements Scraper {
       isNewProperty: ad.newProperty ?? null,
       latitude: coords?.lat ?? null,
       longitude: coords?.lng ?? null,
-      city: ad.city ?? fallbackCity,
+      city: ad.city || fallbackCity,
       postalCode: ad.postalCode ?? null,
       url,
       description: ad.description ?? null,

@@ -1,0 +1,7 @@
+node_modules/
+dist/
+src/generated/
+data/
+pnpm-lock.yaml
+prisma.config.js
+prisma.config.d.ts

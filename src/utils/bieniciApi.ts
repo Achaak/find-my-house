@@ -6,21 +6,21 @@ const ZONE_URL = "https://www.bienici.com/zone-by-time";
 const ADS_URL = "https://www.bienici.com/realEstateAds.json";
 export const BIENICI_PAGE_SIZE = 24;
 
-export interface BienIciZoneIdsByTypes {
+export type BienIciZoneIdsByTypes = {
   zoneIds?: string[];
   travelTimeZone?: string[];
-}
+};
 
-export interface BienIciListingCriteria {
+export type BienIciListingCriteria = {
   maxPrice?: number;
   minSurface?: number;
   minLandSurface?: number;
   minRooms?: number;
   minBedrooms?: number;
   ancienOnly?: boolean;
-}
+};
 
-export interface BienIciSearchFilters {
+export type BienIciSearchFilters = {
   size: number;
   from: number;
   page: number;
@@ -36,23 +36,23 @@ export interface BienIciSearchFilters {
   minBedrooms?: number;
   minGardenSurfaceArea?: number;
   newProperty?: boolean;
-}
+};
 
-interface GuestSession {
+type GuestSession = {
   accountId: string;
   token: string;
-}
+};
 
-interface ZoneByTimeResponse {
+type ZoneByTimeResponse = {
   success: boolean;
   zone?: { _id: string };
   errors?: unknown;
-}
+};
 
-interface BienIciAdsPage<T> {
+type BienIciAdsPage<T> = {
   realEstateAds: T[];
   total: number;
-}
+};
 
 let cachedSession: GuestSession | null = null;
 
@@ -102,7 +102,7 @@ async function getGuestSession(): Promise<GuestSession> {
   });
 
   if (!response.ok) {
-    throw new Error(`BienIci auth: HTTP ${response.status}`);
+    throw new Error(`BienIci auth: HTTP ${String(response.status)}`);
   }
 
   const data = (await response.json()) as {
@@ -160,7 +160,7 @@ export async function computeBienIciTravelZone(
   }
 
   if (!response.ok) {
-    throw new Error(`BienIci zone-by-time: HTTP ${response.status}`);
+    throw new Error(`BienIci zone-by-time: HTTP ${String(response.status)}`);
   }
 
   const data = (await response.json()) as ZoneByTimeResponse;
@@ -185,7 +185,9 @@ async function fetchBienIciPage<T>(
   });
 
   if (!response.ok) {
-    throw new Error(`BienIci API page ${page}: HTTP ${response.status}`);
+    throw new Error(
+      `BienIci API page ${String(page)}: HTTP ${String(response.status)}`
+    );
   }
 
   return response.json() as Promise<BienIciAdsPage<T>>;
