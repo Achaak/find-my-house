@@ -22,6 +22,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set lowercase image owner
+        run: echo "IMAGE_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
+
       - uses: docker/setup-qemu-action@v3
 
       - uses: docker/setup-buildx-action@v3
@@ -39,5 +42,5 @@ jobs:
           platforms: ${{ matrix.platform }}
           push: true
           tags: |
-            ghcr.io/${{ toLower(github.repository_owner) }}/find-my-home-${{ matrix.ha_arch }}:latest
-            ghcr.io/${{ toLower(github.repository_owner) }}/find-my-home-${{ matrix.ha_arch }}:${{ github.sha }}
+            ghcr.io/${{ env.IMAGE_OWNER }}/find-my-home-${{ matrix.ha_arch }}:latest
+            ghcr.io/${{ env.IMAGE_OWNER }}/find-my-home-${{ matrix.ha_arch }}:${{ github.sha }}
