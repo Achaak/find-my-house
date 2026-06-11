@@ -1,3 +1,4 @@
+import got, { HTTPError } from "got";
 import type { GeoPoint } from "./geo.js";
 
 const SEARCH_URL = "https://api.leboncoin.fr/finder/search";
@@ -101,15 +102,15 @@ type LeboncoinSearchResult = {
 export async function resolveLeboncoinPlace(
   city: string
 ): Promise<LeboncoinPlace | null> {
-  const response = await fetch(LOCATION_URL, {
-    method: "POST",
+  const response = await got.post(LOCATION_URL, {
     headers: JSON_HEADERS,
-    body: JSON.stringify({ context: [], text: city.trim() }),
+    json: { context: [], text: city.trim() },
+    throwHttpErrors: false,
   });
 
-  if (!response.ok) return null;
+  if (response.statusCode !== 200) return null;
 
-  const locations = (await response.json()) as LeboncoinLocation[];
+  const locations = JSON.parse(response.body) as LeboncoinLocation[];
   const cityLower = city.trim().toLowerCase();
   const match =
     locations.find(
@@ -204,17 +205,23 @@ export function buildLeboncoinSearchBody(
 async function fetchLeboncoinPage(
   body: LeboncoinSearchBody
 ): Promise<LeboncoinSearchResult> {
-  const response = await fetch(SEARCH_URL, {
-    method: "POST",
-    headers: JSON_HEADERS,
-    body: JSON.stringify(body),
-  });
+  try {
+    return await got
+      .post(SEARCH_URL, {
+        headers: JSON_HEADERS,
+        json: body,
+      })
+      .json<LeboncoinSearchResult>();
+  } catch (error) {
+    if (error instanceof HTTPError) {
+      throw new Error(
+        `LeBonCoin API: HTTP ${String(error.response.statusCode)}`,
+        { cause: error }
+      );
+    }
 
-  if (!response.ok) {
-    throw new Error(`LeBonCoin API: HTTP ${String(response.status)}`);
+    throw error;
   }
-
-  return response.json() as Promise<LeboncoinSearchResult>;
 }
 
 export async function fetchAllLeboncoinAds(

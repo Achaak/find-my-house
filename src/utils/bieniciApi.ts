@@ -1,3 +1,4 @@
+import got, { HTTPError } from "got";
 import type { GeoPoint } from "./geo.js";
 
 const AUTH_URL =
@@ -95,19 +96,12 @@ export function buildBienIciSearchFilters(
 async function getGuestSession(): Promise<GuestSession> {
   if (cachedSession) return cachedSession;
 
-  const response = await fetch(AUTH_URL, {
-    method: "POST",
-    headers: JSON_HEADERS,
-    body: "{}",
-  });
-
-  if (!response.ok) {
-    throw new Error(`BienIci auth: HTTP ${String(response.status)}`);
-  }
-
-  const data = (await response.json()) as {
-    account?: { id: string; token: string };
-  };
+  const data = await got
+    .post(AUTH_URL, {
+      headers: JSON_HEADERS,
+      body: "{}",
+    })
+    .json<{ account?: { id: string; token: string } }>();
 
   if (!data.account?.id || !data.account.token) {
     throw new Error("BienIci auth: réponse invalide");
@@ -135,35 +129,45 @@ export async function computeBienIciTravelZone(
 ): Promise<string> {
   const session = await getGuestSession();
 
-  const response = await fetch(ZONE_URL, {
-    method: "POST",
-    headers: {
-      ...JSON_HEADERS,
-      Authorization: `Bearer ${session.token}`,
-    },
-    body: JSON.stringify({
-      duration: params.durationMinutes * 60,
-      lat: params.center.lat,
-      lng: params.center.lng,
-      address: params.address,
-      mode: params.mode ?? "car",
-      accountId: session.accountId,
-    }),
-  });
+  let data: ZoneByTimeResponse;
 
-  if (response.status === 401) {
-    if (retried) {
-      throw new Error("BienIci zone-by-time: non autorisé");
+  try {
+    data = await got
+      .post(ZONE_URL, {
+        headers: {
+          ...JSON_HEADERS,
+          Authorization: `Bearer ${session.token}`,
+        },
+        json: {
+          duration: params.durationMinutes * 60,
+          lat: params.center.lat,
+          lng: params.center.lng,
+          address: params.address,
+          mode: params.mode ?? "car",
+          accountId: session.accountId,
+        },
+      })
+      .json<ZoneByTimeResponse>();
+  } catch (error) {
+    if (error instanceof HTTPError) {
+      if (error.response.statusCode === 401) {
+        if (retried) {
+          throw new Error("BienIci zone-by-time: non autorisé", {
+            cause: error,
+          });
+        }
+        clearGuestSession();
+        return computeBienIciTravelZone(params, true);
+      }
+
+      throw new Error(
+        `BienIci zone-by-time: HTTP ${String(error.response.statusCode)}`,
+        { cause: error }
+      );
     }
-    clearGuestSession();
-    return computeBienIciTravelZone(params, true);
-  }
 
-  if (!response.ok) {
-    throw new Error(`BienIci zone-by-time: HTTP ${String(response.status)}`);
+    throw error;
   }
-
-  const data = (await response.json()) as ZoneByTimeResponse;
   const zoneId = data.zone?._id;
 
   if (!data.success || !zoneId) {
@@ -180,17 +184,20 @@ async function fetchBienIciPage<T>(
   const from = (page - 1) * BIENICI_PAGE_SIZE;
   const pageFilters = { ...filters, from, page, size: BIENICI_PAGE_SIZE };
   const url = `${ADS_URL}?filters=${encodeURIComponent(JSON.stringify(pageFilters))}`;
-  const response = await fetch(url, {
-    headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" },
-  });
+  try {
+    return await got(url, {
+      headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" },
+    }).json<BienIciAdsPage<T>>();
+  } catch (error) {
+    if (error instanceof HTTPError) {
+      throw new Error(
+        `BienIci API page ${String(page)}: HTTP ${String(error.response.statusCode)}`,
+        { cause: error }
+      );
+    }
 
-  if (!response.ok) {
-    throw new Error(
-      `BienIci API page ${String(page)}: HTTP ${String(response.status)}`
-    );
+    throw error;
   }
-
-  return response.json() as Promise<BienIciAdsPage<T>>;
 }
 
 export async function fetchAllBienIciAds<T extends { id: string }>(
