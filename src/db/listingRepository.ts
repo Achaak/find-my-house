@@ -6,6 +6,7 @@ import type {
   ScrapeResult,
   UpsertStatus,
 } from "../types/listing.js";
+import type { PropertyEnrichmentPatch } from "../services/enrichmentService.js";
 import { toPropertyRow } from "./listingMapper.js";
 import {
   buildBienIciSearchFilters,
@@ -17,7 +18,10 @@ import {
   isWithinRadiusKm,
   type GeoPoint,
 } from "../utils/geo.js";
-import { resolveGeoFilter } from "../utils/geoFilter.js";
+import {
+  estimateDrivingRadiusKm,
+  resolveGeoFilter,
+} from "../utils/geoFilter.js";
 import {
   resolveBienIciPlace,
   resolveBienIciTravelOrigin,
@@ -59,6 +63,8 @@ function toPropertyData(listing: Listing) {
     propertyType: listing.propertyType,
     dpeClass: listing.dpeClass,
     gesClass: listing.gesClass,
+    dpeConsumptionKwhM2: listing.dpeConsumptionKwhM2,
+    gesEmissionKgM2: listing.gesEmissionKgM2,
   };
 }
 
@@ -90,7 +96,9 @@ function hasPropertyChanges(
     existing.imageUrl !== listing.imageUrl ||
     existing.propertyType !== listing.propertyType ||
     existing.dpeClass !== listing.dpeClass ||
-    existing.gesClass !== listing.gesClass
+    existing.gesClass !== listing.gesClass ||
+    existing.dpeConsumptionKwhM2 !== listing.dpeConsumptionKwhM2 ||
+    existing.gesEmissionKgM2 !== listing.gesEmissionKgM2
   );
 }
 
@@ -274,6 +282,7 @@ export class ListingRepository {
 
     let center: GeoPoint | null = null;
     let travelZoneExternalIds: Set<string> | null = null;
+    let travelRadiusFallbackKm: number | null = null;
 
     if (useGeoFilter) {
       if (!filters.city) return [];
@@ -286,15 +295,27 @@ export class ListingRepository {
           center,
           address: place.name,
         };
-        const zoneId = await computeBienIciTravelZone({
-          center: origin.center,
-          address: origin.address,
-          durationMinutes: geoFilter.maxTravelMinutes,
-        });
-        const apiFilters = buildBienIciSearchFilters(filters, {
-          travelTimeZone: [zoneId],
-        });
-        travelZoneExternalIds = await fetchBienIciExternalIds(apiFilters);
+        center = origin.center;
+
+        try {
+          const zoneId = await computeBienIciTravelZone({
+            center: origin.center,
+            address: origin.address,
+            durationMinutes: geoFilter.maxTravelMinutes,
+          });
+          const apiFilters = buildBienIciSearchFilters(filters, {
+            travelTimeZone: [zoneId],
+          });
+          travelZoneExternalIds = await fetchBienIciExternalIds(apiFilters);
+        } catch (error) {
+          travelRadiusFallbackKm = estimateDrivingRadiusKm(
+            geoFilter.maxTravelMinutes
+          );
+          console.warn(
+            `[db] zone-by-time indisponible, repli sur rayon estimé (~${String(Math.round(travelRadiusFallbackKm))} km):`,
+            error
+          );
+        }
       }
     }
 
@@ -373,6 +394,17 @@ export class ListingRepository {
             externalIds.has(publication.externalId)
         )
       );
+    } else if (center && travelRadiusFallbackKm !== null) {
+      const radiusKm = travelRadiusFallbackKm;
+      results = results.filter((property) => {
+        if (property.latitude === null || property.longitude === null)
+          return false;
+        return isWithinRadiusKm(
+          { lat: property.latitude, lng: property.longitude },
+          center,
+          radiusKm
+        );
+      });
     } else if (center && geoFilter.mode === "radius") {
       const radiusKm = geoFilter.radiusKm;
       results = results.filter((property) => {
@@ -427,6 +459,26 @@ export class ListingRepository {
       include: propertyInclude,
     });
     return row ? toPropertyRow(row) : undefined;
+  }
+
+  async applyEnrichment(
+    id: number,
+    patch: PropertyEnrichmentPatch
+  ): Promise<PropertyRow | undefined> {
+    if (Object.keys(patch).length === 0) {
+      return this.findById(id);
+    }
+
+    try {
+      const row = await this.prisma.property.update({
+        where: { id },
+        data: patch,
+        include: propertyInclude,
+      });
+      return toPropertyRow(row);
+    } catch {
+      return undefined;
+    }
   }
 
   async updateAddress(

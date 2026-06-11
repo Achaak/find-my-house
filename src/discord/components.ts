@@ -1,9 +1,9 @@
-import { MessageFlags } from "discord-api-types/v10";
 import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
   type ButtonInteraction,
+  MessageFlagsBitField,
 } from "discord.js";
 import type { ListingRepository } from "../db/listingRepository.js";
 import type {
@@ -75,7 +75,9 @@ export async function handleListingButton(
   const parsed = parseListingButtonCustomId(interaction.customId);
   if (!parsed) return false;
 
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  await interaction.deferReply({
+    flags: MessageFlagsBitField.Flags.Ephemeral,
+  });
 
   const listing = await repository.findById(parsed.listingId);
   if (!listing) {

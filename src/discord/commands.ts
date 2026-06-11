@@ -15,6 +15,7 @@ import { getBuildInfo } from "../version.js";
 import { buildDpeCandidateComponents } from "./dpeComponents.js";
 import { formatDpePropertySearchReply } from "./dpeFormat.js";
 import { searchDpeForProperty } from "../utils/ademeDpeApi.js";
+import { ensurePropertyEnriched } from "../services/enrichmentService.js";
 
 export function buildCommands() {
   return [
@@ -161,14 +162,14 @@ export function buildCommands() {
       .setDescription("Afficher la version de l'application"),
 
     new SlashCommandBuilder()
-      .setName("dpe")
+      .setName("adresse")
       .setDescription(
-        "Proposer une adresse via l'ADEME à partir d'une annonce en base"
+        "Identifier l'adresse d'une annonce via les données DPE publiques ADEME"
       )
       .addIntegerOption((opt) =>
         opt
           .setName("id")
-          .setDescription("ID de l'annonce")
+          .setDescription("ID de l'annonce à localiser")
           .setRequired(true)
       ),
 
@@ -392,7 +393,11 @@ export async function handleCommand(
       const id = interaction.options.getInteger("id", true);
       await interaction.deferReply();
 
-      const listing = await repository.findById(id);
+      const { property: listing } = await ensurePropertyEnriched(
+        repository,
+        id,
+        "display"
+      );
 
       if (!listing) {
         await interaction.editReply(`Annonce #${String(id)} introuvable.`);
@@ -594,11 +599,15 @@ export async function handleCommand(
       return;
     }
 
-    case "dpe": {
+    case "adresse": {
       const id = interaction.options.getInteger("id", true);
       await interaction.deferReply();
 
-      const property = await repository.findById(id);
+      const { property, warnings } = await ensurePropertyEnriched(
+        repository,
+        id,
+        "address"
+      );
       if (!property) {
         await interaction.editReply(`Annonce #${String(id)} introuvable.`);
         return;
@@ -606,10 +615,11 @@ export async function handleCommand(
 
       try {
         const { query, candidates } = await searchDpeForProperty(property);
-        const content = formatDpePropertySearchReply(
-          property,
-          query,
-          candidates
+        const warningNote =
+          warnings.length > 0 ? `\n\n_${warnings.join(" — ")}_` : "";
+        const content = (
+          formatDpePropertySearchReply(property, query, candidates) +
+          warningNote
         ).slice(0, 2000);
 
         if (candidates.length === 0) {
@@ -637,7 +647,7 @@ export async function handleCommand(
           "",
           "`/annonces` — Rechercher en base (ville, CP, texte, source, prix, surface, terrain, pièces, chambres, ancien/neuf, rayon, temps de trajet, tri…)",
           "`/annonce id:123` — Détail d'une annonce (boutons ❤️ / 👎)",
-          "`/dpe id:123` — Proposer une adresse ADEME pour une annonce (validation par bouton)",
+          "`/adresse id:123` — Identifier l'adresse d'une annonce via l'ADEME (validation par bouton)",
           "`/jaime ajouter|retirer|liste` — Gérer vos favoris",
           "`/pas-jaime ajouter|retirer|liste` — Gérer vos non-favoris",
           "_Cliquez sur ❤️ ou 👎 sous une annonce pour l'ajouter ou la retirer._",

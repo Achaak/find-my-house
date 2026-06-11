@@ -40,7 +40,8 @@ export class ScraperService {
         );
         allListings.push(...listings);
       } catch (error) {
-        console.error(`[scraper] ${scraper.name} — erreur:`, error);
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`[scraper] ${scraper.name} — erreur: ${message}`);
       }
     }
 

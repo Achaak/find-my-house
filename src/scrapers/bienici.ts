@@ -2,16 +2,23 @@ import type { Listing } from "../types/listing.js";
 import {
   buildBienIciSearchFilters,
   computeBienIciTravelZone,
-  fetchAllBienIciAds,
+  fetchBienIciAds,
   type BienIciZoneIdsByTypes,
 } from "../utils/bieniciApi.js";
 import { isWithinRadiusKm, type GeoPoint } from "../utils/geo.js";
-import { resolveGeoFilter } from "../utils/geoFilter.js";
+import {
+  estimateDrivingRadiusKm,
+  resolveGeoFilter,
+} from "../utils/geoFilter.js";
 import {
   resolveBienIciPlace,
   resolveBienIciTravelOrigin,
 } from "../utils/geocode.js";
 import { normalizeEnergyClass } from "../utils/energyClass.js";
+import {
+  mergeEnergyMetrics,
+  parseEnergyMetricsFromText,
+} from "../utils/energyMetrics.js";
 import type { Scraper, ScraperOptions } from "./types.js";
 
 type BienIciBlurInfo = {
@@ -36,6 +43,8 @@ type BienIciAd = {
   propertyType?: string;
   energyClassification?: string;
   greenhouseGazClassification?: string;
+  energyConsumption?: number;
+  greenhouseGazConsumption?: number;
   url?: string;
 };
 
@@ -45,10 +54,18 @@ function extractAdCoords(ad: BienIciAd): GeoPoint | null {
   return { lat: position.lat, lng: position.lon };
 }
 
+type TravelRadiusFallback = {
+  center: GeoPoint;
+  radiusKm: number;
+};
+
 async function resolveZoneIdsByTypes(
   options: ScraperOptions,
   place: NonNullable<Awaited<ReturnType<typeof resolveBienIciPlace>>>
-): Promise<BienIciZoneIdsByTypes> {
+): Promise<{
+  zoneIdsByTypes: BienIciZoneIdsByTypes;
+  travelRadiusFallback: TravelRadiusFallback | null;
+}> {
   const geoFilter = resolveGeoFilter(options, true);
 
   if (geoFilter.mode === "travel") {
@@ -56,12 +73,32 @@ async function resolveZoneIdsByTypes(
       center: place.center,
       address: place.name,
     };
-    const zoneId = await computeBienIciTravelZone({
-      center: origin.center,
-      address: origin.address,
-      durationMinutes: geoFilter.maxTravelMinutes,
-    });
-    return { travelTimeZone: [zoneId] };
+
+    try {
+      const zoneId = await computeBienIciTravelZone({
+        center: origin.center,
+        address: origin.address,
+        durationMinutes: geoFilter.maxTravelMinutes,
+      });
+      return {
+        zoneIdsByTypes: { travelTimeZone: [zoneId] },
+        travelRadiusFallback: null,
+      };
+    } catch (error) {
+      const radiusKm = estimateDrivingRadiusKm(geoFilter.maxTravelMinutes);
+      console.warn(
+        `[scraper] bienici — zone-by-time indisponible, repli sur rayon estimé (~${String(Math.round(radiusKm))} km):`,
+        error
+      );
+      const zoneIds =
+        place.departmentZoneIds.length > 0
+          ? place.departmentZoneIds
+          : place.cityZoneIds;
+      return {
+        zoneIdsByTypes: { zoneIds },
+        travelRadiusFallback: { center: origin.center, radiusKm },
+      };
+    }
   }
 
   if (geoFilter.mode === "radius") {
@@ -69,10 +106,13 @@ async function resolveZoneIdsByTypes(
       place.departmentZoneIds.length > 0
         ? place.departmentZoneIds
         : place.cityZoneIds;
-    return { zoneIds };
+    return { zoneIdsByTypes: { zoneIds }, travelRadiusFallback: null };
   }
 
-  return { zoneIds: place.cityZoneIds };
+  return {
+    zoneIdsByTypes: { zoneIds: place.cityZoneIds },
+    travelRadiusFallback: null,
+  };
 }
 
 export class BienIciScraper implements Scraper {
@@ -88,7 +128,8 @@ export class BienIciScraper implements Scraper {
     }
 
     const geoFilter = resolveGeoFilter(options, true);
-    const zoneIdsByTypes = await resolveZoneIdsByTypes(options, place);
+    const { zoneIdsByTypes, travelRadiusFallback } =
+      await resolveZoneIdsByTypes(options, place);
 
     if (
       !zoneIdsByTypes.zoneIds?.length &&
@@ -98,10 +139,16 @@ export class BienIciScraper implements Scraper {
     }
 
     const filters = buildBienIciSearchFilters(options, zoneIdsByTypes);
-    let allAds = await fetchAllBienIciAds<BienIciAd>(filters);
+    let allAds = await fetchBienIciAds<BienIciAd>(filters);
     const scrapedAt = new Date().toISOString();
 
-    if (geoFilter.mode === "radius") {
+    if (travelRadiusFallback) {
+      const { center, radiusKm } = travelRadiusFallback;
+      allAds = allAds.filter((ad) => {
+        const coords = extractAdCoords(ad);
+        return coords !== null && isWithinRadiusKm(coords, center, radiusKm);
+      });
+    } else if (geoFilter.mode === "radius") {
       const radiusKm = geoFilter.radiusKm;
       allAds = allAds.filter((ad) => {
         const coords = extractAdCoords(ad);
@@ -121,6 +168,13 @@ export class BienIciScraper implements Scraper {
   ): Listing {
     const url = ad.url ?? `https://www.bienici.com/annonce/${ad.id}`;
     const coords = extractAdCoords(ad);
+    const metrics = mergeEnergyMetrics(
+      {
+        dpeConsumptionKwhM2: ad.energyConsumption ?? null,
+        gesEmissionKgM2: ad.greenhouseGazConsumption ?? null,
+      },
+      parseEnergyMetricsFromText(ad.description)
+    );
 
     return {
       externalId: ad.id,
@@ -142,6 +196,8 @@ export class BienIciScraper implements Scraper {
       propertyType: ad.propertyType ?? null,
       dpeClass: normalizeEnergyClass(ad.energyClassification),
       gesClass: normalizeEnergyClass(ad.greenhouseGazClassification),
+      dpeConsumptionKwhM2: metrics.dpeConsumptionKwhM2,
+      gesEmissionKgM2: metrics.gesEmissionKgM2,
       scrapedAt,
     };
   }

@@ -1,11 +1,12 @@
 import type { Listing } from "../types/listing.js";
 import { resolveGeoFilter } from "../utils/geoFilter.js";
 import {
+  applySeLogerSearchMetadata,
   buildSeLogerImageUrl,
   buildSeLogerListingUrl,
   buildSeLogerLocation,
   buildSeLogerSearchUrl,
-  fetchAllSeLogerClassifieds,
+  fetchSeLogerClassifieds,
   parseSeLogerBedrooms,
   parseSeLogerPrice,
   resolveSeLogerPlace,
@@ -29,10 +30,12 @@ export class SeLogerScraper implements Scraper {
     const geoFilter = resolveGeoFilter(options, true);
     const location = await buildSeLogerLocation(options.city, place, geoFilter);
     const searchUrl = buildSeLogerSearchUrl(options, location);
-    const allCards = await fetchAllSeLogerClassifieds(searchUrl);
+    const cards = (await fetchSeLogerClassifieds(searchUrl)).map(
+      applySeLogerSearchMetadata
+    );
     const scrapedAt = new Date().toISOString();
 
-    return allCards.map((card) => this.mapCard(card, scrapedAt, place.name));
+    return cards.map((card) => this.mapCard(card, scrapedAt, place.name));
   }
 
   private mapCard(
@@ -61,6 +64,8 @@ export class SeLogerScraper implements Scraper {
       propertyType: card.estateType ?? null,
       dpeClass: normalizeEnergyClass(card.energyClass),
       gesClass: normalizeEnergyClass(card.gesClass),
+      dpeConsumptionKwhM2: card.dpeConsumptionKwhM2 ?? null,
+      gesEmissionKgM2: card.gesEmissionKgM2 ?? null,
       scrapedAt,
     };
   }

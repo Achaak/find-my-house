@@ -3,13 +3,17 @@ import { resolveGeoFilter } from "../utils/geoFilter.js";
 import {
   buildLeboncoinAreaLocation,
   buildLeboncoinSearchBody,
-  fetchAllLeboncoinAds,
+  fetchLeboncoinAds,
   getLeboncoinAttribute,
   parseLeboncoinNumber,
   resolveLeboncoinPlace,
   type LeboncoinAd,
 } from "../utils/leboncoinApi.js";
 import { normalizeEnergyClass } from "../utils/energyClass.js";
+import {
+  mergeEnergyMetrics,
+  parseEnergyMetricsFromText,
+} from "../utils/energyMetrics.js";
 import type { Scraper, ScraperOptions } from "./types.js";
 
 export class LeboncoinScraper implements Scraper {
@@ -30,7 +34,7 @@ export class LeboncoinScraper implements Scraper {
         ? buildLeboncoinAreaLocation(place, geoFilter.radiusKm)
         : place.location;
     const body = buildLeboncoinSearchBody(options, searchLocation);
-    const allAds = await fetchAllLeboncoinAds(body);
+    const allAds = await fetchLeboncoinAds(body);
     const scrapedAt = new Date().toISOString();
 
     return allAds.map((ad) => this.mapAd(ad, scrapedAt, place.name));
@@ -47,6 +51,19 @@ export class LeboncoinScraper implements Scraper {
     );
     const propertyType =
       propertyTypeAttr?.value_label ?? propertyTypeAttr?.value ?? null;
+    const metrics = mergeEnergyMetrics(
+      {
+        dpeConsumptionKwhM2:
+          parseLeboncoinNumber(
+            getLeboncoinAttribute(ad, "energy_consumption")
+          ) ??
+          parseLeboncoinNumber(getLeboncoinAttribute(ad, "dpe_consumption")),
+        gesEmissionKgM2:
+          parseLeboncoinNumber(getLeboncoinAttribute(ad, "ges_emission")) ??
+          parseLeboncoinNumber(getLeboncoinAttribute(ad, "ghg_emission")),
+      },
+      parseEnergyMetricsFromText(ad.body)
+    );
 
     return {
       externalId: String(ad.list_id),
@@ -75,6 +92,8 @@ export class LeboncoinScraper implements Scraper {
       propertyType,
       dpeClass: normalizeEnergyClass(getLeboncoinAttribute(ad, "energy_rate")),
       gesClass: normalizeEnergyClass(getLeboncoinAttribute(ad, "ges")),
+      dpeConsumptionKwhM2: metrics.dpeConsumptionKwhM2,
+      gesEmissionKgM2: metrics.gesEmissionKgM2,
       scrapedAt,
     };
   }

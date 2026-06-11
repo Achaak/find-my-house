@@ -48,6 +48,8 @@ export function toPropertyRow(row: PropertyWithPublications): PropertyRow {
     propertyType: row.propertyType,
     dpeClass: row.dpeClass,
     gesClass: row.gesClass,
+    dpeConsumptionKwhM2: row.dpeConsumptionKwhM2,
+    gesEmissionKgM2: row.gesEmissionKgM2,
     firstSeenAt: row.firstSeenAt.toISOString(),
     notifiedAt: row.notifiedAt?.toISOString() ?? null,
     publications,

@@ -45,6 +45,12 @@ function formatCandidate(index: number, result: RankedDpeSearchResult): string {
     energyLabel ? `⚡ ${energyLabel}` : null,
     [
       result.surfaceM2 ? `📐 ${String(result.surfaceM2)} m²` : null,
+      result.consumptionKwhM2Year
+        ? `⚡ ${String(result.consumptionKwhM2Year)} kWh/m²/an`
+        : null,
+      result.emissionGesKgM2Year
+        ? `🌍 ${String(result.emissionGesKgM2Year)} kg CO₂/m²/an`
+        : null,
       result.buildingType ?? null,
       establishmentDate ? `📅 ${establishmentDate}` : null,
     ]
@@ -67,7 +73,7 @@ export function formatDpePropertySearchReply(
       "",
       `Aucune adresse candidate trouvée via l'ADEME pour **${query}**.`,
       "",
-      "Les critères disponibles (ville, CP, surface, DPE, coordonnées) n'ont pas permis de proposer d'adresse fiable.",
+      "Critères : département, DPE, GES, conso/émissions, surface ±10 %. Lieu en bonus de classement.",
       `[Données DPE publiques ADEME](${OBSERVATOIRE_URL})`,
     ].join("\n");
   }
@@ -77,7 +83,7 @@ export function formatDpePropertySearchReply(
     "",
     `Recherche ADEME : **${query}**`,
     "",
-    "Sélectionnez l'adresse correspondante :",
+    "Vérifiez sur Google Maps (🗺️), puis confirmez l'adresse (✅) :",
     "",
     candidates
       .map((candidate, index) => formatCandidate(index + 1, candidate))

@@ -1,27 +1,56 @@
+import got, { HTTPError } from "got";
 import type { PropertyRow } from "../types/listing.js";
 import {
-  buildDpeSearchQuery,
+  buildAdemeSearchParamVariants,
+  formatDpeSearchCriteria,
   rankDpeCandidates,
+  type AdemeSearchParams,
   type RankedDpeSearchResult,
 } from "./dpePropertyMatch.js";
 
 const BASE_URL = "https://data.ademe.fr/data-fair/api/v1/datasets";
+
+const ADEME_CLIENT = got.extend({
+  headers: { Accept: "application/json" },
+  retry: {
+    limit: 3,
+    methods: ["GET"],
+    statusCodes: [408, 413, 429, 500, 502, 503, 504, 521, 522, 524],
+    errorCodes: [
+      "ETIMEDOUT",
+      "ECONNRESET",
+      "EAI_AGAIN",
+      "ENOTFOUND",
+      "ECONNREFUSED",
+      "UND_ERR_SOCKET",
+      "UND_ERR_CONNECT_TIMEOUT",
+    ],
+    calculateDelay: ({ attemptCount }) => 1_000 * 2 ** (attemptCount - 1),
+  },
+  timeout: { request: 45_000 },
+});
 
 const DATASETS = {
   recent: "meg-83tjwtg8dyz4vv7h1dqe",
   legacy: "dpe-france",
 } as const;
 
+const FETCH_PAGE_SIZE = 100;
+const MAX_FETCH_TOTAL = 500;
+
 type DatasetKind = keyof typeof DATASETS;
 
 export type DpeSearchResult = {
   numeroDpe: string;
   address: string;
+  postalCode: string | null;
+  departmentCode: string | null;
   dpeClass: string | null;
   gesClass: string | null;
   surfaceM2: number | null;
   constructionYear: number | null;
   consumptionKwhM2Year: number | null;
+  emissionGesKgM2Year: number | null;
   establishmentDate: string | null;
   expiryDate: string | null;
   buildingType: string | null;
@@ -35,11 +64,14 @@ type RecentDpeLine = {
   numero_dpe?: string;
   adresse_ban?: string;
   adresse_complete_brut?: string;
+  code_postal_ban?: string;
+  code_departement_ban?: string;
   etiquette_dpe?: string;
   etiquette_ges?: string;
   surface_habitable_logement?: number;
   annee_construction?: number;
   conso_5_usages_par_m2_ep?: number;
+  emission_ges_5_usages_par_m2?: number;
   date_etablissement_dpe?: string;
   date_fin_validite_dpe?: string;
   type_batiment?: string;
@@ -61,16 +93,17 @@ type LegacyDpeLine = {
   geo_score?: number;
   latitude?: number;
   longitude?: number;
+  tv016_departement_code?: string;
   _score?: number;
 };
 
 type DpeApiResponse<T> = {
   results?: T[];
+  next?: string;
+  total?: number;
 };
 
-function parseGeopoint(
-  geopoint?: string
-): { lat: number; lng: number } | null {
+function parseGeopoint(geopoint?: string): { lat: number; lng: number } | null {
   if (!geopoint) return null;
 
   const [lat, lng] = geopoint.split(",").map(Number);
@@ -79,20 +112,29 @@ function parseGeopoint(
   return { lat, lng };
 }
 
+function extractPostalCodeFromAddress(address: string): string | null {
+  const match = address.match(/\b(\d{5})\b/);
+  return match?.[1] ?? null;
+}
+
 function mapRecentLine(line: RecentDpeLine): DpeSearchResult | null {
   if (!line.numero_dpe) return null;
 
   const coords = parseGeopoint(line._geopoint);
+  const address =
+    line.adresse_ban ?? line.adresse_complete_brut ?? "Adresse inconnue";
 
   return {
     numeroDpe: line.numero_dpe,
-    address:
-      line.adresse_ban ?? line.adresse_complete_brut ?? "Adresse inconnue",
+    address,
+    postalCode: line.code_postal_ban ?? extractPostalCodeFromAddress(address),
+    departmentCode: line.code_departement_ban ?? null,
     dpeClass: line.etiquette_dpe ?? null,
     gesClass: line.etiquette_ges ?? null,
     surfaceM2: line.surface_habitable_logement ?? null,
     constructionYear: line.annee_construction ?? null,
     consumptionKwhM2Year: line.conso_5_usages_par_m2_ep ?? null,
+    emissionGesKgM2Year: line.emission_ges_5_usages_par_m2 ?? null,
     establishmentDate: line.date_etablissement_dpe ?? null,
     expiryDate: line.date_fin_validite_dpe ?? null,
     buildingType: line.type_batiment ?? null,
@@ -106,14 +148,19 @@ function mapRecentLine(line: RecentDpeLine): DpeSearchResult | null {
 function mapLegacyLine(line: LegacyDpeLine): DpeSearchResult | null {
   if (!line.numero_dpe) return null;
 
+  const address = line.geo_adresse ?? "Adresse inconnue";
+
   return {
     numeroDpe: line.numero_dpe,
-    address: line.geo_adresse ?? "Adresse inconnue",
+    address,
+    postalCode: extractPostalCodeFromAddress(address),
+    departmentCode: line.tv016_departement_code ?? null,
     dpeClass: line.classe_consommation_energie ?? null,
     gesClass: line.classe_estimation_ges ?? null,
     surfaceM2: line.surface_thermique_lot ?? null,
     constructionYear: line.annee_construction ?? null,
     consumptionKwhM2Year: line.consommation_energie ?? null,
+    emissionGesKgM2Year: null,
     establishmentDate: line.date_etablissement_dpe ?? null,
     expiryDate: null,
     buildingType: line.tr002_type_batiment_description ?? null,
@@ -124,34 +171,59 @@ function mapLegacyLine(line: LegacyDpeLine): DpeSearchResult | null {
   };
 }
 
-async function fetchDataset<T>(
+async function fetchDatasetAll<T>(
   datasetId: string,
-  query: string,
-  limit: number
-): Promise<T[]> {
-  const url = new URL(`${BASE_URL}/${datasetId}/lines`);
-  url.searchParams.set("q", query);
-  url.searchParams.set("size", String(limit));
-
-  const response = await fetch(url, {
-    headers: { Accept: "application/json" },
-  });
-
-  if (!response.ok) {
-    throw new Error(
-      `ADEME API error (${String(response.status)}): ${response.statusText}`
-    );
+  params: Record<string, string>
+): Promise<T[] | null> {
+  const initialUrl = new URL(`${BASE_URL}/${datasetId}/lines`);
+  initialUrl.searchParams.set("size", String(FETCH_PAGE_SIZE));
+  for (const [key, value] of Object.entries(params)) {
+    initialUrl.searchParams.set(key, value);
   }
 
-  const data = (await response.json()) as DpeApiResponse<T>;
-  return data.results ?? [];
+  const all: T[] = [];
+  let url: string | null = initialUrl.toString();
+
+  try {
+    while (url && all.length < MAX_FETCH_TOTAL) {
+      const data: DpeApiResponse<T> = await ADEME_CLIENT.get(url).json();
+      all.push(...(data.results ?? []));
+      if (!data.next || (data.results?.length ?? 0) === 0) break;
+      url = data.next;
+    }
+    return all;
+  } catch (error) {
+    const status =
+      error instanceof HTTPError
+        ? String(error.response.statusCode)
+        : "network";
+    console.warn(
+      `[ademe] Requête échouée (${status}) sur ${datasetId}:`,
+      initialUrl.search
+    );
+    return all.length > 0 ? all : null;
+  }
+}
+
+async function fetchBothDatasets(
+  params: AdemeSearchParams
+): Promise<{ recentLines: RecentDpeLine[]; legacyLines: LegacyDpeLine[] }> {
+  const recentLines = await fetchDatasetAll<RecentDpeLine>(
+    DATASETS.recent,
+    params.recent
+  );
+  const legacyLines = await fetchDatasetAll<LegacyDpeLine>(
+    DATASETS.legacy,
+    params.legacy
+  );
+
+  return {
+    recentLines: recentLines ?? [],
+    legacyLines: legacyLines ?? [],
+  };
 }
 
 function compareResults(a: DpeSearchResult, b: DpeSearchResult): number {
-  const scoreA = a.addressMatchScore ?? -1;
-  const scoreB = b.addressMatchScore ?? -1;
-  if (scoreB !== scoreA) return scoreB - scoreA;
-
   const dateA = a.establishmentDate
     ? Date.parse(a.establishmentDate)
     : Number.NEGATIVE_INFINITY;
@@ -166,7 +238,7 @@ function dedupeResults(results: DpeSearchResult[]): DpeSearchResult[] {
 
   for (const result of results) {
     const existing = byNumero.get(result.numeroDpe);
-    if (!existing || compareResults(result, existing) < 0) {
+    if (!existing || compareResults(result, existing) > 0) {
       byNumero.set(result.numeroDpe, result);
     }
   }
@@ -174,38 +246,85 @@ function dedupeResults(results: DpeSearchResult[]): DpeSearchResult[] {
   return [...byNumero.values()];
 }
 
-async function searchDpeByQuery(
-  query: string,
-  limit = 5
-): Promise<DpeSearchResult[]> {
-  const trimmed = query.trim();
-  if (!trimmed) return [];
-
-  const perDataset = Math.max(limit, 10);
-
-  const [recentLines, legacyLines] = await Promise.all([
-    fetchDataset<RecentDpeLine>(DATASETS.recent, trimmed, perDataset),
-    fetchDataset<LegacyDpeLine>(DATASETS.legacy, trimmed, perDataset),
-  ]);
-
-  const results = [
+function mapDatasetResults(
+  recentLines: RecentDpeLine[],
+  legacyLines: LegacyDpeLine[]
+): DpeSearchResult[] {
+  return [
     ...recentLines.map(mapRecentLine),
     ...legacyLines.map(mapLegacyLine),
   ].filter((result): result is DpeSearchResult => result !== null);
+}
 
-  return dedupeResults(results).sort(compareResults).slice(0, limit);
+async function searchDpeWithParams(
+  params: AdemeSearchParams
+): Promise<DpeSearchResult[]> {
+  const { recentLines, legacyLines } = await fetchBothDatasets(params);
+
+  if (recentLines.length === 0 && legacyLines.length === 0) {
+    return [];
+  }
+
+  return dedupeResults(mapDatasetResults(recentLines, legacyLines));
 }
 
 export async function searchDpeForProperty(
   property: PropertyRow,
   limit = 5
 ): Promise<{ query: string; candidates: RankedDpeSearchResult[] }> {
-  const query = buildDpeSearchQuery(property);
-  const raw = await searchDpeByQuery(query, 25);
+  const query = formatDpeSearchCriteria(property);
+  const variants = buildAdemeSearchParamVariants(property);
+
+  if (variants.length === 0) {
+    return { query, candidates: [] };
+  }
+
+  const rawByNumero = new Map<string, DpeSearchResult>();
+
+  for (const params of variants) {
+    const batch = await searchDpeWithParams(params);
+    for (const result of batch) {
+      const existing = rawByNumero.get(result.numeroDpe);
+      if (!existing || compareResults(result, existing) > 0) {
+        rawByNumero.set(result.numeroDpe, result);
+      }
+    }
+
+    const candidates = rankDpeCandidates(
+      property,
+      [...rawByNumero.values()],
+      limit
+    );
+    if (candidates.length > 0) {
+      return { query, candidates };
+    }
+  }
+
   return {
     query,
-    candidates: rankDpeCandidates(property, raw, limit),
+    candidates: rankDpeCandidates(property, [...rawByNumero.values()], limit),
   };
+}
+
+async function fetchDatasetPage<T>(
+  datasetId: string,
+  params: Record<string, string>,
+  limit: number
+): Promise<T[]> {
+  const url = new URL(`${BASE_URL}/${datasetId}/lines`);
+  url.searchParams.set("size", String(limit));
+  for (const [key, value] of Object.entries(params)) {
+    url.searchParams.set(key, value);
+  }
+
+  try {
+    const data = await ADEME_CLIENT.get(url.toString()).json<
+      DpeApiResponse<T>
+    >();
+    return data.results ?? [];
+  } catch {
+    return [];
+  }
 }
 
 export async function fetchDpeByNumero(
@@ -214,15 +333,13 @@ export async function fetchDpeByNumero(
   const query = numeroDpe.trim();
   if (!query) return null;
 
+  const searchParams = { q: query };
   const [recentLines, legacyLines] = await Promise.all([
-    fetchDataset<RecentDpeLine>(DATASETS.recent, query, 3),
-    fetchDataset<LegacyDpeLine>(DATASETS.legacy, query, 3),
+    fetchDatasetPage<RecentDpeLine>(DATASETS.recent, searchParams, 5),
+    fetchDatasetPage<LegacyDpeLine>(DATASETS.legacy, searchParams, 5),
   ]);
 
-  const results = [
-    ...recentLines.map(mapRecentLine),
-    ...legacyLines.map(mapLegacyLine),
-  ].filter((result): result is DpeSearchResult => result !== null);
+  const results = mapDatasetResults(recentLines, legacyLines);
 
   return (
     results.find(

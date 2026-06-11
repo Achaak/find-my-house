@@ -8,8 +8,6 @@ const LOCATION_URL =
 const CATEGORY_VENTES_IMMO = "9";
 const REAL_ESTATE_MAISON = "1";
 export const LEBONCOIN_PAGE_SIZE = 35;
-const MAX_PAGES = 50;
-
 const JSON_HEADERS = {
   Accept: "application/json",
   "Content-Type": "application/json",
@@ -224,18 +222,22 @@ async function fetchLeboncoinPage(
   }
 }
 
-export async function fetchAllLeboncoinAds(
-  body: LeboncoinSearchBody
+export async function fetchLeboncoinAds(
+  body: LeboncoinSearchBody,
+  maxPages = Number.POSITIVE_INFINITY
 ): Promise<LeboncoinAd[]> {
   const allAds: LeboncoinAd[] = [];
   let pivot = "";
   let lastPivot = "";
+  let pagesFetched = 0;
 
-  for (let page = 0; page < MAX_PAGES; page++) {
+  while (pagesFetched < maxPages) {
     const result = await fetchLeboncoinPage({
       ...body,
       pivot: pivot || undefined,
     });
+
+    pagesFetched += 1;
 
     if (!result.ads?.length) break;
 
@@ -248,6 +250,30 @@ export async function fetchAllLeboncoinAds(
   }
 
   return allAds;
+}
+
+const CLASSIFIED_URL = "https://api.leboncoin.fr/finder/classified";
+
+export async function fetchLeboncoinAdById(
+  listId: string
+): Promise<LeboncoinAd | null> {
+  try {
+    const ad = await got(`${CLASSIFIED_URL}/${listId}`, {
+      headers: JSON_HEADERS,
+    }).json<LeboncoinAd>();
+    return ad;
+  } catch (error) {
+    if (error instanceof HTTPError && error.response.statusCode === 404) {
+      return null;
+    }
+    if (error instanceof HTTPError) {
+      throw new Error(
+        `LeBonCoin annonce ${listId}: HTTP ${String(error.response.statusCode)}`,
+        { cause: error }
+      );
+    }
+    throw error;
+  }
 }
 
 export function getLeboncoinAttribute(

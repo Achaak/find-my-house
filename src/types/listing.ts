@@ -20,6 +20,8 @@ export type Listing = {
   propertyType: string | null;
   dpeClass: string | null;
   gesClass: string | null;
+  dpeConsumptionKwhM2: number | null;
+  gesEmissionKgM2: number | null;
   scrapedAt: string;
 };
 
@@ -52,6 +54,8 @@ export type PropertyRow = {
   propertyType: string | null;
   dpeClass: string | null;
   gesClass: string | null;
+  dpeConsumptionKwhM2: number | null;
+  gesEmissionKgM2: number | null;
   firstSeenAt: string;
   notifiedAt: string | null;
   publications: PublicationRow[];
@@ -61,9 +65,6 @@ export type PropertyRow = {
   createdAt: string;
   updatedAt: string;
 };
-
-/** @deprecated Alias kept for the Discord layer */
-export type ListingRow = PropertyRow;
 
 export type ListingSearchSort =
   | "price_asc"

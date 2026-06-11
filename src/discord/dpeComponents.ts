@@ -1,9 +1,9 @@
-import { MessageFlags } from "discord-api-types/v10";
 import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
   type ButtonInteraction,
+  MessageFlagsBitField,
 } from "discord.js";
 import type { ListingRepository } from "../db/listingRepository.js";
 import { fetchDpeByNumero } from "../utils/ademeDpeApi.js";
@@ -12,25 +12,37 @@ import type { RankedDpeSearchResult } from "../utils/dpePropertyMatch.js";
 const CONFIRM_PREFIX = "dpe:addr:";
 const REJECT_PREFIX = "dpe:none:";
 
-function truncateButtonLabel(index: number, address: string): string {
-  const prefix = `${String(index)}. `;
-  const maxLen = 80 - prefix.length;
-  const short =
-    address.length > maxLen ? `${address.slice(0, maxLen - 1)}…` : address;
-  return `${prefix}${short}`;
+function googleMapsUrl(candidate: RankedDpeSearchResult): string {
+  if (candidate.latitude !== null && candidate.longitude !== null) {
+    const query = `${String(candidate.latitude)},${String(candidate.longitude)}`;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+  }
+
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(candidate.address)}`;
 }
 
 export function buildDpeCandidateComponents(
   propertyId: number,
   candidates: RankedDpeSearchResult[]
 ) {
-  const candidateRow = new ActionRowBuilder<ButtonBuilder>();
+  const mapsRow = new ActionRowBuilder<ButtonBuilder>();
+  const confirmRow = new ActionRowBuilder<ButtonBuilder>();
+
   for (const [index, candidate] of candidates.entries()) {
-    candidateRow.addComponents(
+    const number = String(index + 1);
+    mapsRow.addComponents(
       new ButtonBuilder()
-        .setCustomId(`${CONFIRM_PREFIX}${String(propertyId)}:${candidate.numeroDpe}`)
-        .setLabel(truncateButtonLabel(index + 1, candidate.address))
-        .setStyle(ButtonStyle.Primary)
+        .setLabel(`🗺️ ${number}`)
+        .setStyle(ButtonStyle.Link)
+        .setURL(googleMapsUrl(candidate))
+    );
+    confirmRow.addComponents(
+      new ButtonBuilder()
+        .setCustomId(
+          `${CONFIRM_PREFIX}${String(propertyId)}:${candidate.numeroDpe}`
+        )
+        .setLabel(`✅ ${number}`)
+        .setStyle(ButtonStyle.Success)
     );
   }
 
@@ -41,12 +53,15 @@ export function buildDpeCandidateComponents(
       .setStyle(ButtonStyle.Secondary)
   );
 
-  return [candidateRow, rejectRow];
+  return [mapsRow, confirmRow, rejectRow];
 }
 
 function parseDpeButtonCustomId(
   customId: string
-): { propertyId: number; numeroDpe: string } | { propertyId: number; reject: true } | null {
+):
+  | { propertyId: number; numeroDpe: string }
+  | { propertyId: number; reject: true }
+  | null {
   if (customId.startsWith(CONFIRM_PREFIX)) {
     const payload = customId.slice(CONFIRM_PREFIX.length);
     const separator = payload.indexOf(":");
@@ -71,12 +86,6 @@ function parseDpeButtonCustomId(
   return null;
 }
 
-export function isDpeButtonCustomId(customId: string): boolean {
-  return (
-    customId.startsWith(CONFIRM_PREFIX) || customId.startsWith(REJECT_PREFIX)
-  );
-}
-
 export async function handleDpeButton(
   interaction: ButtonInteraction,
   repository: ListingRepository
@@ -84,7 +93,9 @@ export async function handleDpeButton(
   const parsed = parseDpeButtonCustomId(interaction.customId);
   if (!parsed) return false;
 
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  await interaction.deferReply({
+    flags: MessageFlagsBitField.Flags.Ephemeral,
+  });
 
   const property = await repository.findById(parsed.propertyId);
   if (!property) {
@@ -105,7 +116,7 @@ export async function handleDpeButton(
   const dpe = await fetchDpeByNumero(parsed.numeroDpe);
   if (!dpe) {
     await interaction.editReply(
-      `DPE **${parsed.numeroDpe}** introuvable. Relancez \`/dpe id:${String(parsed.propertyId)}\`.`
+      `DPE **${parsed.numeroDpe}** introuvable. Relancez \`/adresse id:${String(parsed.propertyId)}\`.`
     );
     return true;
   }

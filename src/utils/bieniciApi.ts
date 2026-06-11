@@ -57,6 +57,9 @@ type BienIciAdsPage<T> = {
 
 let cachedSession: GuestSession | null = null;
 
+const ZONE_MAX_ATTEMPTS = 4;
+const ZONE_BASE_DELAY_MS = 1500;
+
 const JSON_HEADERS = {
   Accept: "application/json",
   "Content-Type": "application/json",
@@ -118,17 +121,27 @@ function clearGuestSession(): void {
   cachedSession = null;
 }
 
-export async function computeBienIciTravelZone(
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function isRetryableZoneError(error: unknown): boolean {
+  if (!(error instanceof HTTPError)) return true;
+  const status = error.response.statusCode;
+  return status === 401 || status === 408 || status >= 500;
+}
+
+async function requestBienIciTravelZone(
   params: {
     center: GeoPoint;
     address: string;
     durationMinutes: number;
     mode?: "car";
   },
-  retried = false
+  session: GuestSession
 ): Promise<string> {
-  const session = await getGuestSession();
-
   let data: ZoneByTimeResponse;
 
   try {
@@ -146,20 +159,15 @@ export async function computeBienIciTravelZone(
           mode: params.mode ?? "car",
           accountId: session.accountId,
         },
+        retry: {
+          limit: 2,
+          methods: ["POST"],
+          statusCodes: [408, 413, 429, 500, 502, 503, 504, 521, 522, 524],
+        },
       })
       .json<ZoneByTimeResponse>();
   } catch (error) {
     if (error instanceof HTTPError) {
-      if (error.response.statusCode === 401) {
-        if (retried) {
-          throw new Error("BienIci zone-by-time: non autorisé", {
-            cause: error,
-          });
-        }
-        clearGuestSession();
-        return computeBienIciTravelZone(params, true);
-      }
-
       throw new Error(
         `BienIci zone-by-time: HTTP ${String(error.response.statusCode)}`,
         { cause: error }
@@ -168,6 +176,7 @@ export async function computeBienIciTravelZone(
 
     throw error;
   }
+
   const zoneId = data.zone?._id;
 
   if (!data.success || !zoneId) {
@@ -175,6 +184,33 @@ export async function computeBienIciTravelZone(
   }
 
   return zoneId;
+}
+
+export async function computeBienIciTravelZone(params: {
+  center: GeoPoint;
+  address: string;
+  durationMinutes: number;
+  mode?: "car";
+}): Promise<string> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= ZONE_MAX_ATTEMPTS; attempt++) {
+    try {
+      const session = await getGuestSession();
+      return await requestBienIciTravelZone(params, session);
+    } catch (error) {
+      lastError = error;
+
+      if (!isRetryableZoneError(error) || attempt === ZONE_MAX_ATTEMPTS) {
+        throw error;
+      }
+
+      clearGuestSession();
+      await sleep(ZONE_BASE_DELAY_MS * 2 ** (attempt - 1));
+    }
+  }
+
+  throw lastError;
 }
 
 async function fetchBienIciPage<T>(
@@ -200,12 +236,19 @@ async function fetchBienIciPage<T>(
   }
 }
 
-export async function fetchAllBienIciAds<T extends { id: string }>(
-  filters: BienIciSearchFilters
+export async function fetchBienIciAds<T extends { id: string }>(
+  filters: BienIciSearchFilters,
+  maxPages = Number.POSITIVE_INFINITY
 ): Promise<T[]> {
   const firstPage = await fetchBienIciPage<T>(filters, 1);
   const allAds = [...firstPage.realEstateAds];
-  const totalPages = Math.ceil(firstPage.total / BIENICI_PAGE_SIZE);
+
+  if (maxPages <= 1) return allAds;
+
+  const totalPages = Math.min(
+    maxPages,
+    Math.ceil(firstPage.total / BIENICI_PAGE_SIZE)
+  );
 
   for (let page = 2; page <= totalPages; page++) {
     const data = await fetchBienIciPage<T>(filters, page);
@@ -215,9 +258,45 @@ export async function fetchAllBienIciAds<T extends { id: string }>(
   return allAds;
 }
 
+export async function fetchBienIciAdById<T extends { id: string }>(
+  id: string
+): Promise<T | null> {
+  const filters = {
+    size: 1,
+    from: 0,
+    page: 1,
+    filterType: "buy",
+    propertyType: ["house", "flat", "loft", "castle", "townhouse", "villa"],
+    sortBy: "relevance",
+    sortOrder: "desc",
+    onTheMarket: [true],
+    zoneIdsByTypes: {},
+    id,
+  } satisfies BienIciSearchFilters & { id: string };
+
+  const url = `${ADS_URL}?filters=${encodeURIComponent(JSON.stringify(filters))}`;
+  try {
+    const page = await got(url, {
+      headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" },
+    }).json<BienIciAdsPage<T>>();
+    return page.realEstateAds[0] ?? null;
+  } catch (error) {
+    if (error instanceof HTTPError) {
+      throw new Error(
+        `BienIci annonce ${id}: HTTP ${String(error.response.statusCode)}`,
+        { cause: error }
+      );
+    }
+    throw error;
+  }
+}
+
 export async function fetchBienIciExternalIds(
   filters: BienIciSearchFilters
 ): Promise<Set<string>> {
-  const allAds = await fetchAllBienIciAds<{ id: string }>(filters);
+  const allAds = await fetchBienIciAds<{ id: string }>(
+    filters,
+    Number.POSITIVE_INFINITY
+  );
   return new Set(allAds.map((ad) => ad.id));
 }

@@ -1,7 +1,11 @@
 import { REST } from "@discordjs/rest";
 import { GatewayIntentBits } from "discord-api-types/gateway/v10";
-import { MessageFlags } from "discord-api-types/v10";
-import { Client, Events } from "discord.js";
+import {
+  Client,
+  Events,
+  MessageFlagsBitField,
+  type InteractionReplyOptions,
+} from "discord.js";
 import { Routes } from "discord-api-types/rest/v10";
 import type { ListingRepository } from "../db/listingRepository.js";
 import type { ReactionRepository } from "../db/reactionRepository.js";
@@ -63,21 +67,18 @@ export async function startDiscordBot(options: BotOptions): Promise<Client> {
               interaction,
               options.repository,
               options.reactionRepository
-            )) ||
-            (await handleDpeButton(interaction, options.repository));
+            )) || (await handleDpeButton(interaction, options.repository));
           if (!handled) {
-            console.warn(
-              `[discord] Bouton non géré : ${interaction.customId}`
-            );
+            console.warn(`[discord] Bouton non géré : ${interaction.customId}`);
           }
         }
       } catch (error) {
         console.error("[discord] Erreur interaction:", error);
         if (!interaction.isRepliable()) return;
 
-        const reply = {
+        const reply: InteractionReplyOptions = {
           content: "Une erreur est survenue.",
-          flags: MessageFlags.Ephemeral as const,
+          flags: MessageFlagsBitField.Flags.Ephemeral,
         };
         try {
           if (interaction.replied || interaction.deferred) {

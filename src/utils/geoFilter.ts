@@ -28,6 +28,12 @@ export function resolveGeoFilter(
   return { mode: "city" };
 }
 
+/** Rough driving radius (km) when Bien'ici travel-time API is unavailable. */
+export function estimateDrivingRadiusKm(travelMinutes: number): number {
+  const AVG_SPEED_KMH = 50;
+  return (travelMinutes / 60) * AVG_SPEED_KMH;
+}
+
 export function geoFilterLabel(filter: GeoFilter): string {
   if (filter.mode === "travel") {
     return `${String(filter.maxTravelMinutes)} min en voiture`;

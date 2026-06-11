@@ -27,8 +27,10 @@ model Property {
   description   String?
   imageUrl      String?   @map("image_url")
   propertyType  String?   @map("property_type")
-  dpeClass      String?   @map("dpe_class")
-  gesClass      String?   @map("ges_class")
+  dpeClass             String? @map("dpe_class")
+  gesClass             String? @map("ges_class")
+  dpeConsumptionKwhM2  Float?  @map("dpe_consumption_kwh_m2")
+  gesEmissionKgM2      Float?  @map("ges_emission_kg_m2")
   firstSeenAt   DateTime  @map("first_seen_at")
   notifiedAt    DateTime? @map("notified_at")
   createdAt     DateTime  @default(now()) @map("created_at")
