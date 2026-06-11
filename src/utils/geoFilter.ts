@@ -83,13 +83,8 @@ export function resolveRadiusSearchFilter(
   return null;
 }
 
-/** Rough driving radius (km) when Bien'ici travel-time API is unavailable. */
+/** Rough driving radius (km) when isochrone APIs are unavailable. */
 export function travelTimeRadiusKm(travelMinutes: number): number {
-  return estimateDrivingRadiusKm(travelMinutes);
-}
-
-/** @deprecated Use travelTimeRadiusKm */
-export function estimateDrivingRadiusKm(travelMinutes: number): number {
   const AVG_SPEED_KMH = 50;
   return (travelMinutes / 60) * AVG_SPEED_KMH;
 }

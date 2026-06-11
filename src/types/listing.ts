@@ -91,6 +91,16 @@ export type ListingSearchFilters = {
   limit?: number;
 };
 
+/** Shared listing filters across portal APIs (BienIci, Leboncoin, SeLoger). */
+export type PortalListingCriteria = {
+  maxPrice?: number;
+  minSurface?: number;
+  minLandSurface?: number;
+  minRooms?: number;
+  minBedrooms?: number;
+  ancienOnly?: boolean;
+};
+
 export type ScrapeFilters = {
   city: string;
   maxPrice: number;

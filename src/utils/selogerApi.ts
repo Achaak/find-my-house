@@ -8,7 +8,9 @@ import {
 import type { GeoPoint } from "./geo.js";
 import { bboxCenter } from "./geo.js";
 import { resolveBienIciTravelOrigin } from "./geocode.js";
-import { estimateDrivingRadiusKm, type GeoFilter } from "./geoFilter.js";
+import { travelTimeRadiusKm, type GeoFilter } from "./geoFilter.js";
+import { wrapHttpError } from "./httpError.js";
+import type { PortalListingCriteria } from "../types/listing.js";
 
 const BASE_URL = "https://www.seloger.com";
 const IMAGE_BASE_URL = "https://v.seloger.com/s/width/800";
@@ -63,15 +65,6 @@ function getSeLogerHeaders(
 
   return { ...base, ...extra };
 }
-
-export type SeLogerListingCriteria = {
-  maxPrice?: number;
-  minSurface?: number;
-  minLandSurface?: number;
-  minRooms?: number;
-  minBedrooms?: number;
-  ancienOnly?: boolean;
-};
 
 export type SeLogerPlace = {
   name: string;
@@ -260,7 +253,7 @@ export async function buildSeLogerLocation(
       );
     }
 
-    const radiusKm = estimateDrivingRadiusKm(geoFilter.maxTravelMinutes);
+    const radiusKm = travelTimeRadiusKm(geoFilter.maxTravelMinutes);
     console.warn(
       `[seloger] point STRT indisponible pour "${city}", repli sur rayon estimé (~${String(Math.round(radiusKm))} km)`
     );
@@ -275,7 +268,7 @@ export async function buildSeLogerLocation(
 }
 
 export function buildSeLogerSearchUrl(
-  criteria: SeLogerListingCriteria,
+  criteria: PortalListingCriteria,
   location: string,
   page = 1
 ): string {
@@ -542,13 +535,7 @@ async function fetchSeLogerSearchPage(url: string): Promise<string> {
     if (error instanceof HTTPError && error.response.statusCode === 403) {
       throw new SeLogerAccessBlockedError();
     }
-    if (error instanceof HTTPError) {
-      throw new Error(`SeLoger: HTTP ${String(error.response.statusCode)}`, {
-        cause: error,
-      });
-    }
-
-    throw error;
+    wrapHttpError("SeLoger", error);
   }
 }
 

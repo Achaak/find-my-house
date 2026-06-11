@@ -1,5 +1,7 @@
 import got, { HTTPError } from "got";
+import type { PortalListingCriteria } from "../types/listing.js";
 import type { GeoPoint } from "./geo.js";
+import { wrapHttpError } from "./httpError.js";
 
 const SEARCH_URL = "https://api.leboncoin.fr/finder/search";
 const LOCATION_URL =
@@ -16,15 +18,6 @@ const JSON_HEADERS = {
     "LBC;iOS;16.4.1;iPhone;phone;AFACB532-200B-476A-98B3-B2346A97EA54;wifi;6.102.0;24.32.1930",
   "Accept-Language": "fr-FR,fr;q=0.9",
 } as const;
-
-export type LeboncoinListingCriteria = {
-  maxPrice?: number;
-  minSurface?: number;
-  minLandSurface?: number;
-  minRooms?: number;
-  minBedrooms?: number;
-  ancienOnly?: boolean;
-};
 
 export type LeboncoinLocation = {
   locationType: string;
@@ -154,7 +147,7 @@ export function buildLeboncoinAreaLocation(
 }
 
 export function buildLeboncoinSearchBody(
-  criteria: LeboncoinListingCriteria,
+  criteria: PortalListingCriteria,
   location: LeboncoinLocation
 ): LeboncoinSearchBody {
   const enums: Record<string, string[]> = {
@@ -212,14 +205,7 @@ async function fetchLeboncoinPage(
       })
       .json<LeboncoinSearchResult>();
   } catch (error) {
-    if (error instanceof HTTPError) {
-      throw new Error(
-        `LeBonCoin API: HTTP ${String(error.response.statusCode)}`,
-        { cause: error }
-      );
-    }
-
-    throw error;
+    wrapHttpError("LeBonCoin API", error);
   }
 }
 
@@ -267,13 +253,7 @@ export async function fetchLeboncoinAdById(
     if (error instanceof HTTPError && error.response.statusCode === 404) {
       return null;
     }
-    if (error instanceof HTTPError) {
-      throw new Error(
-        `LeBonCoin annonce ${listId}: HTTP ${String(error.response.statusCode)}`,
-        { cause: error }
-      );
-    }
-    throw error;
+    wrapHttpError(`LeBonCoin annonce ${listId}`, error);
   }
 }
 

@@ -1,5 +1,7 @@
 import got, { HTTPError } from "got";
+import type { PortalListingCriteria } from "../types/listing.js";
 import type { GeoPoint } from "./geo.js";
+import { wrapHttpError } from "./httpError.js";
 
 const AUTH_URL =
   "https://account.bienici.com/autoAuthenticate?createGuestAccountOnFailure";
@@ -10,15 +12,6 @@ export const BIENICI_PAGE_SIZE = 24;
 export type BienIciZoneIdsByTypes = {
   zoneIds?: string[];
   travelTimeZone?: string[];
-};
-
-export type BienIciListingCriteria = {
-  maxPrice?: number;
-  minSurface?: number;
-  minLandSurface?: number;
-  minRooms?: number;
-  minBedrooms?: number;
-  ancienOnly?: boolean;
 };
 
 export type BienIciSearchFilters = {
@@ -67,7 +60,7 @@ const JSON_HEADERS = {
 } as const;
 
 export function buildBienIciSearchFilters(
-  criteria: BienIciListingCriteria,
+  criteria: PortalListingCriteria,
   zoneIdsByTypes: BienIciZoneIdsByTypes
 ): BienIciSearchFilters {
   const filters: BienIciSearchFilters = {
@@ -167,14 +160,7 @@ async function requestBienIciTravelZone(
       })
       .json<ZoneByTimeResponse>();
   } catch (error) {
-    if (error instanceof HTTPError) {
-      throw new Error(
-        `BienIci zone-by-time: HTTP ${String(error.response.statusCode)}`,
-        { cause: error }
-      );
-    }
-
-    throw error;
+    wrapHttpError("BienIci zone-by-time", error);
   }
 
   const zoneId = data.zone?._id;
@@ -225,14 +211,7 @@ async function fetchBienIciPage<T>(
       headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" },
     }).json<BienIciAdsPage<T>>();
   } catch (error) {
-    if (error instanceof HTTPError) {
-      throw new Error(
-        `BienIci API page ${String(page)}: HTTP ${String(error.response.statusCode)}`,
-        { cause: error }
-      );
-    }
-
-    throw error;
+    wrapHttpError(`BienIci API page ${String(page)}`, error);
   }
 }
 
@@ -281,12 +260,6 @@ export async function fetchBienIciAdById<T extends { id: string }>(
     }).json<BienIciAdsPage<T>>();
     return page.realEstateAds[0] ?? null;
   } catch (error) {
-    if (error instanceof HTTPError) {
-      throw new Error(
-        `BienIci annonce ${id}: HTTP ${String(error.response.statusCode)}`,
-        { cause: error }
-      );
-    }
-    throw error;
+    wrapHttpError(`BienIci annonce ${id}`, error);
   }
 }

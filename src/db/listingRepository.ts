@@ -7,7 +7,7 @@ import type {
   ScrapeResult,
   UpsertStatus,
 } from "../types/listing.js";
-import type { PropertyEnrichmentPatch } from "../services/enrichmentService.js";
+import type { PropertyEnrichmentPatch } from "../types/enrichment.js";
 import { toPropertyRow } from "./listingMapper.js";
 import {
   haversineDistanceKm,
@@ -274,10 +274,7 @@ export class ListingRepository {
       if (!filters.city) return [];
       const searchCenter = await resolveGeoSearchCenter(filters.city);
       if (!searchCenter) return [];
-      radiusFilter = resolveRadiusSearchFilter(
-        geoFilter,
-        searchCenter.center
-      );
+      radiusFilter = resolveRadiusSearchFilter(geoFilter, searchCenter.center);
     }
 
     const textFilter = filters.text?.trim();

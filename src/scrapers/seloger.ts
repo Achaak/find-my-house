@@ -1,18 +1,13 @@
 import type { Listing } from "../types/listing.js";
 import { resolveGeoFilter } from "../utils/geoFilter.js";
+import { mapSeLogerCardToListing } from "../utils/mappers/seloger.js";
 import {
   applySeLogerSearchMetadata,
-  buildSeLogerImageUrl,
-  buildSeLogerListingUrl,
   buildSeLogerLocation,
   buildSeLogerSearchUrl,
   fetchSeLogerClassifieds,
-  parseSeLogerBedrooms,
-  parseSeLogerPrice,
   resolveSeLogerPlace,
-  type SeLogerClassifiedCard,
 } from "../utils/selogerApi.js";
-import { normalizeEnergyClass } from "../utils/energyClass.js";
 import type { Scraper, ScraperOptions } from "./types.js";
 
 export class SeLogerScraper implements Scraper {
@@ -35,38 +30,8 @@ export class SeLogerScraper implements Scraper {
     );
     const scrapedAt = new Date().toISOString();
 
-    return cards.map((card) => this.mapCard(card, scrapedAt, place.name));
-  }
-
-  private mapCard(
-    card: SeLogerClassifiedCard,
-    scrapedAt: string,
-    fallbackCity: string
-  ): Listing {
-    return {
-      externalId: String(card.id),
-      source: "seloger",
-      title: card.title ?? card.estateType ?? "Maison",
-      price: parseSeLogerPrice(card.pricing),
-      surface: card.surface ?? null,
-      landSurface: null,
-      rooms: card.rooms ?? null,
-      bedrooms: parseSeLogerBedrooms(card),
-      isNewProperty:
-        card.isNew === true ? true : card.isNew === false ? false : null,
-      latitude: null,
-      longitude: null,
-      city: card.cityLabel ?? fallbackCity,
-      postalCode: card.zipCode ?? null,
-      url: buildSeLogerListingUrl(card),
-      description: card.description ?? null,
-      imageUrl: buildSeLogerImageUrl(card.photos?.[0]),
-      propertyType: card.estateType ?? null,
-      dpeClass: normalizeEnergyClass(card.energyClass),
-      gesClass: normalizeEnergyClass(card.gesClass),
-      dpeConsumptionKwhM2: card.dpeConsumptionKwhM2 ?? null,
-      gesEmissionKgM2: card.gesEmissionKgM2 ?? null,
-      scrapedAt,
-    };
+    return cards.map((card) =>
+      mapSeLogerCardToListing(card, scrapedAt, place.name)
+    );
   }
 }

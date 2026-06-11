@@ -1,4 +1,5 @@
 import type { ListingRepository } from "../db/listingRepository.js";
+import type { PropertyEnrichmentPatch } from "../types/enrichment.js";
 import type {
   ListingSource,
   PropertyRow,
@@ -6,34 +7,18 @@ import type {
 } from "../types/listing.js";
 import { fetchBienIciAdById } from "../utils/bieniciApi.js";
 import { normalizeEnergyClass } from "../utils/energyClass.js";
+import { fetchLeboncoinAdById } from "../utils/leboncoinApi.js";
 import {
-  mergeEnergyMetrics,
-  parseEnergyMetricsFromText,
-} from "../utils/energyMetrics.js";
-import {
-  fetchLeboncoinAdById,
-  getLeboncoinAttribute,
-  parseLeboncoinNumber,
-} from "../utils/leboncoinApi.js";
+  mapBienIciAdToEnrichmentPatch,
+  type BienIciAd,
+} from "../utils/mappers/bienici.js";
+import { mapLeboncoinAdToEnrichmentPatch } from "../utils/mappers/leboncoin.js";
 import {
   fetchSeLogerListingDetails,
   SeLogerAccessBlockedError,
 } from "../utils/selogerApi.js";
 
-export type PropertyEnrichmentPatch = {
-  description?: string | null;
-  surface?: number | null;
-  landSurface?: number | null;
-  rooms?: number | null;
-  bedrooms?: number | null;
-  latitude?: number | null;
-  longitude?: number | null;
-  imageUrl?: string | null;
-  dpeClass?: string | null;
-  gesClass?: string | null;
-  dpeConsumptionKwhM2?: number | null;
-  gesEmissionKgM2?: number | null;
-};
+export type { PropertyEnrichmentPatch } from "../types/enrichment.js";
 
 export type EnrichmentResult = {
   patch: PropertyEnrichmentPatch;
@@ -63,24 +48,6 @@ export function propertyNeedsEnrichment(
     property.description === null
   );
 }
-
-type BienIciAd = {
-  id: string;
-  description?: string;
-  surfaceArea?: number;
-  landSurfaceArea?: number;
-  roomsQuantity?: number;
-  bedroomsQuantity?: number;
-  blurInfo?: {
-    position?: { lat: number; lon: number };
-    centroid?: { lat: number; lon: number };
-  };
-  photos?: { url_photo: string }[];
-  energyClassification?: string;
-  greenhouseGazClassification?: string;
-  energyConsumption?: number;
-  greenhouseGazConsumption?: number;
-};
 
 const SOURCE_PRIORITY: ListingSource[] = ["seloger", "bienici", "leboncoin"];
 
@@ -113,29 +80,7 @@ async function enrichFromBienIci(
   const ad = await fetchBienIciAdById<BienIciAd>(publication.externalId);
   if (!ad) return {};
 
-  const position = ad.blurInfo?.position ?? ad.blurInfo?.centroid;
-  const metrics = mergeEnergyMetrics(
-    {
-      dpeConsumptionKwhM2: ad.energyConsumption ?? null,
-      gesEmissionKgM2: ad.greenhouseGazConsumption ?? null,
-    },
-    parseEnergyMetricsFromText(ad.description)
-  );
-
-  return pickDefined({
-    description: ad.description ?? null,
-    surface: ad.surfaceArea ?? null,
-    landSurface: ad.landSurfaceArea ?? null,
-    rooms: ad.roomsQuantity ?? null,
-    bedrooms: ad.bedroomsQuantity ?? null,
-    latitude: position?.lat ?? null,
-    longitude: position?.lon ?? null,
-    imageUrl: ad.photos?.[0]?.url_photo ?? null,
-    dpeClass: normalizeEnergyClass(ad.energyClassification),
-    gesClass: normalizeEnergyClass(ad.greenhouseGazClassification),
-    dpeConsumptionKwhM2: metrics.dpeConsumptionKwhM2,
-    gesEmissionKgM2: metrics.gesEmissionKgM2,
-  });
+  return pickDefined(mapBienIciAdToEnrichmentPatch(ad));
 }
 
 async function enrichFromLeboncoin(
@@ -144,38 +89,7 @@ async function enrichFromLeboncoin(
   const ad = await fetchLeboncoinAdById(publication.externalId);
   if (!ad) return {};
 
-  const metrics = mergeEnergyMetrics(
-    {
-      dpeConsumptionKwhM2:
-        parseLeboncoinNumber(getLeboncoinAttribute(ad, "energy_consumption")) ??
-        parseLeboncoinNumber(getLeboncoinAttribute(ad, "dpe_consumption")),
-      gesEmissionKgM2:
-        parseLeboncoinNumber(getLeboncoinAttribute(ad, "ges_emission")) ??
-        parseLeboncoinNumber(getLeboncoinAttribute(ad, "ghg_emission")),
-    },
-    parseEnergyMetricsFromText(ad.body)
-  );
-
-  return pickDefined({
-    description: ad.body,
-    surface: parseLeboncoinNumber(getLeboncoinAttribute(ad, "square")),
-    landSurface: parseLeboncoinNumber(
-      getLeboncoinAttribute(ad, "land_plot_surface")
-    ),
-    rooms: parseLeboncoinNumber(getLeboncoinAttribute(ad, "rooms")),
-    bedrooms: parseLeboncoinNumber(getLeboncoinAttribute(ad, "bedrooms")),
-    latitude: ad.location.lat,
-    longitude: ad.location.lng,
-    imageUrl:
-      ad.images?.urls_large?.[0] ??
-      ad.images?.urls?.[0] ??
-      ad.images?.thumb_url ??
-      null,
-    dpeClass: normalizeEnergyClass(getLeboncoinAttribute(ad, "energy_rate")),
-    gesClass: normalizeEnergyClass(getLeboncoinAttribute(ad, "ges")),
-    dpeConsumptionKwhM2: metrics.dpeConsumptionKwhM2,
-    gesEmissionKgM2: metrics.gesEmissionKgM2,
-  });
+  return pickDefined(mapLeboncoinAdToEnrichmentPatch(ad));
 }
 
 async function enrichFromPublication(
