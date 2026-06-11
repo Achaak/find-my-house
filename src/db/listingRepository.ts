@@ -1,4 +1,8 @@
-import type { PrismaClient } from "../generated/prisma/client.js";
+import type {
+  ListingPublication as PrismaPublication,
+  PrismaClient,
+  Property as PrismaProperty,
+} from "../generated/prisma/client.js";
 import type {
   ExtendedScrapeResult,
   Listing,
@@ -22,6 +26,20 @@ import { resolveGeoSearchCenter } from "../utils/geocode.js";
 import { computePropertyKey } from "../utils/propertyKey.js";
 
 const propertyInclude = { publications: true } as const;
+
+type PropertyWithPublications = PrismaProperty & {
+  publications: PrismaPublication[];
+};
+
+type PublicationWithProperty = PrismaPublication & {
+  property: PropertyWithPublications;
+};
+
+type PendingPropertyCreate = {
+  listing: Listing;
+  scrapedAt: Date;
+  extraPublications: { listing: Listing; scrapedAt: Date }[];
+};
 
 function searchOrderBy(
   sort: ListingSearchFilters["sort"]
@@ -209,6 +227,63 @@ export class ListingRepository {
   }
 
   async upsertMany(listings: Listing[]): Promise<ExtendedScrapeResult> {
+    if (listings.length === 0) {
+      return {
+        found: 0,
+        inserted: 0,
+        linked: 0,
+        updated: 0,
+        skipped: 0,
+        insertedListings: [],
+        priceDropListings: [],
+      };
+    }
+
+    const enriched = listings.map((listing) => ({
+      listing,
+      propertyKey: computePropertyKey(listing),
+      scrapedAt: new Date(listing.scrapedAt),
+    }));
+    const propertyKeys = [
+      ...new Set(enriched.map((entry) => entry.propertyKey)),
+    ];
+
+    const [existingPublications, existingProperties] = await Promise.all([
+      this.prisma.listingPublication.findMany({
+        where: {
+          OR: [
+            ...listings.map((listing) => ({
+              source: listing.source,
+              externalId: listing.externalId,
+            })),
+            ...listings.map((listing) => ({ url: listing.url })),
+          ],
+        },
+        include: { property: { include: propertyInclude } },
+      }),
+      this.prisma.property.findMany({
+        where: { propertyKey: { in: propertyKeys } },
+        include: propertyInclude,
+      }),
+    ]);
+
+    const publicationBySourceExternalId = new Map<
+      string,
+      PublicationWithProperty
+    >();
+    const publicationByUrl = new Map<string, PublicationWithProperty>();
+    for (const publication of existingPublications) {
+      publicationBySourceExternalId.set(
+        `${publication.source}:${publication.externalId}`,
+        publication
+      );
+      publicationByUrl.set(publication.url, publication);
+    }
+
+    const propertyByKey = new Map(
+      existingProperties.map((property) => [property.propertyKey, property])
+    );
+
     const result: ScrapeResult = {
       found: listings.length,
       inserted: 0,
@@ -216,34 +291,172 @@ export class ListingRepository {
       updated: 0,
       skipped: 0,
     };
-    const insertedListings: PropertyRow[] = [];
-    const priceDropListings: PropertyRow[] = [];
+    const propertyUpdatesById = new Map<number, Listing>();
+    const publicationScrapedAtById = new Map<number, Date>();
+    const pendingPropertyCreates = new Map<string, PendingPropertyCreate>();
+    const linkedPublications: {
+      propertyId: number;
+      listing: Listing;
+      scrapedAt: Date;
+    }[] = [];
+    const insertedPropertyIds: number[] = [];
+    const priceDropPropertyIds = new Set<number>();
 
-    const insertedIds: number[] = [];
-    const priceDropIds = new Set<number>();
+    const findExistingPublication = (
+      listing: Listing
+    ): PublicationWithProperty | undefined =>
+      publicationBySourceExternalId.get(
+        `${listing.source}:${listing.externalId}`
+      ) ?? publicationByUrl.get(listing.url);
 
-    for (const listing of listings) {
-      const { status, row, priceDropped } = await this.upsert(listing);
-      result[status]++;
-      if (status === "inserted" && row) {
-        insertedIds.push(row.id);
+    for (const { listing, propertyKey, scrapedAt } of enriched) {
+      const existingPublication = findExistingPublication(listing);
+
+      if (existingPublication) {
+        const property = existingPublication.property;
+        const propertyChanged = hasPropertyChanges(property, listing);
+        const scrapedAtChanged =
+          existingPublication.scrapedAt.getTime() !== scrapedAt.getTime();
+
+        if (!propertyChanged && !scrapedAtChanged) {
+          result.skipped++;
+          continue;
+        }
+
+        if (propertyChanged) {
+          propertyUpdatesById.set(property.id, listing);
+        }
+        if (scrapedAtChanged) {
+          publicationScrapedAtById.set(existingPublication.id, scrapedAt);
+        }
+
+        result.updated++;
+        if (
+          propertyChanged &&
+          isPriceDrop(property.price, listing.price, property.firstPrice)
+        ) {
+          priceDropPropertyIds.add(property.id);
+        }
+        continue;
       }
-      if (priceDropped && row) {
-        priceDropIds.add(row.id);
+
+      const pendingCreate = pendingPropertyCreates.get(propertyKey);
+      if (pendingCreate) {
+        pendingCreate.extraPublications.push({ listing, scrapedAt });
+        if (hasPropertyChanges(pendingCreate.listing, listing)) {
+          pendingCreate.listing = listing;
+        }
+        result.linked++;
+        continue;
       }
+
+      const existingProperty = propertyByKey.get(propertyKey);
+      if (existingProperty) {
+        linkedPublications.push({
+          propertyId: existingProperty.id,
+          listing,
+          scrapedAt,
+        });
+
+        if (hasPropertyChanges(existingProperty, listing)) {
+          propertyUpdatesById.set(existingProperty.id, listing);
+          if (
+            isPriceDrop(
+              existingProperty.price,
+              listing.price,
+              existingProperty.firstPrice
+            )
+          ) {
+            priceDropPropertyIds.add(existingProperty.id);
+          }
+        }
+
+        result.linked++;
+        continue;
+      }
+
+      pendingPropertyCreates.set(propertyKey, {
+        listing,
+        scrapedAt,
+        extraPublications: [],
+      });
+      result.inserted++;
     }
 
-    if (insertedIds.length > 0) {
-      const refreshed = await this.findByIds(insertedIds);
-      insertedListings.push(...refreshed);
-    }
+    await this.prisma.$transaction(async (tx) => {
+      for (const [propertyId, listing] of propertyUpdatesById) {
+        await tx.property.update({
+          where: { id: propertyId },
+          data: toPropertyData(listing),
+        });
+      }
 
-    if (priceDropIds.size > 0) {
-      const refreshed = await this.findByIds([...priceDropIds]);
-      priceDropListings.push(...refreshed);
-    }
+      for (const [publicationId, nextScrapedAt] of publicationScrapedAtById) {
+        await tx.listingPublication.update({
+          where: { id: publicationId },
+          data: { scrapedAt: nextScrapedAt },
+        });
+      }
 
-    return { ...result, insertedListings, priceDropListings };
+      for (const [propertyKey, pending] of pendingPropertyCreates) {
+        const row = await tx.property.create({
+          data: {
+            propertyKey,
+            ...toPropertyData(pending.listing),
+            firstPrice: pending.listing.price,
+            firstSeenAt: pending.scrapedAt,
+            publications: {
+              create: [
+                {
+                  externalId: pending.listing.externalId,
+                  source: pending.listing.source,
+                  url: pending.listing.url,
+                  scrapedAt: pending.scrapedAt,
+                },
+                ...pending.extraPublications.map((publication) => ({
+                  externalId: publication.listing.externalId,
+                  source: publication.listing.source,
+                  url: publication.listing.url,
+                  scrapedAt: publication.scrapedAt,
+                })),
+              ],
+            },
+          },
+        });
+        insertedPropertyIds.push(row.id);
+      }
+
+      for (const link of linkedPublications) {
+        await tx.listingPublication.create({
+          data: {
+            propertyId: link.propertyId,
+            externalId: link.listing.externalId,
+            source: link.listing.source,
+            url: link.listing.url,
+            scrapedAt: link.scrapedAt,
+          },
+        });
+      }
+    });
+
+    const idsToRefresh = [
+      ...new Set([...insertedPropertyIds, ...priceDropPropertyIds]),
+    ];
+    const refreshedById = new Map(
+      (idsToRefresh.length > 0 ? await this.findByIds(idsToRefresh) : []).map(
+        (row) => [row.id, row]
+      )
+    );
+
+    return {
+      ...result,
+      insertedListings: insertedPropertyIds
+        .map((id) => refreshedById.get(id))
+        .filter((row): row is PropertyRow => row !== undefined),
+      priceDropListings: [...priceDropPropertyIds]
+        .map((id) => refreshedById.get(id))
+        .filter((row): row is PropertyRow => row !== undefined),
+    };
   }
 
   async markNotified(propertyIds: number[]): Promise<void> {
