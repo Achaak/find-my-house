@@ -1,4 +1,5 @@
 import type { ListingSource, PropertyRow } from "../types/listing.js";
+import { formatEnergyClasses } from "../utils/energyClass.js";
 
 const SOURCE_LABELS: Record<ListingSource, string> = {
   bienici: "Bien'ici",
@@ -45,6 +46,7 @@ export function formatPublicationLinks(property: PropertyRow): string {
 }
 
 export function formatListing(property: PropertyRow): string {
+  const energyLabel = formatEnergyClasses(property.dpeClass, property.gesClass);
   const parts = [
     `**#${String(property.id)}** — ${property.title}`,
     formatPriceDrop(property) ?? `💰 ${formatPrice(property.price)}`,
@@ -54,6 +56,7 @@ export function formatListing(property: PropertyRow): string {
       : null,
     property.rooms ? `🛏️ ${String(property.rooms)} pièces` : null,
     property.bedrooms ? `🛌 ${String(property.bedrooms)} chambres` : null,
+    energyLabel ? `⚡ ${energyLabel}` : null,
     property.isNewProperty === false
       ? "🏠 Ancien"
       : property.isNewProperty === true
@@ -69,6 +72,7 @@ export function formatListing(property: PropertyRow): string {
 
 export function formatListingEmbed(property: PropertyRow) {
   const priceDrop = formatPriceDrop(property);
+  const energyLabel = formatEnergyClasses(property.dpeClass, property.gesClass);
 
   return {
     title: property.title,
@@ -82,6 +86,7 @@ export function formatListingEmbed(property: PropertyRow) {
         : null,
       property.rooms ? `**Pièces:** ${String(property.rooms)}` : null,
       property.bedrooms ? `**Chambres:** ${String(property.bedrooms)}` : null,
+      energyLabel ? `**Énergie:** ${energyLabel}` : null,
       property.isNewProperty === false
         ? "**État:** Ancien"
         : property.isNewProperty === true

@@ -18,6 +18,8 @@ export type Listing = {
   description: string | null;
   imageUrl: string | null;
   propertyType: string | null;
+  dpeClass: string | null;
+  gesClass: string | null;
   scrapedAt: string;
 };
 
@@ -46,6 +48,8 @@ export type PropertyRow = {
   description: string | null;
   imageUrl: string | null;
   propertyType: string | null;
+  dpeClass: string | null;
+  gesClass: string | null;
   firstSeenAt: string;
   notifiedAt: string | null;
   publications: PublicationRow[];

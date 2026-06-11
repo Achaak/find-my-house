@@ -78,6 +78,8 @@ export type SeLogerClassifiedCard = {
   photos?: string[];
   classifiedURL?: string;
   tags?: string[];
+  energyClass?: string;
+  gesClass?: string;
 };
 
 type SeLogerSearchResponse = {
@@ -109,6 +111,8 @@ type SeLogerClassifiedData = {
     nbbedroom?: number;
   };
   tags?: { isNew?: boolean };
+  energyClass?: string;
+  gesClass?: string;
   url?: string;
 };
 
@@ -329,6 +333,8 @@ function mapClassifiedDataToCard(
     photos,
     classifiedURL: data.url,
     tags: data.hardFacts?.keyfacts,
+    energyClass: data.energyClass,
+    gesClass: data.gesClass,
   };
 }
 

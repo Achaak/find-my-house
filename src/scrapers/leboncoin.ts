@@ -9,6 +9,7 @@ import {
   resolveLeboncoinPlace,
   type LeboncoinAd,
 } from "../utils/leboncoinApi.js";
+import { normalizeEnergyClass } from "../utils/energyClass.js";
 import type { Scraper, ScraperOptions } from "./types.js";
 
 export class LeboncoinScraper implements Scraper {
@@ -72,6 +73,8 @@ export class LeboncoinScraper implements Scraper {
         ad.images?.thumb_url ??
         null,
       propertyType,
+      dpeClass: normalizeEnergyClass(getLeboncoinAttribute(ad, "energy_rate")),
+      gesClass: normalizeEnergyClass(getLeboncoinAttribute(ad, "ges")),
       scrapedAt,
     };
   }

@@ -11,6 +11,7 @@ import {
   resolveSeLogerPlace,
   type SeLogerClassifiedCard,
 } from "../utils/selogerApi.js";
+import { normalizeEnergyClass } from "../utils/energyClass.js";
 import type { Scraper, ScraperOptions } from "./types.js";
 
 export class SeLogerScraper implements Scraper {
@@ -58,6 +59,8 @@ export class SeLogerScraper implements Scraper {
       description: card.description ?? null,
       imageUrl: buildSeLogerImageUrl(card.photos?.[0]),
       propertyType: card.estateType ?? null,
+      dpeClass: normalizeEnergyClass(card.energyClass),
+      gesClass: normalizeEnergyClass(card.gesClass),
       scrapedAt,
     };
   }

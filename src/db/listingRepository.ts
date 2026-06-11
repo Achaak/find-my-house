@@ -57,6 +57,8 @@ function toPropertyData(listing: Listing) {
     description: listing.description,
     imageUrl: listing.imageUrl,
     propertyType: listing.propertyType,
+    dpeClass: listing.dpeClass,
+    gesClass: listing.gesClass,
   };
 }
 
@@ -86,7 +88,9 @@ function hasPropertyChanges(
     existing.postalCode !== listing.postalCode ||
     existing.description !== listing.description ||
     existing.imageUrl !== listing.imageUrl ||
-    existing.propertyType !== listing.propertyType
+    existing.propertyType !== listing.propertyType ||
+    existing.dpeClass !== listing.dpeClass ||
+    existing.gesClass !== listing.gesClass
   );
 }
 

@@ -44,6 +44,8 @@ export function toPropertyRow(row: PropertyWithPublications): PropertyRow {
     description: row.description,
     imageUrl: row.imageUrl,
     propertyType: row.propertyType,
+    dpeClass: row.dpeClass,
+    gesClass: row.gesClass,
     firstSeenAt: row.firstSeenAt.toISOString(),
     notifiedAt: row.notifiedAt?.toISOString() ?? null,
     publications,

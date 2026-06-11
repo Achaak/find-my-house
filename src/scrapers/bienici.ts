@@ -11,6 +11,7 @@ import {
   resolveBienIciPlace,
   resolveBienIciTravelOrigin,
 } from "../utils/geocode.js";
+import { normalizeEnergyClass } from "../utils/energyClass.js";
 import type { Scraper, ScraperOptions } from "./types.js";
 
 type BienIciBlurInfo = {
@@ -33,6 +34,8 @@ type BienIciAd = {
   description?: string;
   photos?: { url_photo: string }[];
   propertyType?: string;
+  energyClassification?: string;
+  greenhouseGazClassification?: string;
   url?: string;
 };
 
@@ -137,6 +140,8 @@ export class BienIciScraper implements Scraper {
       description: ad.description ?? null,
       imageUrl: ad.photos?.[0]?.url_photo ?? null,
       propertyType: ad.propertyType ?? null,
+      dpeClass: normalizeEnergyClass(ad.energyClassification),
+      gesClass: normalizeEnergyClass(ad.greenhouseGazClassification),
       scrapedAt,
     };
   }
