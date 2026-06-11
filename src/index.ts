@@ -50,13 +50,14 @@ async function main(): Promise<void> {
       try {
         const result = await scraperService.run(scrapeOptions);
         console.log(
-          `[cron] Résultat: ${String(result.inserted)} nouvelles, ${String(result.updated)} MAJ, ${String(result.skipped)} ignorées`
+          `[cron] Résultat: ${String(result.inserted)} nouveaux biens, ${String(result.linked)} liées, ${String(result.updated)} MAJ, ${String(result.skipped)} ignorées`
         );
         if (config.discord.channelId && result.insertedListings.length > 0) {
           const sent = await sendNewListingNotifications(
             config.discord.token,
             config.discord.channelId,
-            result.insertedListings
+            result.insertedListings,
+            repository
           );
           console.log(
             `[cron] Discord: ${String(sent)} notification(s) envoyée(s)`

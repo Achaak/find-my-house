@@ -65,28 +65,28 @@ pnpm run build && pnpm start
 
 ## Commandes Discord
 
-| Commande                             | Description                                                                                                                     |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| `/annonces`                          | Rechercher des annonces (ville, prix, surface, terrain, pièces, chambres, ancien, rayon km…). Résultats en embeds avec boutons. |
-| `/annonce id:123`                    | Détail d'une annonce                                                                                                            |
-| `/jaime ajouter\|retirer\|liste`     | Gérer ses favoris                                                                                                               |
-| `/pas-jaime ajouter\|retirer\|liste` | Gérer les annonces marquées comme non aimées                                                                                    |
-| `/scraper`                           | Lancer un scraping manuel (critères du `.env`)                                                                                  |
-| `/stats`                             | Statistiques de la base                                                                                                         |
-| `/aide`                              | Aide                                                                                                                            |
+| Commande                             | Description                                                                                                                                                                               |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/annonces`                          | Rechercher en base (ville, code postal, texte, source, prix min/max, surface, terrain, pièces, chambres, ancien/neuf, rayon km, temps de trajet, tri…). Résultats en embeds avec boutons. |
+| `/annonce id:123`                    | Détail d'une annonce                                                                                                                                                                      |
+| `/jaime ajouter\|retirer\|liste`     | Gérer ses favoris                                                                                                                                                                         |
+| `/pas-jaime ajouter\|retirer\|liste` | Gérer les annonces marquées comme non aimées                                                                                                                                              |
+| `/scraper`                           | Lancer un scraping manuel (critères du `.env`)                                                                                                                                            |
+| `/stats`                             | Statistiques de la base                                                                                                                                                                   |
+| `/aide`                              | Aide                                                                                                                                                                                      |
 
 Les boutons **❤️ J'aime** et **👎 Pas j'aime** sous chaque annonce permettent d'ajouter ou retirer une réaction en un clic (réponse éphémère, visible uniquement par vous). Un clic sur un bouton déjà actif retire la réaction.
 
 ## Anti-doublons
 
-Deux contraintes empêchent les doublons :
+Le modèle sépare le **bien** (`properties`) de ses **publications** par portail (`listing_publications`) :
 
-- `UNIQUE(source, external_id)` — même annonce sur la même source
-- `UNIQUE(url)` — même URL quelle que soit la source
+- Un bien unique est identifié par une empreinte (`property_key`) calculée à partir du code postal, prix, surface, pièces et chambres (sans GPS ni titre, trop variables entre portails).
+- Chaque portail conserve sa propre publication (`UNIQUE(source, external_id)` et `UNIQUE(url)`).
+- Une même maison sur BienIci et Leboncoin crée **un bien** et **deux publications** — une seule notification Discord est envoyée.
+- Les réactions utilisateur (`listing_reactions`) sont liées au **bien**, pas à une publication individuelle.
 
-Si une annonce existe déjà sans changement, elle est ignorée. Si un champ change (prix, titre, coordonnées, etc.), elle est mise à jour.
-
-Les réactions utilisateur (`listing_reactions`) sont liées aux annonces et supprimées en cascade si l'annonce est effacée.
+Après migration depuis l'ancien schéma, lancer `pnpm run db:reconcile` pour fusionner les doublons existants.
 
 ## Architecture
 
@@ -100,7 +100,7 @@ src/
 ├── services/              # Orchestration du scraping
 └── index.ts               # Point d'entrée (bot + cron)
 prisma/
-└── schema.prisma          # Schéma (listings + listing_reactions)
+└── schema.prisma          # Schéma (properties + listing_publications + listing_reactions)
 ```
 
 ## Ajouter un scraper

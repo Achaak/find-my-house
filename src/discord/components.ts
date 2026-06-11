@@ -1,3 +1,4 @@
+import { MessageFlags } from "discord-api-types/v10";
 import {
   ActionRowBuilder,
   ButtonBuilder,
@@ -74,12 +75,13 @@ export async function handleListingButton(
   const parsed = parseListingButtonCustomId(interaction.customId);
   if (!parsed) return;
 
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
   const listing = await repository.findById(parsed.listingId);
   if (!listing) {
-    await interaction.reply({
-      content: `Annonce #${String(parsed.listingId)} introuvable.`,
-      ephemeral: true,
-    });
+    await interaction.editReply(
+      `Annonce #${String(parsed.listingId)} introuvable.`
+    );
     return;
   }
 
@@ -89,8 +91,5 @@ export async function handleListingButton(
     parsed.type
   );
 
-  await interaction.reply({
-    content: toggleMessages[parsed.type][result],
-    ephemeral: true,
-  });
+  await interaction.editReply(toggleMessages[parsed.type][result]);
 }

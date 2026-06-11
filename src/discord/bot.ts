@@ -1,5 +1,6 @@
 import { REST } from "@discordjs/rest";
 import { GatewayIntentBits } from "discord-api-types/gateway/v10";
+import { MessageFlags } from "discord-api-types/v10";
 import { Client, Events } from "discord.js";
 import { Routes } from "discord-api-types/rest/v10";
 import type { ListingRepository } from "../db/listingRepository.js";
@@ -66,11 +67,21 @@ export async function startDiscordBot(options: BotOptions): Promise<Client> {
         console.error("[discord] Erreur interaction:", error);
         if (!interaction.isRepliable()) return;
 
-        const reply = { content: "Une erreur est survenue.", ephemeral: true };
-        if (interaction.replied || interaction.deferred) {
-          await interaction.followUp(reply);
-        } else {
-          await interaction.reply(reply);
+        const reply = {
+          content: "Une erreur est survenue.",
+          flags: MessageFlags.Ephemeral as const,
+        };
+        try {
+          if (interaction.replied || interaction.deferred) {
+            await interaction.followUp(reply);
+          } else {
+            await interaction.reply(reply);
+          }
+        } catch (replyError) {
+          console.error(
+            "[discord] Impossible de répondre à l'interaction:",
+            replyError
+          );
         }
       }
     })();

@@ -20,6 +20,35 @@ export function buildCommands() {
           .setDescription("Filtrer par ville")
           .setRequired(false)
       )
+      .addStringOption((opt) =>
+        opt
+          .setName("code_postal")
+          .setDescription("Filtrer par code postal")
+          .setRequired(false)
+      )
+      .addStringOption((opt) =>
+        opt
+          .setName("texte")
+          .setDescription("Rechercher dans le titre ou la description")
+          .setRequired(false)
+      )
+      .addStringOption((opt) =>
+        opt
+          .setName("source")
+          .setDescription("Filtrer par portail")
+          .setRequired(false)
+          .addChoices(
+            { name: "Bien'ici", value: "bienici" },
+            { name: "SeLoger", value: "seloger" },
+            { name: "Leboncoin", value: "leboncoin" }
+          )
+      )
+      .addIntegerOption((opt) =>
+        opt
+          .setName("prix_min")
+          .setDescription("Prix minimum en euros")
+          .setRequired(false)
+      )
       .addIntegerOption((opt) =>
         opt
           .setName("prix_max")
@@ -56,6 +85,12 @@ export function buildCommands() {
           .setDescription("Uniquement les biens anciens (pas de neuf)")
           .setRequired(false)
       )
+      .addBooleanOption((opt) =>
+        opt
+          .setName("neuf")
+          .setDescription("Uniquement les biens neufs")
+          .setRequired(false)
+      )
       .addIntegerOption((opt) =>
         opt
           .setName("rayon_km")
@@ -65,6 +100,28 @@ export function buildCommands() {
           .setMinValue(1)
           .setMaxValue(100)
           .setRequired(false)
+      )
+      .addIntegerOption((opt) =>
+        opt
+          .setName("temps_trajet")
+          .setDescription(
+            "Temps de trajet max en voiture, en minutes (nécessite une ville)"
+          )
+          .setMinValue(5)
+          .setMaxValue(120)
+          .setRequired(false)
+      )
+      .addStringOption((opt) =>
+        opt
+          .setName("tri")
+          .setDescription("Ordre des résultats")
+          .setRequired(false)
+          .addChoices(
+            { name: "Prix croissant", value: "price_asc" },
+            { name: "Prix décroissant", value: "price_desc" },
+            { name: "Plus récentes", value: "date_desc" },
+            { name: "Surface décroissante", value: "surface_desc" }
+          )
       )
       .addIntegerOption((opt) =>
         opt
@@ -216,6 +273,16 @@ export async function handleCommand(
   switch (commandName) {
     case "annonces": {
       const city = interaction.options.getString("ville") ?? undefined;
+      const postalCode =
+        interaction.options.getString("code_postal") ?? undefined;
+      const text = interaction.options.getString("texte") ?? undefined;
+      const source =
+        (interaction.options.getString("source") as
+          | "bienici"
+          | "seloger"
+          | "leboncoin"
+          | null) ?? undefined;
+      const minPrice = interaction.options.getInteger("prix_min") ?? undefined;
       const maxPrice = interaction.options.getInteger("prix_max") ?? undefined;
       const minSurface =
         interaction.options.getInteger("surface_min") ?? undefined;
@@ -226,13 +293,26 @@ export async function handleCommand(
       const minBedrooms =
         interaction.options.getInteger("chambres_min") ?? undefined;
       const ancienOnly = interaction.options.getBoolean("ancien") ?? undefined;
+      const neufOnly = interaction.options.getBoolean("neuf") ?? undefined;
       const radiusKm = interaction.options.getInteger("rayon_km") ?? undefined;
       const maxTravelMinutes =
-        radiusKm === undefined
-          ? defaultScrapeOptions.maxTravelMinutes
-          : undefined;
+        interaction.options.getInteger("temps_trajet") ?? undefined;
+      const sort =
+        (interaction.options.getString("tri") as
+          | "price_asc"
+          | "price_desc"
+          | "date_desc"
+          | "surface_desc"
+          | null) ?? undefined;
       const limit = interaction.options.getInteger("limite") ?? 5;
       const geoFilter = resolveGeoFilter({ maxTravelMinutes, radiusKm }, true);
+
+      if (ancienOnly && neufOnly) {
+        await interaction.reply(
+          "Les options **ancien** et **neuf** sont incompatibles."
+        );
+        return;
+      }
 
       if (geoFilter.mode !== "city" && !city) {
         await interaction.reply(
@@ -241,21 +321,29 @@ export async function handleCommand(
         return;
       }
 
+      await interaction.deferReply();
+
       const listings = await repository.search({
         city,
+        postalCode,
+        text,
+        source,
+        minPrice,
         maxPrice,
         minSurface,
         minLandSurface,
         minRooms,
         minBedrooms,
         ancienOnly,
+        neufOnly,
         maxTravelMinutes,
         radiusKm,
+        sort,
         limit,
       });
 
       if (listings.length === 0) {
-        await interaction.reply(
+        await interaction.editReply(
           geoFilter.mode !== "city"
             ? `Aucune annonce trouvée dans cette zone (${geoFilterLabel(geoFilter)}).`
             : "Aucune annonce trouvée avec ces critères."
@@ -263,7 +351,7 @@ export async function handleCommand(
         return;
       }
 
-      await interaction.reply({
+      await interaction.editReply({
         embeds: [formatListingEmbed(listings[0])],
         components: [buildListingActionRow(listings[0].id)],
       });
@@ -279,14 +367,16 @@ export async function handleCommand(
 
     case "annonce": {
       const id = interaction.options.getInteger("id", true);
+      await interaction.deferReply();
+
       const listing = await repository.findById(id);
 
       if (!listing) {
-        await interaction.reply(`Annonce #${String(id)} introuvable.`);
+        await interaction.editReply(`Annonce #${String(id)} introuvable.`);
         return;
       }
 
-      await interaction.reply({
+      await interaction.editReply({
         embeds: [formatListingEmbed(listing)],
         components: [buildListingActionRow(listing.id)],
       });
@@ -303,7 +393,8 @@ export async function handleCommand(
         await sendNewListingNotifications(
           config.discord.token,
           config.discord.channelId,
-          result.insertedListings
+          result.insertedListings,
+          repository
         );
       }
 
@@ -320,37 +411,47 @@ export async function handleCommand(
         [
           `Scraping terminé pour **${city}**${zoneLabel}`,
           `📥 ${String(result.found)} trouvées`,
-          `✅ ${String(result.inserted)} nouvelles`,
+          `✅ ${String(result.inserted)} nouveaux biens`,
+          `🔗 ${String(result.linked)} publications liées (doublon inter-sites)`,
           `🔄 ${String(result.updated)} mises à jour`,
-          `⏭️ ${String(result.skipped)} inchangées (pas de doublon)`,
-          `📊 Total en base: **${String(await repository.count())}** annonces`,
+          `⏭️ ${String(result.skipped)} inchangées`,
+          `📊 Total: **${String(await repository.count())}** biens, **${String(await repository.countPublications())}** publications`,
         ].join("\n")
       );
       return;
     }
 
     case "stats": {
+      await interaction.deferReply();
+
       const total = await repository.count();
+      const publications = await repository.countPublications();
       const recent = await repository.findRecent(3);
 
       const lines = [
-        `📊 **${String(total)}** annonces en base`,
+        `📊 **${String(total)}** biens — **${String(publications)}** publications`,
         "",
-        "**Dernières annonces:**",
+        "**Derniers biens:**",
         recent.length > 0
           ? recent
-              .map((l) => `• #${String(l.id)} — ${l.title} (${l.city})`)
+              .map((l) => {
+                const sources = [
+                  ...new Set(l.publications.map((p) => p.source)),
+                ].join(", ");
+                return `• #${String(l.id)} — ${l.title} (${l.city}) [${sources}]`;
+              })
               .join("\n")
           : "_Aucune annonce pour le moment_",
       ];
 
-      await interaction.reply(lines.join("\n"));
+      await interaction.editReply(lines.join("\n"));
       return;
     }
 
     case "jaime": {
       const subcommand = interaction.options.getSubcommand();
       const discordUserId = interaction.user.id;
+      await interaction.deferReply();
 
       if (subcommand === "liste") {
         const limit = interaction.options.getInteger("limite") ?? 5;
@@ -361,7 +462,7 @@ export async function handleCommand(
           limit,
           "Vous n'avez aucune annonce en favori."
         );
-        await interaction.reply(message.slice(0, 2000));
+        await interaction.editReply(message.slice(0, 2000));
         return;
       }
 
@@ -369,13 +470,13 @@ export async function handleCommand(
       const listing = await repository.findById(id);
 
       if (!listing) {
-        await interaction.reply(`Annonce #${String(id)} introuvable.`);
+        await interaction.editReply(`Annonce #${String(id)} introuvable.`);
         return;
       }
 
       if (subcommand === "ajouter") {
         const result = await reactionRepository.add(discordUserId, id, "like");
-        await interaction.reply(
+        await interaction.editReply(
           result === "already_exists"
             ? `L'annonce **#${String(id)}** est déjà dans vos favoris.`
             : `❤️ Annonce **#${String(id)}** ajoutée à vos favoris.`
@@ -388,7 +489,7 @@ export async function handleCommand(
         id,
         "like"
       );
-      await interaction.reply(
+      await interaction.editReply(
         removed
           ? `Annonce **#${String(id)}** retirée de vos favoris.`
           : `L'annonce **#${String(id)}** n'était pas dans vos favoris.`
@@ -399,6 +500,7 @@ export async function handleCommand(
     case "pas-jaime": {
       const subcommand = interaction.options.getSubcommand();
       const discordUserId = interaction.user.id;
+      await interaction.deferReply();
 
       if (subcommand === "liste") {
         const limit = interaction.options.getInteger("limite") ?? 5;
@@ -409,7 +511,7 @@ export async function handleCommand(
           limit,
           "Vous n'avez marqué aucune annonce comme non aimée."
         );
-        await interaction.reply(message.slice(0, 2000));
+        await interaction.editReply(message.slice(0, 2000));
         return;
       }
 
@@ -417,7 +519,7 @@ export async function handleCommand(
       const listing = await repository.findById(id);
 
       if (!listing) {
-        await interaction.reply(`Annonce #${String(id)} introuvable.`);
+        await interaction.editReply(`Annonce #${String(id)} introuvable.`);
         return;
       }
 
@@ -427,7 +529,7 @@ export async function handleCommand(
           id,
           "dislike"
         );
-        await interaction.reply(
+        await interaction.editReply(
           result === "already_exists"
             ? `L'annonce **#${String(id)}** est déjà dans vos non-favoris.`
             : `👎 Annonce **#${String(id)}** ajoutée à vos non-favoris.`
@@ -440,7 +542,7 @@ export async function handleCommand(
         id,
         "dislike"
       );
-      await interaction.reply(
+      await interaction.editReply(
         removed
           ? `Annonce **#${String(id)}** retirée de vos non-favoris.`
           : `L'annonce **#${String(id)}** n'était pas dans vos non-favoris.`
@@ -453,7 +555,7 @@ export async function handleCommand(
         [
           "**Find My House** — Commandes disponibles:",
           "",
-          "`/annonces` — Rechercher (prix, terrain, pièces, chambres, ancien, rayon km…)",
+          "`/annonces` — Rechercher en base (ville, CP, texte, source, prix, surface, terrain, pièces, chambres, ancien/neuf, rayon, temps de trajet, tri…)",
           "`/annonce id:123` — Détail d'une annonce (boutons ❤️ / 👎)",
           "`/jaime ajouter|retirer|liste` — Gérer vos favoris",
           "`/pas-jaime ajouter|retirer|liste` — Gérer vos non-favoris",

@@ -1,4 +1,10 @@
-import type { ListingRow } from "../types/listing.js";
+import type { ListingSource, PropertyRow } from "../types/listing.js";
+
+const SOURCE_LABELS: Record<ListingSource, string> = {
+  bienici: "Bien'ici",
+  leboncoin: "Leboncoin",
+  seloger: "SeLoger",
+};
 
 export function formatPrice(price: number): string {
   return new Intl.NumberFormat("fr-FR", {
@@ -8,52 +14,77 @@ export function formatPrice(price: number): string {
   }).format(price);
 }
 
-export function formatListing(listing: ListingRow): string {
+function formatSourceLabel(source: ListingSource): string {
+  return SOURCE_LABELS[source];
+}
+
+function formatSources(property: PropertyRow): string {
+  const sources = [...new Set(property.publications.map((p) => p.source))];
+  return sources.map(formatSourceLabel).join(", ");
+}
+
+export function formatPublicationLinks(property: PropertyRow): string {
+  const publications =
+    property.publications.length > 0
+      ? property.publications
+      : [{ source: property.source, url: property.url } as const];
+
+  const links = publications
+    .map((p) => `[${formatSourceLabel(p.source)}](${p.url})`)
+    .join(" • ");
+
+  return `**Liens :** ${links}`;
+}
+
+export function formatListing(property: PropertyRow): string {
   const parts = [
-    `**#${String(listing.id)}** — ${listing.title}`,
-    `💰 ${formatPrice(listing.price)}`,
-    listing.surface ? `📐 ${String(listing.surface)} m²` : null,
-    listing.landSurface ? `🌳 ${String(listing.landSurface)} m² terrain` : null,
-    listing.rooms ? `🛏️ ${String(listing.rooms)} pièces` : null,
-    listing.bedrooms ? `🛌 ${String(listing.bedrooms)} chambres` : null,
-    listing.isNewProperty === false
+    `**#${String(property.id)}** — ${property.title}`,
+    `💰 ${formatPrice(property.price)}`,
+    property.surface ? `📐 ${String(property.surface)} m²` : null,
+    property.landSurface
+      ? `🌳 ${String(property.landSurface)} m² terrain`
+      : null,
+    property.rooms ? `🛏️ ${String(property.rooms)} pièces` : null,
+    property.bedrooms ? `🛌 ${String(property.bedrooms)} chambres` : null,
+    property.isNewProperty === false
       ? "🏠 Ancien"
-      : listing.isNewProperty === true
+      : property.isNewProperty === true
         ? "🏗️ Neuf"
         : null,
-    `📍 ${listing.city}${listing.postalCode ? ` (${listing.postalCode})` : ""}`,
-    `🔗 ${listing.url}`,
-    `_Source: ${listing.source} — ${new Date(listing.scrapedAt).toLocaleString("fr-FR")}_`,
+    `📍 ${property.city}${property.postalCode ? ` (${property.postalCode})` : ""}`,
+    formatPublicationLinks(property),
+    `_Sources: ${formatSources(property)} — ${new Date(property.firstSeenAt).toLocaleString("fr-FR")}_`,
   ];
 
   return parts.filter(Boolean).join("\n");
 }
 
-export function formatListingEmbed(listing: ListingRow) {
+export function formatListingEmbed(property: PropertyRow) {
   return {
-    title: listing.title,
-    url: listing.url,
+    title: property.title,
+    url: property.url,
     description: [
-      `**Prix:** ${formatPrice(listing.price)}`,
-      listing.surface ? `**Surface:** ${String(listing.surface)} m²` : null,
-      listing.landSurface
-        ? `**Terrain:** ${String(listing.landSurface)} m²`
+      `**Prix:** ${formatPrice(property.price)}`,
+      property.surface ? `**Surface:** ${String(property.surface)} m²` : null,
+      property.landSurface
+        ? `**Terrain:** ${String(property.landSurface)} m²`
         : null,
-      listing.rooms ? `**Pièces:** ${String(listing.rooms)}` : null,
-      listing.bedrooms ? `**Chambres:** ${String(listing.bedrooms)}` : null,
-      listing.isNewProperty === false
+      property.rooms ? `**Pièces:** ${String(property.rooms)}` : null,
+      property.bedrooms ? `**Chambres:** ${String(property.bedrooms)}` : null,
+      property.isNewProperty === false
         ? "**État:** Ancien"
-        : listing.isNewProperty === true
+        : property.isNewProperty === true
           ? "**État:** Neuf"
           : null,
-      `**Ville:** ${listing.city}${listing.postalCode ? ` (${listing.postalCode})` : ""}`,
-      listing.propertyType ? `**Type:** ${listing.propertyType}` : null,
+      `**Ville:** ${property.city}${property.postalCode ? ` (${property.postalCode})` : ""}`,
+      property.propertyType ? `**Type:** ${property.propertyType}` : null,
+      formatPublicationLinks(property),
     ]
       .filter(Boolean)
       .join("\n"),
-    image: listing.imageUrl ? { url: listing.imageUrl } : undefined,
+    image: property.imageUrl ? { url: property.imageUrl } : undefined,
     footer: {
-      text: `#${String(listing.id)} • ${listing.source} • ${new Date(listing.scrapedAt).toLocaleString("fr-FR")}`,
+      text: `#${String(property.id)} • ${formatSources(property)} • ${new Date(property.firstSeenAt).toLocaleString("fr-FR")}`,
     },
   };
 }

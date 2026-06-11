@@ -2,7 +2,7 @@ import type { ListingRepository } from "../db/listingRepository.js";
 import type { Scraper } from "../scrapers/types.js";
 import type {
   Listing,
-  ListingRow,
+  PropertyRow,
   ScrapeFilters,
   ScrapeResult,
 } from "../types/listing.js";
@@ -18,7 +18,7 @@ export class ScraperService {
 
   async run(
     options: ScrapeOptions
-  ): Promise<ScrapeResult & { insertedListings: ListingRow[] }> {
+  ): Promise<ScrapeResult & { insertedListings: PropertyRow[] }> {
     const allListings: Listing[] = [];
 
     for (const scraper of this.scrapers) {

@@ -1,13 +1,15 @@
 import { REST } from "@discordjs/rest";
 import { Routes } from "discord-api-types/rest/v10";
-import type { ListingRow } from "../types/listing.js";
+import type { ListingRepository } from "../db/listingRepository.js";
+import type { PropertyRow } from "../types/listing.js";
 import { buildListingActionComponents } from "./components.js";
 import { formatListingEmbed } from "./format.js";
 
 export async function sendNewListingNotifications(
   token: string,
   channelId: string,
-  listings: ListingRow[]
+  listings: PropertyRow[],
+  repository?: ListingRepository
 ): Promise<number> {
   if (listings.length === 0) return 0;
 
@@ -19,23 +21,34 @@ export async function sendNewListingNotifications(
       : `🏠 **${String(count)} nouvelles annonces**`;
 
   let sent = 0;
+  const notifiedIds: number[] = [];
 
   for (const [index, listing] of listings.entries()) {
+    const property =
+      repository !== undefined
+        ? ((await repository.findById(listing.id)) ?? listing)
+        : listing;
+
     try {
       await rest.post(Routes.channelMessages(channelId), {
         body: {
           content: index === 0 ? header : undefined,
-          embeds: [formatListingEmbed(listing)],
-          components: buildListingActionComponents(listing.id),
+          embeds: [formatListingEmbed(property)],
+          components: buildListingActionComponents(property.id),
         },
       });
       sent++;
+      notifiedIds.push(property.id);
     } catch (error) {
       console.error(
         `[discord] Erreur envoi notification (#${String(listing.id)}):`,
         error
       );
     }
+  }
+
+  if (repository && notifiedIds.length > 0) {
+    await repository.markNotified(notifiedIds);
   }
 
   return sent;

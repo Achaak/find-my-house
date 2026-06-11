@@ -7,48 +7,64 @@ datasource db {
   provider = "sqlite"
 }
 
-model Listing {
-  id           Int      @id @default(autoincrement())
-  externalId   String   @map("external_id")
-  source       String
-  title        String
-  price        Int
-  surface      Float?
-  landSurface  Float?   @map("land_surface")
-  rooms        Int?
-  bedrooms     Int?
-  isNewProperty Boolean? @map("is_new_property")
-  latitude     Float?
-  longitude    Float?
-  city         String
-  postalCode   String?  @map("postal_code")
-  url          String   @unique
-  description  String?
-  imageUrl     String?  @map("image_url")
-  propertyType String?  @map("property_type")
-  scrapedAt    DateTime @map("scraped_at")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+model Property {
+  id            Int       @id @default(autoincrement())
+  propertyKey   String    @unique @map("property_key")
+  title         String
+  price         Int
+  surface       Float?
+  landSurface   Float?    @map("land_surface")
+  rooms         Int?
+  bedrooms      Int?
+  isNewProperty Boolean?  @map("is_new_property")
+  latitude      Float?
+  longitude     Float?
+  city          String
+  postalCode    String?   @map("postal_code")
+  description   String?
+  imageUrl      String?   @map("image_url")
+  propertyType  String?   @map("property_type")
+  firstSeenAt   DateTime  @map("first_seen_at")
+  notifiedAt    DateTime? @map("notified_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
 
-  reactions ListingReaction[]
+  publications ListingPublication[]
+  reactions    ListingReaction[]
 
-  @@unique([source, externalId])
   @@index([city])
   @@index([price])
-  @@index([scrapedAt])
-  @@map("listings")
+  @@index([firstSeenAt])
+  @@map("properties")
+}
+
+model ListingPublication {
+  id         Int      @id @default(autoincrement())
+  propertyId Int      @map("property_id")
+  externalId String   @map("external_id")
+  source     String
+  url        String   @unique
+  scrapedAt  DateTime @map("scraped_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([source, externalId])
+  @@index([propertyId])
+  @@map("listing_publications")
 }
 
 model ListingReaction {
   id            Int      @id @default(autoincrement())
   discordUserId String   @map("discord_user_id")
-  listingId     Int      @map("listing_id")
+  propertyId    Int      @map("property_id")
   type          String
   createdAt     DateTime @default(now()) @map("created_at")
 
-  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
-  @@unique([discordUserId, listingId])
+  @@unique([discordUserId, propertyId])
   @@index([discordUserId, type])
   @@map("listing_reactions")
 }

@@ -1,11 +1,34 @@
-import type { Listing as PrismaListing } from "../generated/prisma/client.js";
-import type { ListingRow } from "../types/listing.js";
+import type {
+  ListingPublication as PrismaPublication,
+  Property as PrismaProperty,
+} from "../generated/prisma/client.js";
+import type { PropertyRow, PublicationRow } from "../types/listing.js";
 
-export function toListingRow(row: PrismaListing): ListingRow {
+type PropertyWithPublications = PrismaProperty & {
+  publications: PrismaPublication[];
+};
+
+function toPublicationRow(row: PrismaPublication): PublicationRow {
   return {
     id: row.id,
     externalId: row.externalId,
-    source: row.source as ListingRow["source"],
+    source: row.source as PublicationRow["source"],
+    url: row.url,
+    scrapedAt: row.scrapedAt.toISOString(),
+  };
+}
+
+export function toPropertyRow(row: PropertyWithPublications): PropertyRow {
+  const publications = row.publications
+    .map(toPublicationRow)
+    .sort(
+      (a, b) =>
+        new Date(a.scrapedAt).getTime() - new Date(b.scrapedAt).getTime()
+    );
+  const primary = publications[0];
+
+  return {
+    id: row.id,
     title: row.title,
     price: row.price,
     surface: row.surface,
@@ -17,11 +40,15 @@ export function toListingRow(row: PrismaListing): ListingRow {
     longitude: row.longitude,
     city: row.city,
     postalCode: row.postalCode,
-    url: row.url,
     description: row.description,
     imageUrl: row.imageUrl,
     propertyType: row.propertyType,
-    scrapedAt: row.scrapedAt.toISOString(),
+    firstSeenAt: row.firstSeenAt.toISOString(),
+    notifiedAt: row.notifiedAt?.toISOString() ?? null,
+    publications,
+    url: primary.url,
+    source: primary.source,
+    scrapedAt: primary.scrapedAt,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

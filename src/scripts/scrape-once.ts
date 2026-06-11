@@ -25,16 +25,18 @@ async function main(): Promise<void> {
 
     console.log("Résultat du scraping:");
     console.log(`  Trouvées:   ${String(result.found)}`);
-    console.log(`  Nouvelles:  ${String(result.inserted)}`);
+    console.log(`  Nouveaux:   ${String(result.inserted)}`);
+    console.log(`  Liées:      ${String(result.linked)}`);
     console.log(`  MAJ:        ${String(result.updated)}`);
     console.log(`  Ignorées:   ${String(result.skipped)}`);
-    console.log(`  Total BDD:  ${String(await repository.count())}`);
+    console.log(`  Total BDD:  ${String(await repository.count())} biens`);
 
     if (config.discord.channelId && result.insertedListings.length > 0) {
       const sent = await sendNewListingNotifications(
         config.discord.token,
         config.discord.channelId,
-        result.insertedListings
+        result.insertedListings,
+        repository
       );
       console.log(`  Discord:    ${String(sent)} notification(s) envoyée(s)`);
     }
