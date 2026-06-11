@@ -1,3 +1,6 @@
+# Copié par scripts/install-ha-addon.sh pour Home Assistant
+/config.yaml
+
 node_modules/
 dist/
 src/generated/

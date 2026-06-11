@@ -1,0 +1,12 @@
+node_modules
+dist
+src/generated
+data
+.env
+.env.local
+*.db
+*.db-journal
+.git
+.github
+.pnpm-store
+.DS_Store

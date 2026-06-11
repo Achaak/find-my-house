@@ -63,6 +63,15 @@ pnpm run scrape
 pnpm run build && pnpm start
 ```
 
+## Déploiement
+
+| Cible                                  | Guide                                                          |
+| -------------------------------------- | -------------------------------------------------------------- |
+| **Home Assistant OS** (Raspberry Pi 4) | [homeassistant-addon/README.md](homeassistant-addon/README.md) |
+| **Docker** (NAS, NUC, VPS)             | `docker compose up -d --build` avec un `.env` configuré        |
+
+Sur Home Assistant, le bot tourne comme add-on local : volume persistant pour SQLite, redémarrage automatique, configuration via l'interface HA.
+
 ## Commandes Discord
 
 | Commande                             | Description                                                                                                                                                                               |

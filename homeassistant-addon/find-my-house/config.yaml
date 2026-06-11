@@ -1,0 +1,43 @@
+name: Find My House
+description: Bot Discord et scraper d'annonces immobilières françaises
+version: "1.0.0"
+slug: find_my_house
+url: https://github.com/your-username/find-my-house
+arch:
+  - aarch64
+  - amd64
+startup: application
+boot: auto
+init: false
+options:
+  discord_token: ""
+  discord_client_id: ""
+  discord_guild_id: ""
+  discord_channel_id: ""
+  scrape_scrapers: bienici,leboncoin,seloger
+  scrape_cron: "0 */2 * * *"
+  scrape_city: Paris
+  scrape_max_price: 500000
+  scrape_min_surface: 30
+  scrape_min_land_surface: ""
+  scrape_min_rooms: ""
+  scrape_min_bedrooms: ""
+  scrape_ancien_only: false
+  scrape_max_travel_minutes: ""
+  scrape_radius_km: 20
+schema:
+  discord_token: password
+  discord_client_id: str
+  discord_guild_id: str?
+  discord_channel_id: str?
+  scrape_scrapers: str?
+  scrape_cron: str?
+  scrape_city: str?
+  scrape_max_price: int?
+  scrape_min_surface: int?
+  scrape_min_land_surface: int?
+  scrape_min_rooms: int?
+  scrape_min_bedrooms: int?
+  scrape_ancien_only: bool?
+  scrape_max_travel_minutes: int?
+  scrape_radius_km: int?
