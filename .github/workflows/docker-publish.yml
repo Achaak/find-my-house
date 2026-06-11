@@ -58,6 +58,6 @@ jobs:
           build-args: |
             GIT_COMMIT=${{ github.sha }}
           tags: |
-            ghcr.io/${{ env.IMAGE_OWNER }}/find-my-home-${{ matrix.ha_arch }}:latest
-            ghcr.io/${{ env.IMAGE_OWNER }}/find-my-home-${{ matrix.ha_arch }}:${{ env.APP_VERSION }}
-            ghcr.io/${{ env.IMAGE_OWNER }}/find-my-home-${{ matrix.ha_arch }}:${{ github.sha }}
+            ghcr.io/${{ env.IMAGE_OWNER }}/find-my-house-${{ matrix.ha_arch }}:latest
+            ghcr.io/${{ env.IMAGE_OWNER }}/find-my-house-${{ matrix.ha_arch }}:${{ env.APP_VERSION }}
+            ghcr.io/${{ env.IMAGE_OWNER }}/find-my-house-${{ matrix.ha_arch }}:${{ github.sha }}

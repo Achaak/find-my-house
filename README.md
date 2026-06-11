@@ -83,8 +83,8 @@ Requires `gh` CLI authenticated (`gh auth login`) for the GitHub release step. C
 The Docker image is **pre-built on GitHub Actions** (GHCR) — the Pi downloads the image instead of compiling (~2–5 min).
 
 1. **Push** to `main` → GitHub Actions builds the image (repo **Actions** tab)
-2. Make the package **public**: GitHub → **Packages** → `find-my-home-aarch64` → **Package settings** → **Change visibility**
-3. **Settings → Apps → ⋮ → Repositories** → `https://github.com/Achaak/find-my-home`
+2. Make the package **public**: GitHub → **Packages** → `find-my-house-aarch64` → **Package settings** → **Change visibility**
+3. **Settings → Apps → ⋮ → Repositories** → `https://github.com/Achaak/find-my-house`
 4. **Apps → Find My House → Install**
 5. **Configuration** tab: Discord token, scrape criteria, etc.
 6. **Start** + **Start on boot**
@@ -98,7 +98,7 @@ Version is managed in `package.json` and synced automatically to `find-my-house/
 **SSH alternative** (Terminal & SSH add-on):
 
 ```bash
-ha store add https://github.com/Achaak/find-my-home
+ha store add https://github.com/Achaak/find-my-house
 ha addons install find_my_house
 ```
 
