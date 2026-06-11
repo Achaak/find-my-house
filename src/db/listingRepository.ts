@@ -27,6 +27,103 @@ import { computePropertyKey } from "../utils/propertyKey.js";
 
 const propertyInclude = { publications: true } as const;
 
+const IN_QUERY_BATCH_SIZE = 900;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const batches: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    batches.push(items.slice(i, i + size));
+  }
+  return batches;
+}
+
+function dedupeListings(listings: Listing[]): Listing[] {
+  return [
+    ...new Map(
+      listings.map((listing) => [
+        `${listing.source}:${listing.externalId}`,
+        listing,
+      ])
+    ).values(),
+  ];
+}
+
+function publicationKey(
+  listing: Pick<Listing, "source" | "externalId">
+): string {
+  return `${listing.source}:${listing.externalId}`;
+}
+
+function mergeIntoPendingCreate(
+  pending: PendingPropertyCreate,
+  listing: Listing,
+  scrapedAt: Date
+): void {
+  const listingKey = publicationKey(listing);
+
+  if (listingKey !== publicationKey(pending.listing)) {
+    const alreadyLinked = pending.extraPublications.some(
+      (entry) => publicationKey(entry.listing) === listingKey
+    );
+    if (!alreadyLinked) {
+      pending.extraPublications.push({ listing, scrapedAt });
+    }
+  }
+
+  if (hasPropertyChanges(pending.listing, listing)) {
+    const previousPrimary = pending.listing;
+    const previousScrapedAt = pending.scrapedAt;
+
+    if (publicationKey(previousPrimary) !== listingKey) {
+      const previousPrimaryLinked = pending.extraPublications.some(
+        (entry) =>
+          publicationKey(entry.listing) === publicationKey(previousPrimary)
+      );
+      if (!previousPrimaryLinked) {
+        pending.extraPublications.push({
+          listing: previousPrimary,
+          scrapedAt: previousScrapedAt,
+        });
+      }
+    }
+
+    pending.listing = listing;
+    pending.scrapedAt = scrapedAt;
+    pending.extraPublications = pending.extraPublications.filter(
+      (entry) => publicationKey(entry.listing) !== listingKey
+    );
+  }
+}
+
+function pendingPublicationsToCreate(pending: PendingPropertyCreate) {
+  const seen = new Set<string>();
+  const publications: {
+    externalId: string;
+    source: string;
+    url: string;
+    scrapedAt: Date;
+  }[] = [];
+
+  const add = (listing: Listing, scrapedAt: Date) => {
+    const key = publicationKey(listing);
+    if (seen.has(key)) return;
+    seen.add(key);
+    publications.push({
+      externalId: listing.externalId,
+      source: listing.source,
+      url: listing.url,
+      scrapedAt,
+    });
+  };
+
+  add(pending.listing, pending.scrapedAt);
+  for (const entry of pending.extraPublications) {
+    add(entry.listing, entry.scrapedAt);
+  }
+
+  return publications;
+}
+
 type PropertyWithPublications = PrismaProperty & {
   publications: PrismaPublication[];
 };
@@ -115,6 +212,63 @@ function hasPropertyChanges(
 
 export class ListingRepository {
   constructor(private readonly prisma: PrismaClient) {}
+
+  private async findExistingPublications(
+    listings: Listing[]
+  ): Promise<PublicationWithProperty[]> {
+    const include = { property: { include: propertyInclude } };
+    const byId = new Map<number, PublicationWithProperty>();
+
+    const urls = [...new Set(listings.map((listing) => listing.url))];
+    for (const urlBatch of chunk(urls, IN_QUERY_BATCH_SIZE)) {
+      const rows = await this.prisma.listingPublication.findMany({
+        where: { url: { in: urlBatch } },
+        include,
+      });
+      for (const row of rows) {
+        byId.set(row.id, row);
+      }
+    }
+
+    const externalIdsBySource = new Map<string, Set<string>>();
+    for (const listing of listings) {
+      const ids = externalIdsBySource.get(listing.source) ?? new Set<string>();
+      ids.add(listing.externalId);
+      externalIdsBySource.set(listing.source, ids);
+    }
+
+    for (const [source, externalIds] of externalIdsBySource) {
+      for (const idBatch of chunk([...externalIds], IN_QUERY_BATCH_SIZE)) {
+        const rows = await this.prisma.listingPublication.findMany({
+          where: { source, externalId: { in: idBatch } },
+          include,
+        });
+        for (const row of rows) {
+          byId.set(row.id, row);
+        }
+      }
+    }
+
+    return [...byId.values()];
+  }
+
+  private async findPropertiesByKeys(
+    propertyKeys: string[]
+  ): Promise<PropertyWithPublications[]> {
+    const byKey = new Map<string, PropertyWithPublications>();
+
+    for (const keyBatch of chunk(propertyKeys, IN_QUERY_BATCH_SIZE)) {
+      const rows = await this.prisma.property.findMany({
+        where: { propertyKey: { in: keyBatch } },
+        include: propertyInclude,
+      });
+      for (const row of rows) {
+        byKey.set(row.propertyKey, row);
+      }
+    }
+
+    return [...byKey.values()];
+  }
 
   async upsert(listing: Listing): Promise<{
     status: UpsertStatus;
@@ -227,6 +381,8 @@ export class ListingRepository {
   }
 
   async upsertMany(listings: Listing[]): Promise<ExtendedScrapeResult> {
+    listings = dedupeListings(listings);
+
     if (listings.length === 0) {
       return {
         found: 0,
@@ -249,22 +405,8 @@ export class ListingRepository {
     ];
 
     const [existingPublications, existingProperties] = await Promise.all([
-      this.prisma.listingPublication.findMany({
-        where: {
-          OR: [
-            ...listings.map((listing) => ({
-              source: listing.source,
-              externalId: listing.externalId,
-            })),
-            ...listings.map((listing) => ({ url: listing.url })),
-          ],
-        },
-        include: { property: { include: propertyInclude } },
-      }),
-      this.prisma.property.findMany({
-        where: { propertyKey: { in: propertyKeys } },
-        include: propertyInclude,
-      }),
+      this.findExistingPublications(listings),
+      this.findPropertiesByKeys(propertyKeys),
     ]);
 
     const publicationBySourceExternalId = new Map<
@@ -342,10 +484,7 @@ export class ListingRepository {
 
       const pendingCreate = pendingPropertyCreates.get(propertyKey);
       if (pendingCreate) {
-        pendingCreate.extraPublications.push({ listing, scrapedAt });
-        if (hasPropertyChanges(pendingCreate.listing, listing)) {
-          pendingCreate.listing = listing;
-        }
+        mergeIntoPendingCreate(pendingCreate, listing, scrapedAt);
         result.linked++;
         continue;
       }
@@ -406,20 +545,7 @@ export class ListingRepository {
             firstPrice: pending.listing.price,
             firstSeenAt: pending.scrapedAt,
             publications: {
-              create: [
-                {
-                  externalId: pending.listing.externalId,
-                  source: pending.listing.source,
-                  url: pending.listing.url,
-                  scrapedAt: pending.scrapedAt,
-                },
-                ...pending.extraPublications.map((publication) => ({
-                  externalId: publication.listing.externalId,
-                  source: publication.listing.source,
-                  url: publication.listing.url,
-                  scrapedAt: publication.scrapedAt,
-                })),
-              ],
+              create: pendingPublicationsToCreate(pending),
             },
           },
         });
@@ -462,10 +588,12 @@ export class ListingRepository {
   async markNotified(propertyIds: number[]): Promise<void> {
     if (propertyIds.length === 0) return;
 
-    await this.prisma.property.updateMany({
-      where: { id: { in: propertyIds } },
-      data: { notifiedAt: new Date() },
-    });
+    for (const idBatch of chunk(propertyIds, IN_QUERY_BATCH_SIZE)) {
+      await this.prisma.property.updateMany({
+        where: { id: { in: idBatch } },
+        data: { notifiedAt: new Date() },
+      });
+    }
   }
 
   async findRecent(limit = 10): Promise<PropertyRow[]> {
@@ -658,11 +786,20 @@ export class ListingRepository {
   async findByIds(ids: number[]): Promise<PropertyRow[]> {
     if (ids.length === 0) return [];
 
-    const rows = await this.prisma.property.findMany({
-      where: { id: { in: ids } },
-      include: propertyInclude,
-      orderBy: { firstSeenAt: "desc" },
-    });
-    return rows.map(toPropertyRow);
+    const byId = new Map<number, PropertyWithPublications>();
+    for (const idBatch of chunk(ids, IN_QUERY_BATCH_SIZE)) {
+      const rows = await this.prisma.property.findMany({
+        where: { id: { in: idBatch } },
+        include: propertyInclude,
+      });
+      for (const row of rows) {
+        byId.set(row.id, row);
+      }
+    }
+
+    return ids
+      .map((id) => byId.get(id))
+      .filter((row): row is PropertyWithPublications => row !== undefined)
+      .map(toPropertyRow);
   }
 }

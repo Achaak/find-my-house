@@ -140,7 +140,8 @@ export function buildLeboncoinAreaLocation(
     area: {
       lat: center.lat,
       lng: center.lng,
-      radius: radiusKm * 1000,
+      // API rejects non-integer radius (e.g. from travel-time km estimate).
+      radius: Math.round(radiusKm * 1000),
       default_radius: defaultRadius,
     },
   };

@@ -131,4 +131,75 @@ describe("ListingRepository.upsertMany", () => {
     expect(secondRun.skipped).toBe(2);
     expect(secondRun.inserted).toBe(0);
   });
+
+  it("handles batches larger than SQLite bind-parameter limit", async () => {
+    const listings = Array.from({ length: 400 }, (_, index) =>
+      makeListing({
+        externalId: `large-batch-${String(index)}`,
+        url: `https://www.bienici.com/annonce/large-batch-${String(index)}`,
+        postalCode: String(75000 + (index % 20)).padStart(5, "0"),
+        price: 300_000 + index,
+      })
+    );
+
+    const result = await repository.upsertMany(listings);
+
+    expect(result.found).toBe(400);
+    expect(result.inserted).toBe(400);
+    expect(result.insertedListings).toHaveLength(400);
+  });
+
+  it("deduplicates listings by source and external id", async () => {
+    const listings = [
+      makeListing({
+        externalId: "dup-1",
+        url: "https://www.bienici.com/annonce/dup-1",
+        price: 300_000,
+      }),
+      makeListing({
+        externalId: "dup-1",
+        url: "https://www.bienici.com/annonce/dup-1",
+        price: 290_000,
+      }),
+    ];
+
+    const result = await repository.upsertMany(listings);
+
+    expect(result.found).toBe(1);
+    expect(result.inserted).toBe(1);
+  });
+
+  it("does not duplicate publications when merging pending creates", async () => {
+    const base = {
+      postalCode: "76210",
+      price: 300_000,
+      surface: 90,
+      rooms: 5,
+      bedrooms: 3,
+      city: "Lanquetot",
+    };
+
+    const result = await repository.upsertMany([
+      makeListing({
+        ...base,
+        externalId: "merge-first",
+        source: "bienici",
+        url: "https://www.bienici.com/annonce/merge-first",
+        title: "Short title",
+      }),
+      makeListing({
+        ...base,
+        externalId: "merge-second",
+        source: "leboncoin",
+        url: "https://www.leboncoin.fr/ad/merge-second",
+        title: "Much longer title with more detail",
+        description: "Longer description for the same house",
+      }),
+    ]);
+
+    expect(result.inserted).toBe(1);
+    expect(result.linked).toBe(1);
+    expect(result.insertedListings).toHaveLength(1);
+    expect(result.insertedListings[0]?.publications).toHaveLength(2);
+  });
 });
