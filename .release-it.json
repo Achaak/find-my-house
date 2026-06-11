@@ -12,7 +12,10 @@
   },
   "plugins": {
     "@release-it/bumper": {
-      "out": "find-my-house/config.yaml"
+      "out": {
+        "file": "find-my-house/config.yaml",
+        "type": "text/plain"
+      }
     }
   },
   "hooks": {
