@@ -65,12 +65,35 @@ pnpm run build && pnpm start
 
 ## Déploiement
 
-| Cible                                  | Guide                                                          |
-| -------------------------------------- | -------------------------------------------------------------- |
-| **Home Assistant OS** (Raspberry Pi 4) | [homeassistant-addon/README.md](homeassistant-addon/README.md) |
-| **Docker** (NAS, NUC, VPS)             | `docker compose up -d --build` avec un `.env` configuré        |
+### Home Assistant OS (Raspberry Pi 4)
 
-Sur Home Assistant, le bot tourne comme add-on local : volume persistant pour SQLite, redémarrage automatique, configuration via l'interface HA.
+Le dépôt Git sert de source au build Docker — pas besoin de copier `src/` sur le Pi.
+
+1. **Poussez** ce dépôt sur GitHub (`Achaak/find-my-home`)
+2. **Paramètres → Apps → ⋮ → Dépôts** → ajoutez `https://github.com/Achaak/find-my-home`
+3. **Apps → Installer une app** → **Find My House** → Installer (15–20 min la 1ʳᵉ fois)
+4. Onglet **Configuration** : token Discord, critères de scrape, etc.
+5. **Démarrer** + **Démarrer au démarrage**
+
+Les variables d'environnement passent par l'interface HA (pas de `.env` dans le conteneur). La base SQLite est dans le volume persistant `/data/listings.db`.
+
+**Mise à jour** : `git push` sur GitHub, puis **Apps → Find My House → Reconstruire → Redémarrer**.
+
+**Alternative SSH** (app Terminal & SSH) :
+
+```bash
+ha store add https://github.com/Achaak/find-my-home
+ha addons install find_my_house
+```
+
+> Le dépôt GitHub doit être **public** (ou accessible sans auth depuis le Pi). En prod, laissez `discord_guild_id` vide.
+
+### Docker (NAS, NUC, VPS)
+
+```bash
+cp .env.example .env   # éditer les variables
+docker compose up -d --build
+```
 
 ## Commandes Discord
 

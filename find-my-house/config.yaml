@@ -2,13 +2,17 @@ name: Find My House
 description: Bot Discord et scraper d'annonces immobilières françaises
 version: "1.0.0"
 slug: find_my_house
-url: https://github.com/your-username/find-my-house
+url: https://github.com/Achaak/find-my-home
 arch:
   - aarch64
   - amd64
 startup: application
 boot: auto
 init: false
+build:
+  args:
+    GIT_REPOSITORY: https://github.com/Achaak/find-my-home.git
+    GIT_BRANCH: main
 options:
   discord_token: ""
   discord_client_id: ""
