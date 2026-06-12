@@ -30,8 +30,10 @@ describe("computePropertyKey", () => {
       isNewProperty: false,
     };
     const leboncoin = { ...bienici, propertyType: "maison" };
+    const bieniciApi = { ...bienici, propertyType: "house" };
 
     expect(computePropertyKey(bienici)).toBe(computePropertyKey(leboncoin));
+    expect(computePropertyKey(bienici)).toBe(computePropertyKey(bieniciApi));
   });
 
   it("changes when price, surface, or property type differs", () => {

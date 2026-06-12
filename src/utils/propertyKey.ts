@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { Listing } from "../types/listing.js";
+import { canonicalPropertyType } from "./propertyType.js";
 
 export type PropertyKeyInput = Pick<
   Listing,
@@ -12,11 +13,6 @@ export type PropertyKeyInput = Pick<
   | "propertyType"
   | "isNewProperty"
 >;
-
-function normalizePropertyType(propertyType: string | null): string {
-  if (!propertyType) return "";
-  return propertyType.trim().toLowerCase().replace(/\s+/g, " ");
-}
 
 function formatSurface(surface: number | null): string {
   return surface !== null ? surface.toFixed(1) : "";
@@ -39,7 +35,7 @@ export function computePropertyKey(listing: PropertyKeyInput): string {
     formatSurface(listing.surface),
     listing.rooms !== null ? String(listing.rooms) : "",
     listing.bedrooms !== null ? String(listing.bedrooms) : "",
-    normalizePropertyType(listing.propertyType),
+    canonicalPropertyType(listing.propertyType),
     formatSurface(listing.landSurface),
     formatBoolean(listing.isNewProperty),
   ];
