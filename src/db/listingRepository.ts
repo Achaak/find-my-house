@@ -744,6 +744,9 @@ export class ListingRepository {
         publications: filters.source
           ? { some: { source: filters.source, isActive: true } }
           : { some: { isActive: true } },
+        reactions: filters.excludeReactedByUser
+          ? { none: { discordUserId: filters.excludeReactedByUser } }
+          : undefined,
         ...(textFilter
           ? {
               OR: [

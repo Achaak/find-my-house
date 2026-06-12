@@ -104,6 +104,7 @@ export type ListingSearchFilters = {
   radiusKm?: number;
   sort?: ListingSearchSort;
   limit?: number;
+  excludeReactedByUser?: string;
 };
 
 /** Shared listing filters across portal APIs. */

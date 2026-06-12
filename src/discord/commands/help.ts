@@ -13,6 +13,7 @@ export const handleHelp: CommandHandler = async (interaction) => {
       "**Find My House** — Commandes disponibles:",
       "",
       "`/listings` — Rechercher en base (ville, CP, texte, source, prix, surface, terrain, pièces, chambres, ancien/neuf, rayon, temps de trajet, tri…)",
+      "`/browse` — Parcourir les annonces une par une (❤️ / 👎 / Arrêter), classées par compatibilité",
       "`/listing id:123` — Détail d'une annonce (boutons ❤️ / 👎)",
       "`/address id:123` — Identifier l'adresse d'une annonce via l'ADEME (validation par bouton)",
       "`/like add|remove|list` — Gérer vos favoris",

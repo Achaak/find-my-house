@@ -15,6 +15,7 @@ import type { ExtendedScrapeResult, ScrapeFilters } from "../types/listing.js";
 import { createLogger } from "../utils/logger.js";
 import { buildCommands, handleCommand } from "./commands/index.js";
 import type { DiscordCommandSettings } from "./commands/types.js";
+import { handleBrowseButton } from "./browseComponents.js";
 import { handleListingButton } from "./components.js";
 import { handleDpeButton } from "./dpeComponents.js";
 
@@ -80,11 +81,17 @@ export async function startDiscordBot(options: BotOptions): Promise<Client> {
 
         if (interaction.isButton()) {
           const handled =
+            (await handleBrowseButton(
+              interaction,
+              options.repository,
+              options.reactionRepository
+            )) ||
             (await handleListingButton(
               interaction,
               options.repository,
               options.reactionRepository
-            )) || (await handleDpeButton(interaction, options.repository));
+            )) ||
+            (await handleDpeButton(interaction, options.repository));
           if (!handled) {
             log.warn(`Bouton non géré : ${interaction.customId}`);
           }

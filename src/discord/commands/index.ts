@@ -7,6 +7,7 @@ import type {
   ScrapeFilters,
 } from "../../types/listing.js";
 import { buildAddressCommand, handleAddress } from "./address.js";
+import { buildBrowseCommand, handleBrowse } from "./browse.js";
 import { buildDislikeCommand, handleDislike } from "./dislike.js";
 import { buildHelpCommand, handleHelp } from "./help.js";
 import { buildLikeCommand, handleLike } from "./like.js";
@@ -22,6 +23,7 @@ export function buildCommands() {
   return [
     buildListingsCommand(),
     buildListingCommand(),
+    buildBrowseCommand(),
     buildScraperCommand(),
     buildReconcileCommand(),
     buildStatsCommand(),
@@ -57,6 +59,9 @@ export async function handleCommand(
       return;
     case "listing":
       await handleListing(interaction, ctx);
+      return;
+    case "browse":
+      await handleBrowse(interaction, ctx);
       return;
     case "scraper":
       await handleScraper(interaction, ctx);
