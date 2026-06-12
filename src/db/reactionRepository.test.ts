@@ -155,4 +155,69 @@ describe("ReactionRepository", () => {
     expect(listings[0]?.id).toBe(second.row.id);
     expect(listings[1]?.id).toBe(propertyId);
   });
+
+  it("archives a like without removing it from compatibility training data", async () => {
+    await reactionRepository.add("user-archive", propertyId, "like");
+
+    const archived = await reactionRepository.archive(
+      "user-archive",
+      propertyId
+    );
+    expect(archived).toBe("archived");
+    expect(await reactionRepository.countByUser("user-archive", "like")).toBe(
+      0
+    );
+    expect(
+      await reactionRepository.countByUser("user-archive", "like", {
+        excludeArchived: false,
+      })
+    ).toBe(1);
+
+    const visible = await reactionRepository.findListingsByUser(
+      "user-archive",
+      "like",
+      10
+    );
+    expect(visible).toHaveLength(0);
+
+    const training =
+      await reactionRepository.loadCompatibilityTrainingData("user-archive");
+    expect(training.likes).toHaveLength(1);
+    expect(training.likes[0]?.id).toBe(propertyId);
+  });
+
+  it("unarchives a like and shows it again in the list", async () => {
+    await reactionRepository.add("user-unarchive", propertyId, "like");
+    await reactionRepository.archive("user-unarchive", propertyId);
+
+    const unarchived = await reactionRepository.unarchive(
+      "user-unarchive",
+      propertyId
+    );
+    expect(unarchived).toBe("unarchived");
+    expect(await reactionRepository.countByUser("user-unarchive", "like")).toBe(
+      1
+    );
+
+    const listings = await reactionRepository.findListingsByUser(
+      "user-unarchive",
+      "like",
+      10
+    );
+    expect(listings).toHaveLength(1);
+    expect(listings[0]?.id).toBe(propertyId);
+  });
+
+  it("re-adding an archived like restores it to the visible list", async () => {
+    await reactionRepository.add("user-readd", propertyId, "like");
+    await reactionRepository.archive("user-readd", propertyId);
+
+    const result = await reactionRepository.add(
+      "user-readd",
+      propertyId,
+      "like"
+    );
+    expect(result).toBe("added");
+    expect(await reactionRepository.countByUser("user-readd", "like")).toBe(1);
+  });
 });

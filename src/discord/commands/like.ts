@@ -35,6 +35,24 @@ export function buildLikeCommand() {
             .setMaxValue(10)
             .setRequired(false)
         )
+    )
+    .addSubcommand((sub) =>
+      sub
+        .setName("archive")
+        .setDescription(
+          "Archiver un favori (masqué de la liste, conservé pour le score)"
+        )
+        .addIntegerOption((opt) =>
+          opt.setName("id").setDescription("ID de l'annonce").setRequired(true)
+        )
+    )
+    .addSubcommand((sub) =>
+      sub
+        .setName("unarchive")
+        .setDescription("Réafficher un favori archivé")
+        .addIntegerOption((opt) =>
+          opt.setName("id").setDescription("ID de l'annonce").setRequired(true)
+        )
     );
 }
 
@@ -71,6 +89,30 @@ export const handleLike: CommandHandler = async (interaction, ctx) => {
       result === "already_exists"
         ? `L'annonce **#${String(id)}** est déjà dans vos favoris.`
         : `❤️ Annonce **#${String(id)}** ajoutée à vos favoris.`
+    );
+    return;
+  }
+
+  if (subcommand === "archive") {
+    const result = await ctx.reactionRepository.archive(discordUserId, id);
+    await interaction.editReply(
+      result === "archived"
+        ? `📦 Annonce **#${String(id)}** archivée. Elle reste prise en compte pour le score de compatibilité.`
+        : result === "already_archived"
+          ? `L'annonce **#${String(id)}** est déjà archivée.`
+          : `L'annonce **#${String(id)}** n'est pas dans vos favoris.`
+    );
+    return;
+  }
+
+  if (subcommand === "unarchive") {
+    const result = await ctx.reactionRepository.unarchive(discordUserId, id);
+    await interaction.editReply(
+      result === "unarchived"
+        ? `Annonce **#${String(id)}** réintégrée à vos favoris.`
+        : result === "not_archived"
+          ? `L'annonce **#${String(id)}** n'est pas archivée.`
+          : `L'annonce **#${String(id)}** n'est pas dans vos favoris.`
     );
     return;
   }

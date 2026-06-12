@@ -16,7 +16,7 @@ export const handleHelp: CommandHandler = async (interaction) => {
       "`/browse` — Parcourir les annonces une par une (❤️ / 👎 / Arrêter), classées par compatibilité",
       "`/listing id:123` — Détail d'une annonce (boutons ❤️ / 👎)",
       "`/address id:123` — Identifier l'adresse d'une annonce via l'ADEME (validation par bouton)",
-      "`/like add|remove|list` — Gérer vos favoris",
+      "`/like add|remove|list|archive|unarchive` — Gérer vos favoris",
       "`/dislike add|remove|list` — Gérer vos non-favoris",
       "_Cliquez sur ❤️ ou 👎 sous une annonce pour l'ajouter ou la retirer._",
       "`/scraper` — Lancer un scraping (critères définis dans le .env, admin)",

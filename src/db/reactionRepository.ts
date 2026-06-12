@@ -21,6 +21,15 @@ export class ReactionRepository {
     });
 
     if (existing?.type === type) {
+      if (type === "like" && existing.archivedAt) {
+        await this.prisma.listingReaction.update({
+          where: {
+            discordUserId_propertyId: { discordUserId, propertyId },
+          },
+          data: { archivedAt: null },
+        });
+        return "added";
+      }
       return "already_exists";
     }
 
@@ -29,7 +38,7 @@ export class ReactionRepository {
         discordUserId_propertyId: { discordUserId, propertyId },
       },
       create: { discordUserId, propertyId, type },
-      update: { type },
+      update: { type, archivedAt: null },
     });
 
     return "added";
@@ -71,10 +80,66 @@ export class ReactionRepository {
         discordUserId_propertyId: { discordUserId, propertyId },
       },
       create: { discordUserId, propertyId, type },
-      update: { type },
+      update: { type, archivedAt: null },
     });
 
     return "added";
+  }
+
+  async archive(
+    discordUserId: string,
+    propertyId: number
+  ): Promise<"archived" | "not_found" | "already_archived"> {
+    const existing = await this.prisma.listingReaction.findUnique({
+      where: {
+        discordUserId_propertyId: { discordUserId, propertyId },
+      },
+    });
+
+    if (existing?.type !== "like") {
+      return "not_found";
+    }
+
+    if (existing.archivedAt) {
+      return "already_archived";
+    }
+
+    await this.prisma.listingReaction.update({
+      where: {
+        discordUserId_propertyId: { discordUserId, propertyId },
+      },
+      data: { archivedAt: new Date() },
+    });
+
+    return "archived";
+  }
+
+  async unarchive(
+    discordUserId: string,
+    propertyId: number
+  ): Promise<"unarchived" | "not_found" | "not_archived"> {
+    const existing = await this.prisma.listingReaction.findUnique({
+      where: {
+        discordUserId_propertyId: { discordUserId, propertyId },
+      },
+    });
+
+    if (existing?.type !== "like") {
+      return "not_found";
+    }
+
+    if (!existing.archivedAt) {
+      return "not_archived";
+    }
+
+    await this.prisma.listingReaction.update({
+      where: {
+        discordUserId_propertyId: { discordUserId, propertyId },
+      },
+      data: { archivedAt: null },
+    });
+
+    return "unarchived";
   }
 
   async findListingsByUser(
@@ -82,16 +147,25 @@ export class ReactionRepository {
     type: ReactionType,
     limit = 10
   ): Promise<PropertyRow[]> {
-    return this.findListingsByType(type, { discordUserId, limit });
+    return this.findListingsByType(type, {
+      discordUserId,
+      limit,
+      excludeArchived: true,
+    });
   }
 
   async findListingsByType(
     type: ReactionType,
-    options: { discordUserId?: string; limit?: number } = {}
+    options: {
+      discordUserId?: string;
+      limit?: number;
+      excludeArchived?: boolean;
+    } = {}
   ): Promise<PropertyRow[]> {
     const reactions = await this.prisma.listingReaction.findMany({
       where: {
         type,
+        ...(options.excludeArchived ? { archivedAt: null } : {}),
         ...(options.discordUserId
           ? { discordUserId: options.discordUserId }
           : {}),
@@ -117,10 +191,16 @@ export class ReactionRepository {
 
   async countByUser(
     discordUserId: string,
-    type: ReactionType
+    type: ReactionType,
+    options: { excludeArchived?: boolean } = {}
   ): Promise<number> {
+    const excludeArchived = options.excludeArchived ?? true;
     return this.prisma.listingReaction.count({
-      where: { discordUserId, type },
+      where: {
+        discordUserId,
+        type,
+        ...(excludeArchived ? { archivedAt: null } : {}),
+      },
     });
   }
 }
