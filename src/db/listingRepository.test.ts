@@ -349,3 +349,94 @@ describe("ListingRepository.deactivateMissingPublications", () => {
     expect(await repository.countPublications()).toBe(1);
   });
 });
+
+describe("ListingRepository.stats", () => {
+  let repository: ListingRepository;
+  let dispose: (() => Promise<void>) | undefined;
+
+  beforeAll(() => {
+    const testDb = createTestRepository();
+    repository = testDb.repository;
+    dispose = testDb.dispose;
+  });
+
+  afterAll(async () => {
+    await dispose?.();
+  });
+
+  it("aggregates source, price, city and activity stats", async () => {
+    const base = {
+      postalCode: "69001",
+      price: 420_000,
+      surface: 110,
+      rooms: 6,
+      bedrooms: 4,
+      city: "Lyon",
+    };
+
+    const bienici = makeListing({
+      ...base,
+      externalId: "stats-bienici",
+      source: "bienici",
+      url: "https://www.bienici.com/annonce/stats-bienici",
+    });
+    const leboncoin = makeListing({
+      ...base,
+      externalId: "stats-lbc",
+      source: "leboncoin",
+      url: "https://www.leboncoin.fr/ad/stats-lbc",
+      title: "Maison Lyon",
+    });
+    const dropped = makeListing({
+      externalId: "stats-drop",
+      source: "seloger",
+      url: "https://www.seloger.com/annonces/stats-drop",
+      city: "Villeurbanne",
+      postalCode: "69100",
+      price: 500_000,
+    });
+
+    await repository.upsertMany([bienici, leboncoin, dropped]);
+    await repository.upsert({
+      ...dropped,
+      price: 450_000,
+      scrapedAt: "2026-06-12T10:00:00.000Z",
+    });
+
+    const removed = makeListing({
+      externalId: "stats-removed",
+      source: "seloger",
+      url: "https://www.seloger.com/annonces/stats-removed",
+      city: "Lyon",
+      postalCode: "69002",
+      price: 390_000,
+    });
+    await repository.upsert(removed);
+    await repository.deactivateMissingPublications("seloger", [dropped]);
+
+    const sourceCounts = await repository.getPublicationCountsBySource();
+    expect(sourceCounts.bienici.active).toBe(1);
+    expect(sourceCounts.leboncoin.active).toBe(1);
+    expect(sourceCounts.seloger.active).toBe(1);
+    expect(sourceCounts.seloger.inactive).toBe(1);
+
+    expect(await repository.countActiveProperties()).toBe(2);
+    expect(await repository.countInactivePublications()).toBe(1);
+    expect(await repository.countPriceDrops()).toBe(1);
+
+    const priceStats = await repository.getPriceStats();
+    expect(priceStats?.count).toBe(2);
+    expect(priceStats?.min).toBe(420_000);
+
+    const topCities = await repository.getTopCities(2);
+    expect(topCities).toHaveLength(2);
+
+    const drops = await repository.findPriceDrops(1);
+    expect(drops[0]?.id).toBeDefined();
+    expect(drops[0]?.price).toBe(450_000);
+
+    const activity = await repository.getActivityStats();
+    expect(activity.lastScrapedAt).not.toBeNull();
+    expect(activity.multiSourceCount).toBe(1);
+  });
+});

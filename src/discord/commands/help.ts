@@ -20,7 +20,7 @@ export const handleHelp: CommandHandler = async (interaction) => {
       "_Cliquez sur ❤️ ou 👎 sous une annonce pour l'ajouter ou la retirer._",
       "`/scraper` — Lancer un scraping (critères définis dans le .env, admin)",
       "`/reconcile` — Fusionner les doublons en base (admin)",
-      "`/stats` — Statistiques de la base",
+      "`/stats overview|sources|prices|mine|activity` — Statistiques de la base",
       "`/version` — Version de l'application",
       "`/help` — Afficher cette aide",
     ].join("\n")

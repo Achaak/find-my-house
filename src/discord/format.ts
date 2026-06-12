@@ -77,7 +77,7 @@ export function formatPriceDrop(property: PropertyRow): string | null {
   return `📉 **Baisse de prix** : ~~${formatPrice(property.firstPrice)}~~ → **${formatPrice(property.price)}** (−${formatPrice(drop)}, −${String(pct)} %)`;
 }
 
-function formatSourceLabel(source: ListingSource): string {
+export function formatSourceLabel(source: ListingSource): string {
   return SOURCE_LABELS[source];
 }
 
