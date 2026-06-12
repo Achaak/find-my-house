@@ -15,21 +15,30 @@ function toPublicationRow(row: PrismaPublication): PublicationRow {
     externalId: row.externalId,
     source: row.source,
     url: row.url,
+    isActive: row.isActive,
     scrapedAt: row.scrapedAt.toISOString(),
   };
 }
 
-export function toPropertyRow(row: PropertyWithPublications): PropertyRow {
-  const publications = row.publications
-    .map(toPublicationRow)
-    .sort(
-      (a, b) =>
-        new Date(a.scrapedAt).getTime() - new Date(b.scrapedAt).getTime()
-    );
+function sortPublications(publications: PublicationRow[]): PublicationRow[] {
+  return [...publications].sort(
+    (a, b) => new Date(a.scrapedAt).getTime() - new Date(b.scrapedAt).getTime()
+  );
+}
 
-  if (publications.length === 0) {
+export function toPropertyRow(row: PropertyWithPublications): PropertyRow {
+  const allPublications = sortPublications(
+    row.publications.map(toPublicationRow)
+  );
+
+  if (allPublications.length === 0) {
     throw new InvariantError(`Property #${String(row.id)} has no publications`);
   }
+
+  const publications =
+    allPublications.filter((publication) => publication.isActive).length > 0
+      ? allPublications.filter((publication) => publication.isActive)
+      : allPublications;
 
   const primary = publications[0];
 

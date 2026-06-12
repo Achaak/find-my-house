@@ -22,7 +22,9 @@ export function createScrapers(): Scraper[] {
   }
 
   const knownNames = new Set(allScrapers.map((s) => s.name));
-  const unknown = enabled.filter((name) => !knownNames.has(name));
+  const unknown = enabled.filter(
+    (name) => !knownNames.has(name as (typeof allScrapers)[number]["name"])
+  );
   if (unknown.length > 0) {
     log.warn(
       `Noms inconnus dans SCRAPE_SCRAPERS (ignorés): ${unknown.join(", ")}`

@@ -10,6 +10,7 @@ function makePrismaProperty(
       externalId: string;
       source: "bienici" | "leboncoin" | "seloger";
       url: string;
+      isActive?: boolean;
       scrapedAt: Date;
     }[];
   }> = {}
@@ -21,6 +22,7 @@ function makePrismaProperty(
       externalId: "ext-1",
       source: "bienici" as const,
       url: "https://www.bienici.com/annonce/ext-1",
+      isActive: true,
       scrapedAt,
     },
   ];
@@ -66,6 +68,7 @@ describe("toPropertyRow", () => {
             externalId: "newer",
             source: "leboncoin",
             url: "https://www.leboncoin.fr/ad/newer",
+            isActive: true,
             scrapedAt: new Date("2026-02-01T10:00:00.000Z"),
           },
           {
@@ -73,6 +76,7 @@ describe("toPropertyRow", () => {
             externalId: "older",
             source: "bienici",
             url: "https://www.bienici.com/annonce/older",
+            isActive: true,
             scrapedAt: new Date("2026-01-01T10:00:00.000Z"),
           },
         ],

@@ -24,6 +24,7 @@ async function main(): Promise<void> {
     log.info(`  MAJ:        ${String(result.updated)}`);
     log.info(`  Baisses:    ${String(result.priceDropListings.length)}`);
     log.info(`  Ignorées:   ${String(result.skipped)}`);
+    log.info(`  Désactivées: ${String(result.deactivated)}`);
     log.info(`  Total BDD:  ${String(await repository.count())} biens`);
 
     await notifyScrapeResults(result, {

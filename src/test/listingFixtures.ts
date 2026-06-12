@@ -37,6 +37,7 @@ export function makePropertyRow(
     externalId: "ext-1",
     source: "bienici",
     url: "https://www.bienici.com/annonce/ext-1",
+    isActive: true,
     scrapedAt,
   };
   const publications = overrides.publications ?? [defaultPublication];

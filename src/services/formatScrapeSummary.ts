@@ -31,6 +31,7 @@ export function formatScrapeSummary(
     `🔄 ${String(result.updated)} mises à jour`,
     `📉 ${String(result.priceDropListings.length)} baisse(s) de prix`,
     `⏭️ ${String(result.skipped)} inchangées`,
+    `🚫 ${String(result.deactivated)} publication(s) désactivée(s)`,
     ...formatScrapeErrors(result.errors),
   ];
 

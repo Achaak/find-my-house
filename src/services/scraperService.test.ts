@@ -5,7 +5,7 @@ import type { Scraper } from "../scrapers/types.js";
 import { ScraperService } from "./scraperService.js";
 
 function mockScraper(
-  name: string,
+  name: Scraper["name"],
   listings: ReturnType<typeof makeListing>[] | Error
 ): Scraper & { scrapeMock: ReturnType<typeof vi.fn> } {
   const scrapeMock = vi.fn(() => {
@@ -22,13 +22,13 @@ function mockScraper(
 describe("ScraperService", () => {
   it("runs scrapers in parallel and aggregates listings", async () => {
     const { repository, dispose } = createTestRepository();
-    const alpha = mockScraper("alpha", [
+    const alpha = mockScraper("bienici", [
       makeListing({
         externalId: "alpha-1",
         url: "https://www.bienici.com/annonce/alpha-1",
       }),
     ]);
-    const beta = mockScraper("beta", [
+    const beta = mockScraper("leboncoin", [
       makeListing({
         externalId: "beta-1",
         source: "leboncoin",
@@ -60,8 +60,8 @@ describe("ScraperService", () => {
   it("continues when one scraper fails", async () => {
     const { repository, dispose } = createTestRepository();
     const scrapers = [
-      mockScraper("broken", new Error("API down")),
-      mockScraper("ok", [
+      mockScraper("seloger", new Error("API down")),
+      mockScraper("bienici", [
         makeListing({
           externalId: "ok-1",
           url: "https://www.bienici.com/annonce/ok-1",
@@ -80,8 +80,44 @@ describe("ScraperService", () => {
       expect(result.found).toBe(1);
       expect(result.inserted).toBe(1);
       expect(result.errors).toEqual([
-        { scraper: "broken", message: "API down" },
+        { scraper: "seloger", message: "API down" },
       ]);
+      expect(result.deactivated).toBe(0);
+    } finally {
+      await dispose();
+    }
+  });
+
+  it("deactivates publications missing from a successful scraper run", async () => {
+    const { repository, dispose } = createTestRepository();
+    const existing = makeListing({
+      externalId: "stale-lbc",
+      source: "leboncoin",
+      url: "https://www.leboncoin.fr/ad/stale-lbc",
+    });
+    await repository.upsertMany([existing]);
+
+    const scrapers = [
+      mockScraper("leboncoin", [
+        makeListing({
+          externalId: "fresh-lbc",
+          source: "leboncoin",
+          url: "https://www.leboncoin.fr/ad/fresh-lbc",
+          price: 320_000,
+        }),
+      ]),
+    ];
+
+    try {
+      const service = new ScraperService(scrapers, repository);
+      const result = await service.run({
+        city: "Paris",
+        maxPrice: 500_000,
+        minSurface: 30,
+      });
+
+      expect(result.deactivated).toBe(1);
+      expect(await repository.countPublications()).toBe(1);
     } finally {
       await dispose();
     }

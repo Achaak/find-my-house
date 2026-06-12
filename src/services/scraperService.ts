@@ -3,6 +3,7 @@ import type { Scraper } from "../scrapers/types.js";
 import type {
   ExtendedScrapeResult,
   Listing,
+  ListingSource,
   ScrapeFilters,
   ScraperError,
 } from "../types/listing.js";
@@ -22,6 +23,7 @@ export class ScraperService {
 
   async run(options: ScrapeOptions): Promise<ExtendedScrapeResult> {
     const allListings: Listing[] = [];
+    const scrapedBySource = new Map<ListingSource, Listing[]>();
     const errors: ScraperError[] = [];
 
     await Promise.all(
@@ -39,6 +41,7 @@ export class ScraperService {
           log.info(
             `${scraper.name} — ${String(listings.length)} annonces trouvées`
           );
+          scrapedBySource.set(scraper.name, listings);
           allListings.push(...listings);
         } catch (error) {
           const message =
@@ -52,6 +55,22 @@ export class ScraperService {
     const validListings = validateListings(allListings);
     const { insertedListings, ...scrapeResult } =
       await this.repository.upsertMany(validListings);
-    return { ...scrapeResult, insertedListings, errors };
+
+    let deactivated = 0;
+    for (const [source, listings] of scrapedBySource) {
+      const validForSource = validateListings(listings);
+      const count = await this.repository.deactivateMissingPublications(
+        source,
+        validForSource
+      );
+      if (count > 0) {
+        log.info(
+          `${source} — ${String(count)} publication(s) désactivée(s) (absentes du scrape)`
+        );
+      }
+      deactivated += count;
+    }
+
+    return { ...scrapeResult, insertedListings, errors, deactivated };
   }
 }

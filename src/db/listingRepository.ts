@@ -298,7 +298,10 @@ export class ListingRepository {
     const result = await this.upsertMany([listing]);
 
     if (result.skipped === 1) {
-      return { status: "skipped" };
+      return {
+        status: "skipped",
+        row: await this.findPropertyForListing(listing),
+      };
     }
 
     if (result.inserted === 1) {
@@ -338,6 +341,7 @@ export class ListingRepository {
         linked: 0,
         updated: 0,
         skipped: 0,
+        deactivated: 0,
         insertedListings: [],
         priceDropListings: [],
         errors: [],
@@ -381,9 +385,11 @@ export class ListingRepository {
       linked: 0,
       updated: 0,
       skipped: 0,
+      deactivated: 0,
     };
     const propertyUpdatesById = new Map<number, Listing>();
     const publicationScrapedAtById = new Map<number, Date>();
+    const publicationReactivateById = new Set<number>();
     const pendingPropertyCreates = new Map<string, PendingPropertyCreate>();
     const linkedPublications: {
       propertyId: number;
@@ -408,6 +414,10 @@ export class ListingRepository {
         const propertyChanged = hasPropertyChanges(property, listing);
         const scrapedAtChanged =
           existingPublication.scrapedAt.getTime() !== scrapedAt.getTime();
+
+        if (!existingPublication.isActive) {
+          publicationReactivateById.add(existingPublication.id);
+        }
 
         if (!propertyChanged && !scrapedAtChanged) {
           result.skipped++;
@@ -479,6 +489,13 @@ export class ListingRepository {
         });
       }
 
+      for (const publicationId of publicationReactivateById) {
+        await tx.listingPublication.update({
+          where: { id: publicationId },
+          data: { isActive: true },
+        });
+      }
+
       for (const [publicationId, nextScrapedAt] of publicationScrapedAtById) {
         await tx.listingPublication.update({
           where: { id: publicationId },
@@ -535,8 +552,47 @@ export class ListingRepository {
     };
   }
 
+  async deactivateMissingPublications(
+    source: ListingSource,
+    listings: Pick<Listing, "source" | "externalId" | "url">[]
+  ): Promise<number> {
+    const activeKeys = new Set(
+      listings.map((listing) => publicationKey(listing))
+    );
+    const activeUrls = new Set(listings.map((listing) => listing.url));
+
+    const publications = await this.prisma.listingPublication.findMany({
+      where: { source, isActive: true },
+      select: { id: true, externalId: true, url: true },
+    });
+
+    const idsToDeactivate = publications
+      .filter(
+        (publication) =>
+          !activeKeys.has(`${source}:${publication.externalId}`) &&
+          !activeUrls.has(publication.url)
+      )
+      .map((publication) => publication.id);
+
+    if (idsToDeactivate.length === 0) {
+      return 0;
+    }
+
+    let deactivated = 0;
+    for (const idBatch of chunk(idsToDeactivate, IN_QUERY_BATCH_SIZE)) {
+      const result = await this.prisma.listingPublication.updateMany({
+        where: { id: { in: idBatch } },
+        data: { isActive: false },
+      });
+      deactivated += result.count;
+    }
+
+    return deactivated;
+  }
+
   async findRecent(limit = 10): Promise<PropertyRow[]> {
     const rows = await this.prisma.property.findMany({
+      where: { publications: { some: { isActive: true } } },
       include: propertyInclude,
       orderBy: { firstSeenAt: "desc" },
       take: limit,
@@ -602,8 +658,8 @@ export class ListingRepository {
             ? { not: true }
             : undefined,
         publications: filters.source
-          ? { some: { source: filters.source } }
-          : undefined,
+          ? { some: { source: filters.source, isActive: true } }
+          : { some: { isActive: true } },
         ...(textFilter
           ? {
               OR: [
@@ -684,7 +740,9 @@ export class ListingRepository {
   }
 
   async countPublications(): Promise<number> {
-    return this.prisma.listingPublication.count();
+    return this.prisma.listingPublication.count({
+      where: { isActive: true },
+    });
   }
 
   async findById(id: number): Promise<PropertyRow | undefined> {

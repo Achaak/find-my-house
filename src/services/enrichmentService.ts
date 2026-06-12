@@ -181,6 +181,7 @@ export async function enrichProperty(
             externalId: "",
             source: property.source,
             url: property.url,
+            isActive: true,
             scrapedAt: property.scrapedAt,
           },
         ];

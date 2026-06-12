@@ -19,6 +19,7 @@ const emptyResult: ExtendedScrapeResult = {
   linked: 0,
   updated: 0,
   skipped: 0,
+  deactivated: 0,
   insertedListings: [],
   priceDropListings: [],
   errors: [],

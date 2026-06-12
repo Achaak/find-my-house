@@ -13,6 +13,7 @@ const scrapeResult: ExtendedScrapeResult = {
   linked: 0,
   updated: 2,
   skipped: 2,
+  deactivated: 1,
   insertedListings: [],
   priceDropListings: [],
   errors: [{ scraper: "seloger", message: "HTTP 403" }],

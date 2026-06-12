@@ -203,3 +203,71 @@ describe("ListingRepository.upsertMany", () => {
     expect(result.insertedListings[0]?.publications).toHaveLength(2);
   });
 });
+
+describe("ListingRepository.deactivateMissingPublications", () => {
+  let repository: ListingRepository;
+  let dispose: (() => Promise<void>) | undefined;
+
+  beforeAll(() => {
+    const testDb = createTestRepository();
+    repository = testDb.repository;
+    dispose = testDb.dispose;
+  });
+
+  afterAll(async () => {
+    await dispose?.();
+  });
+
+  it("deactivates publications missing from the latest scrape for a source", async () => {
+    const kept = makeListing({
+      externalId: "lbc-kept",
+      source: "leboncoin",
+      url: "https://www.leboncoin.fr/ad/lbc-kept",
+    });
+    const removed = makeListing({
+      externalId: "lbc-removed",
+      source: "leboncoin",
+      url: "https://www.leboncoin.fr/ad/lbc-removed",
+      price: 310_000,
+    });
+
+    await repository.upsertMany([kept, removed]);
+
+    const deactivated = await repository.deactivateMissingPublications(
+      "leboncoin",
+      [kept]
+    );
+
+    expect(deactivated).toBe(1);
+    expect(await repository.countPublications()).toBe(1);
+
+    const leboncoinResults = await repository.search({
+      source: "leboncoin",
+      limit: 10,
+    });
+    expect(leboncoinResults).toHaveLength(1);
+    expect(leboncoinResults[0]?.publications).toEqual([
+      expect.objectContaining({ externalId: "lbc-kept", isActive: true }),
+    ]);
+  });
+
+  it("reactivates a publication when it reappears in a scrape", async () => {
+    const listing = makeListing({
+      externalId: "lbc-back",
+      source: "leboncoin",
+      url: "https://www.leboncoin.fr/ad/lbc-back",
+    });
+
+    await repository.upsertMany([listing]);
+    await repository.deactivateMissingPublications("leboncoin", []);
+    expect(await repository.countPublications()).toBe(0);
+
+    const second = await repository.upsert(listing);
+
+    expect(second.status).toBe("skipped");
+    expect(second.row?.publications).toEqual([
+      expect.objectContaining({ externalId: "lbc-back", isActive: true }),
+    ]);
+    expect(await repository.countPublications()).toBe(1);
+  });
+});

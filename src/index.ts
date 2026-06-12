@@ -47,7 +47,7 @@ async function main(): Promise<void> {
       try {
         const result = await scraperService.run(scrapeOptions);
         cronLog.info(
-          `Résultat: ${String(result.inserted)} nouveaux biens, ${String(result.linked)} liées, ${String(result.updated)} MAJ, ${String(result.skipped)} ignorées`
+          `Résultat: ${String(result.inserted)} nouveaux biens, ${String(result.linked)} liées, ${String(result.updated)} MAJ, ${String(result.skipped)} ignorées, ${String(result.deactivated)} désactivées`
         );
         for (const line of formatScrapeErrors(result.errors)) {
           cronLog.warn(line);

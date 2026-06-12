@@ -139,10 +139,15 @@ function formatEnergyDetails(property: PropertyRow): string | null {
 }
 
 export function formatPublicationLinks(property: PropertyRow): string {
+  const activePublications = property.publications.filter(
+    (publication) => publication.isActive
+  );
   const publications =
-    property.publications.length > 0
-      ? property.publications
-      : [{ source: property.source, url: property.url } as const];
+    activePublications.length > 0
+      ? activePublications
+      : property.publications.length > 0
+        ? property.publications
+        : [{ source: property.source, url: property.url } as const];
 
   const links = publications
     .map((p) => `[${formatSourceLabel(p.source)}](${p.url})`)

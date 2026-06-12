@@ -30,6 +30,7 @@ export type PublicationRow = {
   externalId: string;
   source: ListingSource;
   url: string;
+  isActive: boolean;
   scrapedAt: string;
 };
 
@@ -120,6 +121,7 @@ export type ScrapeResult = {
   linked: number;
   updated: number;
   skipped: number;
+  deactivated: number;
 };
 
 export type ScraperError = {
