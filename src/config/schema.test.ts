@@ -69,7 +69,18 @@ describe("parseDiscordConfig", () => {
       guildId: "guild",
       channelId: "channel",
       adminRoleId: "role",
+      maxNotifications: 20,
     });
+  });
+
+  it("parses custom max notifications", () => {
+    const config = parseDiscordConfig({
+      DISCORD_TOKEN: "token",
+      DISCORD_CLIENT_ID: "client",
+      DISCORD_MAX_NOTIFICATIONS: "10",
+    });
+
+    expect(config.discord.maxNotifications).toBe(10);
   });
 });
 

@@ -30,6 +30,7 @@ async function main(): Promise<void> {
     await notifyScrapeResults(result, {
       token: discordConfig.discord.token,
       channelId: discordConfig.discord.channelId,
+      maxNotifications: discordConfig.discord.maxNotifications,
       log,
     });
   } finally {

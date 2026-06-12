@@ -96,6 +96,7 @@ export const discordEnvSchema = z
     DISCORD_GUILD_ID: z.string().min(1).optional(),
     DISCORD_CHANNEL_ID: z.string().min(1).optional(),
     DISCORD_ADMIN_ROLE_ID: z.string().min(1).optional(),
+    DISCORD_MAX_NOTIFICATIONS: z.coerce.number().int().positive().default(20),
   })
   .transform((env) => ({
     discord: {
@@ -104,6 +105,7 @@ export const discordEnvSchema = z
       guildId: env.DISCORD_GUILD_ID,
       channelId: env.DISCORD_CHANNEL_ID,
       adminRoleId: env.DISCORD_ADMIN_ROLE_ID,
+      maxNotifications: env.DISCORD_MAX_NOTIFICATIONS,
     },
   }));
 

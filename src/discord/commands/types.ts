@@ -11,6 +11,7 @@ export type DiscordCommandSettings = {
   token: string;
   channelId?: string;
   adminRoleId?: string;
+  maxNotifications?: number;
 };
 
 export type CommandContext = {

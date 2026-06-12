@@ -1,8 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { makePropertyRow } from "../test/listingFixtures.js";
-import { sendPriceDropNotifications } from "./notifications.js";
+import {
+  sendNewListingNotifications,
+  sendPriceDropNotifications,
+} from "./notifications.js";
 
 const post = vi.fn();
+
+type PostOptions = { body?: { content?: string } };
+
+function postBody(callIndex: number): PostOptions["body"] {
+  return (post.mock.calls[callIndex]?.[1] as PostOptions | undefined)?.body;
+}
 
 vi.mock("@discordjs/rest", () => ({
   REST: class {
@@ -35,5 +44,30 @@ describe("sendPriceDropNotifications", () => {
 
     expect(sent).toBe(1);
     expect(post).toHaveBeenCalledOnce();
+  });
+});
+
+describe("sendNewListingNotifications", () => {
+  beforeEach(() => {
+    post.mockReset();
+    post.mockResolvedValue({});
+  });
+
+  it("caps individual embeds and sends an overflow summary", async () => {
+    const listings = Array.from({ length: 7 }, (_, index) =>
+      makePropertyRow({ id: index + 1 })
+    );
+
+    const sent = await sendNewListingNotifications(
+      "token",
+      "channel",
+      listings,
+      { maxNotifications: 3 }
+    );
+
+    expect(sent).toBe(3);
+    expect(post).toHaveBeenCalledTimes(4);
+    expect(postBody(0)?.content).toContain("affichage des 3 premières");
+    expect(postBody(3)?.content).toContain("4 autres annonces");
   });
 });

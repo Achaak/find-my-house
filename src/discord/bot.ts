@@ -40,6 +40,7 @@ export async function startDiscordBot(options: BotOptions): Promise<Client> {
     await notifyScrapeResults(result, {
       token: options.discord.token,
       channelId: options.discord.channelId,
+      maxNotifications: options.discord.maxNotifications,
     });
   };
 

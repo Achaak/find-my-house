@@ -8,9 +8,11 @@ import { formatListingEmbed } from "./format.js";
 const log = createLogger("discord");
 
 type ListingNotificationOptions = {
-  header: (count: number) => string;
+  header: (total: number, shown: number) => string;
+  overflow: (hidden: number) => string;
   shouldNotify?: (property: PropertyRow) => boolean;
   logLabel: string;
+  maxNotifications?: number;
 };
 
 async function sendListingNotifications(
@@ -19,18 +21,22 @@ async function sendListingNotifications(
   listings: PropertyRow[],
   options: ListingNotificationOptions
 ): Promise<number> {
-  if (listings.length === 0) return 0;
+  const { shouldNotify } = options;
+  const eligible = shouldNotify
+    ? listings.filter((listing) => shouldNotify(listing))
+    : listings;
+  if (eligible.length === 0) return 0;
 
   const rest = new REST({ version: "10" }).setToken(token);
-  const count = listings.length;
-  const header = options.header(count);
+  const maxNotifications = options.maxNotifications ?? eligible.length;
+  const toNotify = eligible.slice(0, maxNotifications);
+  const hidden = eligible.length - toNotify.length;
+  const header = options.header(eligible.length, toNotify.length);
 
   let sent = 0;
   let headerSent = false;
 
-  for (const listing of listings) {
-    if (options.shouldNotify && !options.shouldNotify(listing)) continue;
-
+  for (const listing of toNotify) {
     try {
       await rest.post(Routes.channelMessages(channelId), {
         body: {
@@ -49,34 +55,68 @@ async function sendListingNotifications(
     }
   }
 
+  if (hidden > 0) {
+    try {
+      await rest.post(Routes.channelMessages(channelId), {
+        body: {
+          content: options.overflow(hidden),
+        },
+      });
+    } catch (error) {
+      log.error(`Erreur envoi résumé ${options.logLabel}:`, error);
+    }
+  }
+
   return sent;
 }
+
+export type ListingNotificationLimits = {
+  maxNotifications?: number;
+};
 
 export async function sendNewListingNotifications(
   token: string,
   channelId: string,
-  listings: PropertyRow[]
+  listings: PropertyRow[],
+  limits: ListingNotificationLimits = {}
 ): Promise<number> {
   return sendListingNotifications(token, channelId, listings, {
-    header: (count) =>
-      count === 1
-        ? "🏠 **1 nouvelle annonce**"
-        : `🏠 **${String(count)} nouvelles annonces**`,
+    header: (total, shown) => {
+      if (total === 1) return "🏠 **1 nouvelle annonce**";
+      if (total === shown) {
+        return `🏠 **${String(total)} nouvelles annonces**`;
+      }
+      return `🏠 **${String(total)} nouvelles annonces** — affichage des ${String(shown)} premières`;
+    },
+    overflow: (hidden) =>
+      hidden === 1
+        ? "⏭️ **1 autre annonce** non affichée — utilisez `/listings` pour la consulter."
+        : `⏭️ **${String(hidden)} autres annonces** non affichées — utilisez \`/listings\` pour les consulter.`,
     logLabel: "notification",
+    maxNotifications: limits.maxNotifications,
   });
 }
 
 export async function sendPriceDropNotifications(
   token: string,
   channelId: string,
-  listings: PropertyRow[]
+  listings: PropertyRow[],
+  limits: ListingNotificationLimits = {}
 ): Promise<number> {
   return sendListingNotifications(token, channelId, listings, {
-    header: (count) =>
-      count === 1
-        ? "📉 **1 baisse de prix**"
-        : `📉 **${String(count)} baisses de prix**`,
+    header: (total, shown) => {
+      if (total === 1) return "📉 **1 baisse de prix**";
+      if (total === shown) {
+        return `📉 **${String(total)} baisses de prix**`;
+      }
+      return `📉 **${String(total)} baisses de prix** — affichage des ${String(shown)} premières`;
+    },
+    overflow: (hidden) =>
+      hidden === 1
+        ? "⏭️ **1 autre baisse de prix** non affichée — utilisez `/listings` pour la consulter."
+        : `⏭️ **${String(hidden)} autres baisses de prix** non affichées — utilisez \`/listings\` pour les consulter.`,
     shouldNotify: (property) => property.price < property.firstPrice,
     logLabel: "baisse de prix",
+    maxNotifications: limits.maxNotifications,
   });
 }

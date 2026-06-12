@@ -8,6 +8,7 @@ import type { Logger } from "../utils/logger.js";
 export type NotifyScrapeResultsOptions = {
   token: string;
   channelId?: string;
+  maxNotifications?: number;
   log?: Pick<Logger, "info">;
 };
 
@@ -29,11 +30,14 @@ export async function notifyScrapeResults(
     return summary;
   }
 
+  const limits = { maxNotifications: options.maxNotifications };
+
   if (result.insertedListings.length > 0) {
     summary.newListingsSent = await sendNewListingNotifications(
       options.token,
       options.channelId,
-      result.insertedListings
+      result.insertedListings,
+      limits
     );
     options.log?.info(
       `Discord: ${String(summary.newListingsSent)} nouvelle(s) annonce(s)`
@@ -44,7 +48,8 @@ export async function notifyScrapeResults(
     summary.priceDropsSent = await sendPriceDropNotifications(
       options.token,
       options.channelId,
-      result.priceDropListings
+      result.priceDropListings,
+      limits
     );
     options.log?.info(
       `Discord: ${String(summary.priceDropsSent)} baisse(s) de prix`

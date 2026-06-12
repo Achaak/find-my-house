@@ -55,6 +55,7 @@ async function main(): Promise<void> {
         await notifyScrapeResults(result, {
           token: discord.token,
           channelId: discord.channelId,
+          maxNotifications: discord.maxNotifications,
           log: cronLog,
         });
       } catch (error) {
