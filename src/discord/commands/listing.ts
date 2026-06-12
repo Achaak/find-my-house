@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "discord.js";
 import { ensurePropertyEnriched } from "../../services/enrichmentService.js";
 import { buildListingActionRow } from "../components.js";
-import { formatListingEmbed } from "../format.js";
+import { formatListingEmbedWithCompatibility } from "../listingEmbed.js";
 import type { CommandHandler } from "./types.js";
 
 export function buildListingCommand() {
@@ -29,7 +29,13 @@ export const handleListing: CommandHandler = async (interaction, ctx) => {
   }
 
   await interaction.editReply({
-    embeds: [formatListingEmbed(listing)],
+    embeds: [
+      await formatListingEmbedWithCompatibility(
+        listing,
+        ctx.reactionRepository,
+        interaction.user.id
+      ),
+    ],
     components: [buildListingActionRow(listing.id)],
   });
 };

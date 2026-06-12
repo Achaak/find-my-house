@@ -1,4 +1,5 @@
 import { SlashCommandBuilder } from "discord.js";
+import { resetListingCompatibilityCache } from "../listingEmbed.js";
 import { formatReactionList } from "./reactions.js";
 import type { CommandHandler } from "./types.js";
 
@@ -69,6 +70,7 @@ export const handleDislike: CommandHandler = async (interaction, ctx) => {
       id,
       "dislike"
     );
+    resetListingCompatibilityCache();
     await interaction.editReply(
       result === "already_exists"
         ? `L'annonce **#${String(id)}** est déjà dans vos non-favoris.`
@@ -82,6 +84,7 @@ export const handleDislike: CommandHandler = async (interaction, ctx) => {
     id,
     "dislike"
   );
+  resetListingCompatibilityCache();
   await interaction.editReply(
     removed
       ? `Annonce **#${String(id)}** retirée de vos non-favoris.`

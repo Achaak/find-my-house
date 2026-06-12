@@ -2,13 +2,18 @@ import {
   sendNewListingNotifications,
   sendPriceDropNotifications,
 } from "../discord/notifications.js";
+import type { ReactionRepository } from "../db/reactionRepository.js";
+import type { CompatibilityPreferences } from "../types/compatibility.js";
 import type { ExtendedScrapeResult } from "../types/listing.js";
+import { learnCompatibilityPreferences } from "../utils/compatibility/learn.js";
 import type { Logger } from "../utils/logger.js";
 
 export type NotifyScrapeResultsOptions = {
   token: string;
   channelId?: string;
   maxNotifications?: number;
+  reactionRepository?: ReactionRepository;
+  compatibilityPreferences?: CompatibilityPreferences;
   log?: Pick<Logger, "info">;
 };
 
@@ -30,7 +35,18 @@ export async function notifyScrapeResults(
     return summary;
   }
 
-  const limits = { maxNotifications: options.maxNotifications };
+  let compatibilityPreferences = options.compatibilityPreferences;
+  if (!compatibilityPreferences && options.reactionRepository) {
+    const { likes, dislikes } =
+      await options.reactionRepository.loadCompatibilityTrainingData();
+    compatibilityPreferences =
+      learnCompatibilityPreferences(likes, dislikes) ?? undefined;
+  }
+
+  const limits = {
+    maxNotifications: options.maxNotifications,
+    compatibilityPreferences,
+  };
 
   if (result.insertedListings.length > 0) {
     summary.newListingsSent = await sendNewListingNotifications(

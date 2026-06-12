@@ -70,7 +70,8 @@ export type ListingSearchSort =
   | "price_asc"
   | "price_desc"
   | "date_desc"
-  | "surface_desc";
+  | "surface_desc"
+  | "compat_desc";
 
 export type ListingSearchFilters = {
   city?: string;

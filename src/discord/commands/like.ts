@@ -1,4 +1,5 @@
 import { SlashCommandBuilder } from "discord.js";
+import { resetListingCompatibilityCache } from "../listingEmbed.js";
 import { formatReactionList } from "./reactions.js";
 import type { CommandHandler } from "./types.js";
 
@@ -65,6 +66,7 @@ export const handleLike: CommandHandler = async (interaction, ctx) => {
 
   if (subcommand === "add") {
     const result = await ctx.reactionRepository.add(discordUserId, id, "like");
+    resetListingCompatibilityCache();
     await interaction.editReply(
       result === "already_exists"
         ? `L'annonce **#${String(id)}** est déjà dans vos favoris.`
@@ -78,6 +80,7 @@ export const handleLike: CommandHandler = async (interaction, ctx) => {
     id,
     "like"
   );
+  resetListingCompatibilityCache();
   await interaction.editReply(
     removed
       ? `Annonce **#${String(id)}** retirée de vos favoris.`

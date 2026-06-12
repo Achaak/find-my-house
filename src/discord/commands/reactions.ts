@@ -1,9 +1,10 @@
 import type { ReactionRepository } from "../../db/reactionRepository.js";
-import { formatListingEmbed } from "../format.js";
+import type { ListingEmbed } from "../format.js";
+import { formatListingEmbedsWithCompatibility } from "../listingEmbed.js";
 
 export type ReactionListReply = {
   content: string;
-  embeds: ReturnType<typeof formatListingEmbed>[];
+  embeds: ListingEmbed[];
 };
 
 export async function formatReactionList(
@@ -31,6 +32,10 @@ export async function formatReactionList(
 
   return {
     content: header,
-    embeds: listings.map(formatListingEmbed),
+    embeds: await formatListingEmbedsWithCompatibility(
+      listings,
+      reactionRepository,
+      discordUserId
+    ),
   };
 }

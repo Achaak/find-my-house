@@ -41,6 +41,7 @@ export async function startDiscordBot(options: BotOptions): Promise<Client> {
       token: options.discord.token,
       channelId: options.discord.channelId,
       maxNotifications: options.discord.maxNotifications,
+      reactionRepository: options.reactionRepository,
     });
   };
 

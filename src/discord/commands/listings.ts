@@ -1,8 +1,12 @@
 import { SlashCommandBuilder } from "discord.js";
 import { geoFilterLabel, resolveGeoFilter } from "../../utils/geo/geoFilter.js";
 import { parseListingSource } from "../../utils/listingValidation.js";
+import { sortByCompatibility } from "../../utils/compatibility/score.js";
 import { buildListingActionRow } from "../components.js";
-import { formatListingEmbed } from "../format.js";
+import {
+  formatListingEmbedWithCompatibility,
+  resolveListingCompatibilityPreferences,
+} from "../listingEmbed.js";
 import type { CommandHandler } from "./types.js";
 
 export function buildListingsCommand() {
@@ -113,7 +117,11 @@ export function buildListingsCommand() {
           { name: "Prix croissant", value: "price_asc" },
           { name: "Prix décroissant", value: "price_desc" },
           { name: "Plus récentes", value: "date_desc" },
-          { name: "Surface décroissante", value: "surface_desc" }
+          { name: "Surface décroissante", value: "surface_desc" },
+          {
+            name: "Compatibilité décroissante",
+            value: "compat_desc",
+          }
         )
     )
     .addIntegerOption((opt) =>
@@ -153,6 +161,7 @@ export const handleListings: CommandHandler = async (interaction, ctx) => {
       | "price_desc"
       | "date_desc"
       | "surface_desc"
+      | "compat_desc"
       | null) ?? undefined;
   const limit = interaction.options.getInteger("limit") ?? 5;
   const geoFilter = resolveGeoFilter({ maxTravelMinutes, radiusKm }, true);
@@ -184,11 +193,21 @@ export const handleListings: CommandHandler = async (interaction, ctx) => {
     neufOnly,
     maxTravelMinutes,
     radiusKm,
-    sort,
-    limit,
+    sort: sort === "compat_desc" ? undefined : sort,
+    limit: sort === "compat_desc" ? Math.max(limit, 50) : limit,
   });
 
-  if (listings.length === 0) {
+  const compatibilityPreferences = await resolveListingCompatibilityPreferences(
+    ctx.reactionRepository,
+    interaction.user.id
+  );
+
+  const rankedListings =
+    sort === "compat_desc"
+      ? sortByCompatibility(listings, compatibilityPreferences).slice(0, limit)
+      : listings;
+
+  if (rankedListings.length === 0) {
     await interaction.editReply(
       geoFilter.mode !== "city"
         ? `Aucune annonce trouvée dans cette zone (${geoFilterLabel(geoFilter)}).`
@@ -197,20 +216,37 @@ export const handleListings: CommandHandler = async (interaction, ctx) => {
     return;
   }
 
+  const compatibilityHint =
+    sort === "compat_desc" && !compatibilityPreferences
+      ? "\n_Likez des annonces pour activer le tri par compatibilité._"
+      : "";
   const resultHeader =
-    listings.length === 1
+    (rankedListings.length === 1
       ? "📋 **1 annonce** trouvée"
-      : `📋 **${String(listings.length)} annonces** trouvées`;
+      : `📋 **${String(rankedListings.length)} annonces** trouvées`) +
+    compatibilityHint;
 
   await interaction.editReply({
     content: resultHeader,
-    embeds: [formatListingEmbed(listings[0])],
-    components: [buildListingActionRow(listings[0].id)],
+    embeds: [
+      await formatListingEmbedWithCompatibility(
+        rankedListings[0],
+        ctx.reactionRepository,
+        interaction.user.id
+      ),
+    ],
+    components: [buildListingActionRow(rankedListings[0].id)],
   });
 
-  for (const listing of listings.slice(1)) {
+  for (const listing of rankedListings.slice(1)) {
     await interaction.followUp({
-      embeds: [formatListingEmbed(listing)],
+      embeds: [
+        await formatListingEmbedWithCompatibility(
+          listing,
+          ctx.reactionRepository,
+          interaction.user.id
+        ),
+      ],
       components: [buildListingActionRow(listing.id)],
     });
   }

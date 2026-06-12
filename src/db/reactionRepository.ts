@@ -82,14 +82,37 @@ export class ReactionRepository {
     type: ReactionType,
     limit = 10
   ): Promise<PropertyRow[]> {
+    return this.findListingsByType(type, { discordUserId, limit });
+  }
+
+  async findListingsByType(
+    type: ReactionType,
+    options: { discordUserId?: string; limit?: number } = {}
+  ): Promise<PropertyRow[]> {
     const reactions = await this.prisma.listingReaction.findMany({
-      where: { discordUserId, type },
+      where: {
+        type,
+        ...(options.discordUserId
+          ? { discordUserId: options.discordUserId }
+          : {}),
+      },
       include: { property: { include: propertyInclude } },
       orderBy: { createdAt: "desc" },
-      take: limit,
+      take: options.limit ?? 200,
     });
 
     return reactions.map((reaction) => toPropertyRow(reaction.property));
+  }
+
+  async loadCompatibilityTrainingData(
+    discordUserId?: string
+  ): Promise<{ likes: PropertyRow[]; dislikes: PropertyRow[] }> {
+    const [likes, dislikes] = await Promise.all([
+      this.findListingsByType("like", { discordUserId }),
+      this.findListingsByType("dislike", { discordUserId }),
+    ]);
+
+    return { likes, dislikes };
   }
 
   async countByUser(

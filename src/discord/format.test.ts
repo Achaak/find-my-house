@@ -66,4 +66,13 @@ describe("discord/format", () => {
 
     expect(embed.image).toBeUndefined();
   });
+
+  it("includes compatibility score when provided", () => {
+    const embed = formatListingEmbed(makePropertyRow(), {
+      compatibilityScore: 87,
+    });
+
+    const field = embed.fields.find((entry) => entry.name === "Compatibilité");
+    expect(field?.value).toContain("87/100");
+  });
 });

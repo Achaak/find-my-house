@@ -1,6 +1,11 @@
 import { REST } from "@discordjs/rest";
 import { Routes } from "discord-api-types/rest/v10";
+import type { CompatibilityPreferences } from "../types/compatibility.js";
 import type { PropertyRow } from "../types/listing.js";
+import {
+  scorePropertyCompatibility,
+  sortByCompatibility,
+} from "../utils/compatibility/score.js";
 import { createLogger } from "../utils/logger.js";
 import { buildListingActionComponents } from "./components.js";
 import { formatListingEmbed } from "./format.js";
@@ -13,6 +18,7 @@ type ListingNotificationOptions = {
   shouldNotify?: (property: PropertyRow) => boolean;
   logLabel: string;
   maxNotifications?: number;
+  compatibilityPreferences?: CompatibilityPreferences;
 };
 
 async function sendListingNotifications(
@@ -21,7 +27,7 @@ async function sendListingNotifications(
   listings: PropertyRow[],
   options: ListingNotificationOptions
 ): Promise<number> {
-  const { shouldNotify } = options;
+  const { shouldNotify, compatibilityPreferences } = options;
   const eligible = shouldNotify
     ? listings.filter((listing) => shouldNotify(listing))
     : listings;
@@ -29,7 +35,10 @@ async function sendListingNotifications(
 
   const rest = new REST({ version: "10" }).setToken(token);
   const maxNotifications = options.maxNotifications ?? eligible.length;
-  const toNotify = eligible.slice(0, maxNotifications);
+  const ranked = compatibilityPreferences
+    ? sortByCompatibility(eligible, compatibilityPreferences)
+    : eligible;
+  const toNotify = ranked.slice(0, maxNotifications);
   const hidden = eligible.length - toNotify.length;
   const header = options.header(eligible.length, toNotify.length);
 
@@ -38,10 +47,14 @@ async function sendListingNotifications(
 
   for (const listing of toNotify) {
     try {
+      const compatibilityScore = compatibilityPreferences
+        ? scorePropertyCompatibility(listing, compatibilityPreferences)?.score
+        : undefined;
+
       await rest.post(Routes.channelMessages(channelId), {
         body: {
           content: !headerSent ? header : undefined,
-          embeds: [formatListingEmbed(listing)],
+          embeds: [formatListingEmbed(listing, { compatibilityScore })],
           components: buildListingActionComponents(listing.id),
         },
       });
@@ -72,6 +85,7 @@ async function sendListingNotifications(
 
 export type ListingNotificationLimits = {
   maxNotifications?: number;
+  compatibilityPreferences?: CompatibilityPreferences;
 };
 
 export async function sendNewListingNotifications(
@@ -94,6 +108,7 @@ export async function sendNewListingNotifications(
         : `⏭️ **${String(hidden)} autres annonces** non affichées — utilisez \`/listings\` pour les consulter.`,
     logLabel: "notification",
     maxNotifications: limits.maxNotifications,
+    compatibilityPreferences: limits.compatibilityPreferences,
   });
 }
 
@@ -118,5 +133,6 @@ export async function sendPriceDropNotifications(
     shouldNotify: (property) => property.price < property.firstPrice,
     logLabel: "baisse de prix",
     maxNotifications: limits.maxNotifications,
+    compatibilityPreferences: limits.compatibilityPreferences,
   });
 }

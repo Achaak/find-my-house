@@ -1,5 +1,6 @@
 import type { ListingSource, PropertyRow } from "../types/listing.js";
 import { formatEnergyClasses } from "../utils/energy/energyClass.js";
+import { formatCompatibilityLabel } from "../utils/compatibility/score.js";
 
 const SOURCE_LABELS: Record<ListingSource, string> = {
   bienici: "Bien'ici",
@@ -158,10 +159,21 @@ export function formatPublicationLinks(property: PropertyRow): string {
   return links;
 }
 
-function buildListingFields(property: PropertyRow): EmbedField[] {
+function buildListingFields(
+  property: PropertyRow,
+  compatibilityScore?: number
+): EmbedField[] {
   const fields: EmbedField[] = [];
   const propertyType = formatPropertyType(property.propertyType);
   const newPropertyLabel = formatNewPropertyLabel(property.isNewProperty);
+
+  if (compatibilityScore !== undefined) {
+    fields.push({
+      name: "Compatibilité",
+      value: formatCompatibilityLabel(compatibilityScore),
+      inline: true,
+    });
+  }
 
   if (property.surface) {
     fields.push({
@@ -259,14 +271,17 @@ function buildEmbedAuthor(property: PropertyRow): { name: string } {
   return { name: parts.join(" · ") };
 }
 
-export function formatListingEmbed(property: PropertyRow): ListingEmbed {
+export function formatListingEmbed(
+  property: PropertyRow,
+  options?: { compatibilityScore?: number }
+): ListingEmbed {
   return {
     title: truncate(property.title, 256),
     url: property.url,
     color: getEmbedColor(property),
     author: buildEmbedAuthor(property),
     description: buildListingDescription(property),
-    fields: buildListingFields(property),
+    fields: buildListingFields(property, options?.compatibilityScore),
     image: isValidEmbedImageUrl(property.imageUrl)
       ? { url: property.imageUrl }
       : undefined,

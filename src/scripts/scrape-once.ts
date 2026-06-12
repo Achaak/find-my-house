@@ -1,6 +1,7 @@
 import { discordConfig } from "../config/discord.js";
 import { buildScrapeFilters, scrapeConfig } from "../config/scrape.js";
 import { ListingRepository } from "../db/listingRepository.js";
+import { ReactionRepository } from "../db/reactionRepository.js";
 import { disconnectPrisma, getPrisma } from "../db/prisma.js";
 import { createScrapers } from "../scrapers/index.js";
 import { notifyScrapeResults } from "../services/notifyScrapeResults.js";
@@ -12,10 +13,12 @@ const log = createLogger("scrape-once");
 async function main(): Promise<void> {
   const prisma = getPrisma(scrapeConfig.database.url);
   const repository = new ListingRepository(prisma);
+  const reactionRepository = new ReactionRepository(prisma);
   const scraperService = new ScraperService(createScrapers(), repository);
 
   try {
-    const result = await scraperService.run(buildScrapeFilters());
+    const scrapeOptions = buildScrapeFilters();
+    const result = await scraperService.run(scrapeOptions);
 
     log.info("Résultat du scraping:");
     log.info(`  Trouvées:   ${String(result.found)}`);
@@ -31,6 +34,7 @@ async function main(): Promise<void> {
       token: discordConfig.discord.token,
       channelId: discordConfig.discord.channelId,
       maxNotifications: discordConfig.discord.maxNotifications,
+      reactionRepository,
       log,
     });
   } finally {

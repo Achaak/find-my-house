@@ -10,6 +10,7 @@ import type {
   ReactionRepository,
   ReactionType,
 } from "../db/reactionRepository.js";
+import { resetListingCompatibilityCache } from "./listingEmbed.js";
 
 const LIKE_PREFIX = "listing:like:";
 const DISLIKE_PREFIX = "listing:dislike:";
@@ -92,6 +93,7 @@ export async function handleListingButton(
     parsed.listingId,
     parsed.type
   );
+  resetListingCompatibilityCache();
 
   await interaction.editReply(toggleMessages[parsed.type][result]);
   return true;
