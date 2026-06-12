@@ -33,6 +33,13 @@ const listingSchema = z.object({
   gesClass: z.string().nullable(),
   dpeConsumptionKwhM2: z.number().nonnegative().nullable(),
   gesEmissionKgM2: z.number().nonnegative().nullable(),
+  bathrooms: z.number().int().positive().nullable(),
+  constructionYear: z.number().int().min(1800).max(2100).nullable(),
+  heating: z.string().nullable(),
+  orientation: z.string().nullable(),
+  propertyCondition: z.string().nullable(),
+  parkingSpaces: z.number().int().nonnegative().nullable(),
+  highlights: z.array(z.string()).nullable(),
   scrapedAt: z.string().min(1),
 });
 

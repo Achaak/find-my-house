@@ -11,6 +11,7 @@ import {
   mapBienIciAdToEnrichmentPatch,
   type BienIciAd,
 } from "../utils/bienici/index.js";
+import { mergeHighlights } from "../utils/listing/amenities.js";
 import { normalizeEnergyClass } from "../utils/energy/energyClass.js";
 import {
   fetchLeboncoinAdById,
@@ -96,6 +97,13 @@ async function enrichFromSeLoger(
     gesClass: normalizeEnergyClass(details.gesClass),
     dpeConsumptionKwhM2: details.dpeConsumptionKwhM2,
     gesEmissionKgM2: details.gesEmissionKgM2,
+    bathrooms: details.bathrooms,
+    constructionYear: details.constructionYear,
+    heating: details.heating,
+    orientation: details.orientation,
+    propertyCondition: details.propertyCondition,
+    parkingSpaces: details.parkingSpaces,
+    highlights: details.highlights,
   });
 }
 
@@ -133,6 +141,13 @@ async function enrichFromLogicImmo(
     gesClass: normalizeEnergyClass(details.gesClass),
     dpeConsumptionKwhM2: details.dpeConsumptionKwhM2,
     gesEmissionKgM2: details.gesEmissionKgM2,
+    bathrooms: details.bathrooms,
+    constructionYear: details.constructionYear,
+    heating: details.heating,
+    orientation: details.orientation,
+    propertyCondition: details.propertyCondition,
+    parkingSpaces: details.parkingSpaces,
+    highlights: details.highlights,
   });
 }
 
@@ -164,7 +179,23 @@ const ENRICHMENT_FIELDS = [
   "gesClass",
   "dpeConsumptionKwhM2",
   "gesEmissionKgM2",
+  "bathrooms",
+  "constructionYear",
+  "heating",
+  "orientation",
+  "propertyCondition",
+  "parkingSpaces",
 ] as const satisfies readonly (keyof PropertyEnrichmentPatch)[];
+
+function highlightsEqual(
+  left: string[] | null | undefined,
+  right: string[] | null | undefined
+): boolean {
+  const a = left ?? [];
+  const b = right ?? [];
+  if (a.length !== b.length) return false;
+  return a.every((value, index) => value === b[index]);
+}
 
 function mergePatches(
   patches: PropertyEnrichmentPatch[]
@@ -179,6 +210,13 @@ function mergePatches(
         (merged as Record<string, unknown>)[field] = value;
       }
     }
+  }
+
+  const mergedHighlights = mergeHighlights(
+    ...patches.map((patch) => patch.highlights)
+  );
+  if (mergedHighlights) {
+    merged.highlights = mergedHighlights;
   }
 
   return merged;
@@ -196,6 +234,13 @@ function diffPatch(
     if (property[field] !== value) {
       (changes as Record<string, unknown>)[field] = value;
     }
+  }
+
+  if (
+    patch.highlights &&
+    !highlightsEqual(property.highlights, patch.highlights)
+  ) {
+    changes.highlights = patch.highlights;
   }
 
   return changes;

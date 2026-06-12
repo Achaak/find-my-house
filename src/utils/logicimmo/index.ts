@@ -13,6 +13,7 @@ import {
   fetchClassifiedListingDetails,
   mapClassifiedCardToListing,
   parseClassifiedBedrooms,
+  parseClassifiedRooms,
   parseClassifiedCoordinatesFromHtml,
   parseClassifiedDetailEnergy,
   parseClassifiedDetailPage,
@@ -44,6 +45,7 @@ export const fetchLogicImmoListingDetails = (url: string) =>
 
 export const parseLogicImmoPrice = parseClassifiedPrice;
 export const parseLogicImmoBedrooms = parseClassifiedBedrooms;
+export const parseLogicImmoRooms = parseClassifiedRooms;
 export const buildLogicImmoListingUrl = (
   card: Parameters<typeof buildClassifiedListingUrl>[1]
 ) => buildClassifiedListingUrl(LOGIC_IMMO_PORTAL, card);

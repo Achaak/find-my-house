@@ -22,6 +22,13 @@ export type Listing = {
   gesClass: string | null;
   dpeConsumptionKwhM2: number | null;
   gesEmissionKgM2: number | null;
+  bathrooms: number | null;
+  constructionYear: number | null;
+  heating: string | null;
+  orientation: string | null;
+  propertyCondition: string | null;
+  parkingSpaces: number | null;
+  highlights: string[] | null;
   scrapedAt: string;
 };
 
@@ -57,6 +64,13 @@ export type PropertyRow = {
   gesClass: string | null;
   dpeConsumptionKwhM2: number | null;
   gesEmissionKgM2: number | null;
+  bathrooms: number | null;
+  constructionYear: number | null;
+  heating: string | null;
+  orientation: string | null;
+  propertyCondition: string | null;
+  parkingSpaces: number | null;
+  highlights: string[] | null;
   firstSeenAt: string;
   publications: PublicationRow[];
   url: string;

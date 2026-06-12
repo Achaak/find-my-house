@@ -75,6 +75,40 @@ export function buildClassifiedRadiusLocation(
   });
 }
 
+export function resolveClassifiedLocation(
+  place: ClassifiedPlace,
+  geoFilter: GeoFilter,
+  options: {
+    strtPlaceId: string | null;
+    origin: GeoPoint;
+  }
+): string {
+  if (geoFilter.mode === "travel") {
+    if (options.strtPlaceId) {
+      return buildClassifiedTravelLocation(
+        options.strtPlaceId,
+        geoFilter.maxTravelMinutes
+      );
+    }
+
+    return buildClassifiedRadiusLocation(
+      place,
+      travelTimeRadiusKm(geoFilter.maxTravelMinutes),
+      options.origin
+    );
+  }
+
+  if (geoFilter.mode === "radius") {
+    return buildClassifiedRadiusLocation(
+      place,
+      geoFilter.radiusKm,
+      options.origin
+    );
+  }
+
+  return place.locationCode;
+}
+
 export async function buildClassifiedLocation(
   portal: ClassifiedPortalConfig,
   city: string,
@@ -82,35 +116,27 @@ export async function buildClassifiedLocation(
   geoFilter: GeoFilter
 ): Promise<string> {
   const log = createLogger(portal.id);
+  const origin = (await resolveBienIciTravelOrigin(city)) ?? {
+    address: place.name,
+    center: place.center,
+  };
 
-  if (geoFilter.mode === "travel") {
-    const origin = (await resolveBienIciTravelOrigin(city)) ?? {
-      address: place.name,
-      center: place.center,
-    };
-    const strtPlaceId = await resolveClassifiedStrtPlaceId(
-      portal,
-      origin.center
-    );
-    if (strtPlaceId) {
-      return buildClassifiedTravelLocation(
-        strtPlaceId,
-        geoFilter.maxTravelMinutes
-      );
-    }
+  const strtPlaceId =
+    geoFilter.mode === "travel"
+      ? await resolveClassifiedStrtPlaceId(portal, origin.center)
+      : null;
 
+  if (geoFilter.mode === "travel" && !strtPlaceId) {
     const radiusKm = travelTimeRadiusKm(geoFilter.maxTravelMinutes);
     log.warn(
       `point STRT indisponible pour "${city}", repli sur rayon estimé (~${String(Math.round(radiusKm))} km)`
     );
-    return buildClassifiedRadiusLocation(place, radiusKm, origin.center);
   }
 
-  if (geoFilter.mode === "radius") {
-    return buildClassifiedRadiusLocation(place, geoFilter.radiusKm);
-  }
-
-  return place.locationCode;
+  return resolveClassifiedLocation(place, geoFilter, {
+    strtPlaceId,
+    origin: origin.center,
+  });
 }
 
 export function buildClassifiedSearchUrl(

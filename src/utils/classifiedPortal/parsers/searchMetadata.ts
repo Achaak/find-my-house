@@ -1,8 +1,9 @@
 import { parseEnergyMetricsFromText } from "../../energy/energyMetrics.js";
 import type { ClassifiedCard } from "../types.js";
 import { parseClassifiedEnergyClassesFromText } from "./energyText.js";
+import { parseClassifiedLandSurface } from "./landSurface.js";
 
-/** Applies DPE/GES hints available on search cards (no detail page). */
+/** Applies search-card hints (DPE/GES, terrain) without opening the detail page. */
 export function applyClassifiedSearchMetadata(
   card: ClassifiedCard
 ): ClassifiedCard {
@@ -22,5 +23,7 @@ export function applyClassifiedSearchMetadata(
       card.dpeConsumptionKwhM2 ?? metrics.dpeConsumptionKwhM2 ?? undefined,
     gesEmissionKgM2:
       card.gesEmissionKgM2 ?? metrics.gesEmissionKgM2 ?? undefined,
+    landSurface:
+      card.landSurface ?? parseClassifiedLandSurface(text) ?? undefined,
   };
 }

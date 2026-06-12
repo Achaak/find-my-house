@@ -49,6 +49,9 @@ export type ClassifiedCard = {
   gesClass?: string;
   dpeConsumptionKwhM2?: number;
   gesEmissionKgM2?: number;
+  landSurface?: number;
+  latitude?: number;
+  longitude?: number;
 };
 
 export type ClassifiedSearchResponse = {
@@ -117,4 +120,11 @@ export type ClassifiedListingDetails = ClassifiedEnergyDetails & {
   rooms: number | null;
   latitude: number | null;
   longitude: number | null;
+  bathrooms: number | null;
+  constructionYear: number | null;
+  heating: string | null;
+  orientation: string | null;
+  propertyCondition: string | null;
+  parkingSpaces: number | null;
+  highlights: string[] | null;
 };

@@ -1,6 +1,8 @@
 import { parseEnergyMetricsFromText } from "../../energy/energyMetrics.js";
 import type { ClassifiedCard, ClassifiedData } from "../types.js";
+import { extractClassifiedCoordsFromData } from "./coordinates.js";
 import { parseClassifiedEnergyClassesFromText } from "./energyText.js";
+import { parseClassifiedLandSurface } from "./landSurface.js";
 import { applyClassifiedSearchMetadata } from "./searchMetadata.js";
 
 export function mapClassifiedDataToCard(
@@ -15,10 +17,10 @@ export function mapClassifiedDataToCard(
 
   const description = data.mainDescription?.description;
   const keyfacts = data.hardFacts?.keyfacts;
-  const textEnergy = parseClassifiedEnergyClassesFromText(
-    [description, ...(keyfacts ?? [])].filter(Boolean).join("\n")
-  );
+  const text = [description, ...(keyfacts ?? [])].filter(Boolean).join("\n");
+  const textEnergy = parseClassifiedEnergyClassesFromText(text);
   const metrics = parseEnergyMetricsFromText(description);
+  const coords = extractClassifiedCoordsFromData(data);
 
   return applyClassifiedSearchMetadata({
     id,
@@ -46,6 +48,9 @@ export function mapClassifiedDataToCard(
     gesClass: data.gesClass ?? textEnergy.gesClass ?? undefined,
     dpeConsumptionKwhM2: metrics.dpeConsumptionKwhM2 ?? undefined,
     gesEmissionKgM2: metrics.gesEmissionKgM2 ?? undefined,
+    landSurface: parseClassifiedLandSurface(text) ?? undefined,
+    latitude: coords?.lat,
+    longitude: coords?.lng,
   });
 }
 
@@ -71,11 +76,4 @@ export function parseClassifiedDetailCard(
   return null;
 }
 
-export function parseClassifiedLandSurface(text: string): number | null {
-  const match =
-    /terrain\s*(?:de\s+)?(\d[\d\s]*)\s*m²/i.exec(text) ??
-    /(\d[\d\s]*)\s*m²\s*(?:de\s+)?terrain/i.exec(text);
-  if (!match) return null;
-  const parsed = Number(match[1].replace(/\s/g, ""));
-  return Number.isFinite(parsed) ? parsed : null;
-}
+export { parseClassifiedLandSurface } from "./landSurface.js";

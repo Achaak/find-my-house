@@ -4,6 +4,7 @@ import {
   buildSeLogerImageUrl,
   buildSeLogerListingUrl,
   parseSeLogerBedrooms,
+  parseSeLogerRooms,
   parseSeLogerPrice,
 } from "./helpers.js";
 import type { SeLogerClassifiedCard } from "./types.js";
@@ -19,13 +20,13 @@ export function mapSeLogerCardToListing(
     title: card.title ?? card.estateType ?? "Maison",
     price: parseSeLogerPrice(card.pricing),
     surface: card.surface ?? null,
-    landSurface: null,
-    rooms: card.rooms ?? null,
+    landSurface: card.landSurface ?? null,
+    rooms: parseSeLogerRooms(card),
     bedrooms: parseSeLogerBedrooms(card),
     isNewProperty:
       card.isNew === true ? true : card.isNew === false ? false : null,
-    latitude: null,
-    longitude: null,
+    latitude: card.latitude ?? null,
+    longitude: card.longitude ?? null,
     city: card.cityLabel ?? fallbackCity,
     postalCode: card.zipCode ?? null,
     url: buildSeLogerListingUrl(card),

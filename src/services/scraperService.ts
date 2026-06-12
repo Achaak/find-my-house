@@ -53,12 +53,19 @@ export class ScraperService {
     );
 
     const validListings = validateListings(allListings);
+    const validBySource = new Map<ListingSource, Listing[]>();
+    for (const listing of validListings) {
+      const forSource = validBySource.get(listing.source) ?? [];
+      forSource.push(listing);
+      validBySource.set(listing.source, forSource);
+    }
+
     const { insertedListings, ...scrapeResult } =
       await this.repository.upsertMany(validListings);
 
     let deactivated = 0;
-    for (const [source, listings] of scrapedBySource) {
-      const validForSource = validateListings(listings);
+    for (const [source] of scrapedBySource) {
+      const validForSource = validBySource.get(source) ?? [];
       const count = await this.repository.deactivateMissingPublications(
         source,
         validForSource

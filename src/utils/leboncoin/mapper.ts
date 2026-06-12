@@ -5,6 +5,8 @@ import {
   mergeEnergyMetrics,
   parseEnergyMetricsFromText,
 } from "../energy/energyMetrics.js";
+import { sanitizePositiveNumber } from "../listing/amenities.js";
+import { extractLeboncoinListingExtras } from "./attributes.js";
 import {
   getLeboncoinAttribute,
   parseLeboncoinNumber,
@@ -32,6 +34,23 @@ function leboncoinPropertyType(ad: LeboncoinAd): string | null {
   return propertyTypeAttr?.value_label ?? propertyTypeAttr?.value ?? null;
 }
 
+function leboncoinDimensions(ad: LeboncoinAd) {
+  return {
+    surface: sanitizePositiveNumber(
+      parseLeboncoinNumber(getLeboncoinAttribute(ad, "square"))
+    ),
+    landSurface: sanitizePositiveNumber(
+      parseLeboncoinNumber(getLeboncoinAttribute(ad, "land_plot_surface"))
+    ),
+    rooms: sanitizePositiveNumber(
+      parseLeboncoinNumber(getLeboncoinAttribute(ad, "rooms"))
+    ),
+    bedrooms: sanitizePositiveNumber(
+      parseLeboncoinNumber(getLeboncoinAttribute(ad, "bedrooms"))
+    ),
+  };
+}
+
 export function mapLeboncoinAdToListing(
   ad: LeboncoinAd,
   scrapedAt: string,
@@ -39,18 +58,15 @@ export function mapLeboncoinAdToListing(
 ): Listing {
   const sellType = getLeboncoinAttribute(ad, "immo_sell_type");
   const metrics = leboncoinEnergyMetrics(ad);
+  const extras = extractLeboncoinListingExtras(ad);
+  const dimensions = leboncoinDimensions(ad);
 
   return {
     externalId: String(ad.list_id),
     source: "leboncoin",
     title: ad.subject,
     price: ad.price[0] ?? 0,
-    surface: parseLeboncoinNumber(getLeboncoinAttribute(ad, "square")),
-    landSurface: parseLeboncoinNumber(
-      getLeboncoinAttribute(ad, "land_plot_surface")
-    ),
-    rooms: parseLeboncoinNumber(getLeboncoinAttribute(ad, "rooms")),
-    bedrooms: parseLeboncoinNumber(getLeboncoinAttribute(ad, "bedrooms")),
+    ...dimensions,
     isNewProperty:
       sellType === "new" ? true : sellType === "old" ? false : null,
     latitude: ad.location.lat,
@@ -69,6 +85,7 @@ export function mapLeboncoinAdToListing(
     gesClass: normalizeEnergyClass(getLeboncoinAttribute(ad, "ges")),
     dpeConsumptionKwhM2: metrics.dpeConsumptionKwhM2,
     gesEmissionKgM2: metrics.gesEmissionKgM2,
+    ...extras,
     scrapedAt,
   };
 }
@@ -77,15 +94,12 @@ export function mapLeboncoinAdToEnrichmentPatch(
   ad: LeboncoinAd
 ): PropertyEnrichmentPatch {
   const metrics = leboncoinEnergyMetrics(ad);
+  const extras = extractLeboncoinListingExtras(ad);
+  const dimensions = leboncoinDimensions(ad);
 
   return {
     description: ad.body,
-    surface: parseLeboncoinNumber(getLeboncoinAttribute(ad, "square")),
-    landSurface: parseLeboncoinNumber(
-      getLeboncoinAttribute(ad, "land_plot_surface")
-    ),
-    rooms: parseLeboncoinNumber(getLeboncoinAttribute(ad, "rooms")),
-    bedrooms: parseLeboncoinNumber(getLeboncoinAttribute(ad, "bedrooms")),
+    ...dimensions,
     latitude: ad.location.lat,
     longitude: ad.location.lng,
     imageUrl:
@@ -97,5 +111,6 @@ export function mapLeboncoinAdToEnrichmentPatch(
     gesClass: normalizeEnergyClass(getLeboncoinAttribute(ad, "ges")),
     dpeConsumptionKwhM2: metrics.dpeConsumptionKwhM2,
     gesEmissionKgM2: metrics.gesEmissionKgM2,
+    ...extras,
   };
 }

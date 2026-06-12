@@ -8,6 +8,16 @@ export function parseSeLogerPrice(pricing?: SeLogerPricing): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+export function parseSeLogerRooms(card: SeLogerClassifiedCard): number | null {
+  if (card.rooms !== undefined) return card.rooms;
+
+  const tag = card.tags?.find((t) => /\d+\s*pièces?\b/i.test(t));
+  if (!tag) return null;
+
+  const match = /(\d+)\s*pièces?\b/i.exec(tag);
+  return match ? Number(match[1]) : null;
+}
+
 export function parseSeLogerBedrooms(
   card: SeLogerClassifiedCard
 ): number | null {

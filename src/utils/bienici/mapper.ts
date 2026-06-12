@@ -6,6 +6,8 @@ import {
   parseEnergyMetricsFromText,
 } from "../energy/energyMetrics.js";
 import type { GeoPoint } from "../geo/geo.js";
+import { sanitizePositiveNumber } from "../listing/amenities.js";
+import { extractBienIciListingExtras } from "./extras.js";
 
 export type BienIciBlurInfo = {
   position?: { lat: number; lon: number };
@@ -18,6 +20,7 @@ export type BienIciAd = {
   price: number;
   surfaceArea?: number;
   landSurfaceArea?: number;
+  gardenSurfaceArea?: number;
   roomsQuantity?: number;
   bedroomsQuantity?: number;
   newProperty?: boolean;
@@ -32,6 +35,18 @@ export type BienIciAd = {
   energyConsumption?: number;
   greenhouseGazConsumption?: number;
   url?: string;
+  bathroomsQuantity?: number;
+  showerRoomsQuantity?: number;
+  yearOfConstruction?: number;
+  heating?: string;
+  exposition?: string;
+  parkingPlacesQuantity?: number;
+  hasGarden?: boolean;
+  hasCellar?: boolean;
+  hasPool?: boolean;
+  hasAirConditioning?: boolean;
+  terracesQuantity?: number;
+  workToDo?: boolean;
 };
 
 export function extractBienIciAdCoords(ad: BienIciAd): GeoPoint | null {
@@ -58,20 +73,29 @@ export function mapBienIciAdToListing(
   const url = ad.url ?? `https://www.bienici.com/annonce/${ad.id}`;
   const coords = extractBienIciAdCoords(ad);
   const metrics = bienIciEnergyMetrics(ad);
+  const extras = extractBienIciListingExtras(ad);
+
+  const trimmedTitle = ad.title.trim();
+  const title =
+    trimmedTitle !== ""
+      ? trimmedTitle
+      : (ad.propertyType?.trim() ?? "Annonce immobilière");
 
   return {
     externalId: ad.id,
     source: "bienici",
-    title: ad.title,
+    title,
     price: ad.price,
-    surface: ad.surfaceArea ?? null,
-    landSurface: ad.landSurfaceArea ?? null,
-    rooms: ad.roomsQuantity ?? null,
-    bedrooms: ad.bedroomsQuantity ?? null,
+    surface: sanitizePositiveNumber(ad.surfaceArea),
+    landSurface: sanitizePositiveNumber(
+      ad.landSurfaceArea ?? ad.gardenSurfaceArea
+    ),
+    rooms: sanitizePositiveNumber(ad.roomsQuantity),
+    bedrooms: sanitizePositiveNumber(ad.bedroomsQuantity),
     isNewProperty: ad.newProperty ?? null,
     latitude: coords?.lat ?? null,
     longitude: coords?.lng ?? null,
-    city: ad.city || fallbackCity,
+    city: ad.city.trim() || fallbackCity,
     postalCode: ad.postalCode ?? null,
     url,
     description: ad.description ?? null,
@@ -81,6 +105,7 @@ export function mapBienIciAdToListing(
     gesClass: normalizeEnergyClass(ad.greenhouseGazClassification),
     dpeConsumptionKwhM2: metrics.dpeConsumptionKwhM2,
     gesEmissionKgM2: metrics.gesEmissionKgM2,
+    ...extras,
     scrapedAt,
   };
 }
@@ -90,11 +115,12 @@ export function mapBienIciAdToEnrichmentPatch(
 ): PropertyEnrichmentPatch {
   const position = ad.blurInfo?.position ?? ad.blurInfo?.centroid;
   const metrics = bienIciEnergyMetrics(ad);
+  const extras = extractBienIciListingExtras(ad);
 
   return {
     description: ad.description ?? null,
     surface: ad.surfaceArea ?? null,
-    landSurface: ad.landSurfaceArea ?? null,
+    landSurface: ad.landSurfaceArea ?? ad.gardenSurfaceArea ?? null,
     rooms: ad.roomsQuantity ?? null,
     bedrooms: ad.bedroomsQuantity ?? null,
     latitude: position?.lat ?? null,
@@ -104,5 +130,6 @@ export function mapBienIciAdToEnrichmentPatch(
     gesClass: normalizeEnergyClass(ad.greenhouseGazClassification),
     dpeConsumptionKwhM2: metrics.dpeConsumptionKwhM2,
     gesEmissionKgM2: metrics.gesEmissionKgM2,
+    ...extras,
   };
 }

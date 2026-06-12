@@ -9,6 +9,7 @@ import {
   type EnergyClass,
 } from "../energy/energyClass.js";
 import { haversineDistanceKm, type GeoPoint } from "../geo/geo.js";
+import { highlightsOverlapRatio } from "./highlights.js";
 
 const DPE_RANK: Record<EnergyClass, number> = {
   A: 7,
@@ -28,6 +29,13 @@ const CRITERION_WEIGHTS = {
   landSurface: 20,
   rooms: 10,
   bedrooms: 10,
+  bathrooms: 5,
+  parkingSpaces: 5,
+  constructionYear: 5,
+  highlights: 8,
+  condition: 5,
+  heating: 3,
+  orientation: 3,
   dpe: 10,
   ancien: 5,
   distance: 10,
@@ -107,6 +115,52 @@ export function scoreAncienPreference(
   return 50;
 }
 
+export function scoreConstructionYear(
+  value: number | null,
+  ideal: number | undefined
+): number | null {
+  if (ideal === undefined || value === null) return null;
+
+  const diff = Math.abs(value - ideal);
+  if (diff <= 5) return 100;
+  if (diff >= 50) return 0;
+
+  return clampScore(100 - ((diff - 5) / 45) * 100);
+}
+
+export function scoreHighlightsMatch(
+  actual: string[] | null,
+  preferred: string[] | undefined
+): number | null {
+  const ratio = highlightsOverlapRatio(actual, preferred);
+  if (ratio === null) return null;
+  return clampScore(ratio * 100);
+}
+
+export function scoreRenovationCondition(
+  condition: string | null,
+  avoidRenovation: boolean | undefined
+): number | null {
+  if (!avoidRenovation) return null;
+  if (!condition) return 75;
+  if (/travaux|rafraîchir|rénov/i.test(condition)) return 0;
+  return 100;
+}
+
+export function scoreTextPreference(
+  actual: string | null,
+  ideal: string | undefined
+): number | null {
+  if (!ideal) return null;
+  if (!actual) return null;
+
+  const left = actual.trim().toLowerCase();
+  const right = ideal.trim().toLowerCase();
+  if (left === right) return 100;
+  if (left.includes(right) || right.includes(left)) return 80;
+  return 0;
+}
+
 function relativeDifference(a: number, b: number): number {
   const scale = Math.max(Math.abs(a), Math.abs(b), 1);
   return Math.abs(a - b) / scale;
@@ -134,6 +188,18 @@ export function similarityToProperty(
   addNumeric(property.landSurface, reference.landSurface, 1.5);
   addNumeric(property.rooms, reference.rooms, 1);
   addNumeric(property.bedrooms, reference.bedrooms, 1);
+  addNumeric(property.bathrooms, reference.bathrooms, 1);
+  addNumeric(property.parkingSpaces, reference.parkingSpaces, 1);
+  addNumeric(property.constructionYear, reference.constructionYear, 1);
+
+  const highlightSimilarity = highlightsOverlapRatio(
+    property.highlights,
+    reference.highlights
+  );
+  if (highlightSimilarity !== null) {
+    total += highlightSimilarity * 1.5;
+    weight += 1.5;
+  }
 
   if (
     property.latitude !== null &&
@@ -249,6 +315,33 @@ export function scorePropertyCompatibility(
       property.bedrooms,
       preferences.minBedrooms,
       preferences.idealBedrooms
+    ),
+    bathrooms: scoreRoomsTarget(
+      property.bathrooms,
+      preferences.minBathrooms,
+      preferences.idealBathrooms
+    ),
+    parkingSpaces: scoreRoomsTarget(
+      property.parkingSpaces,
+      preferences.minParkingSpaces,
+      preferences.idealParkingSpaces
+    ),
+    constructionYear: scoreConstructionYear(
+      property.constructionYear,
+      preferences.idealConstructionYear
+    ),
+    highlights: scoreHighlightsMatch(
+      property.highlights,
+      preferences.preferredHighlights
+    ),
+    condition: scoreRenovationCondition(
+      property.propertyCondition,
+      preferences.avoidRenovation
+    ),
+    heating: scoreTextPreference(property.heating, preferences.idealHeating),
+    orientation: scoreTextPreference(
+      property.orientation,
+      preferences.idealOrientation
     ),
     dpe: scoreDpeClass(property.dpeClass, preferences.idealDpeClass),
     ancien: scoreAncienPreference(

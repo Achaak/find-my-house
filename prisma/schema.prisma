@@ -43,6 +43,13 @@ model Property {
   gesClass             String? @map("ges_class")
   dpeConsumptionKwhM2  Float?  @map("dpe_consumption_kwh_m2")
   gesEmissionKgM2      Float?  @map("ges_emission_kg_m2")
+  bathrooms            Int?
+  constructionYear     Int?     @map("construction_year")
+  heating              String?
+  orientation          String?
+  propertyCondition    String?  @map("property_condition")
+  parkingSpaces        Int?     @map("parking_spaces")
+  highlights           Json?
   firstSeenAt   DateTime  @map("first_seen_at")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")

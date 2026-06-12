@@ -207,6 +207,30 @@ function buildListingFields(
     });
   }
 
+  if (property.bathrooms) {
+    fields.push({
+      name: "Salles de bain",
+      value: String(property.bathrooms),
+      inline: true,
+    });
+  }
+
+  if (property.constructionYear) {
+    fields.push({
+      name: "Construction",
+      value: String(property.constructionYear),
+      inline: true,
+    });
+  }
+
+  if (property.parkingSpaces) {
+    fields.push({
+      name: "Parking",
+      value: String(property.parkingSpaces),
+      inline: true,
+    });
+  }
+
   if (propertyType) {
     fields.push({
       name: "Type",
@@ -229,11 +253,35 @@ function buildListingFields(
     inline: false,
   });
 
+  const comfortDetails = [
+    property.heating ? `Chauffage : ${property.heating}` : null,
+    property.orientation ? `Exposition : ${property.orientation}` : null,
+    property.propertyCondition ? `État : ${property.propertyCondition}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  if (comfortDetails) {
+    fields.push({
+      name: "Confort",
+      value: truncate(comfortDetails, 1024),
+      inline: false,
+    });
+  }
+
   const energyDetails = formatEnergyDetails(property);
   if (energyDetails) {
     fields.push({
       name: "Énergie",
       value: truncate(energyDetails, 1024),
+      inline: false,
+    });
+  }
+
+  if (property.highlights?.length) {
+    fields.push({
+      name: "Atouts",
+      value: truncate(property.highlights.join(" · "), 1024),
       inline: false,
     });
   }
@@ -310,9 +358,18 @@ export function formatListing(property: PropertyRow): string {
         : null,
       property.rooms ? `🛏️ ${String(property.rooms)} pièces` : null,
       property.bedrooms ? `🛌 ${String(property.bedrooms)} chambres` : null,
+      property.bathrooms
+        ? `🚿 ${String(property.bathrooms)} salle${property.bathrooms > 1 ? "s" : ""} de bain`
+        : null,
+      property.constructionYear
+        ? `📅 ${String(property.constructionYear)}`
+        : null,
     ]
       .filter(Boolean)
       .join(" · ") || null,
+    property.highlights?.length
+      ? `✨ ${property.highlights.join(" · ")}`
+      : null,
     energyLabel ? `⚡ ${energyLabel}` : null,
     property.isNewProperty === false
       ? "🏠 Ancien"

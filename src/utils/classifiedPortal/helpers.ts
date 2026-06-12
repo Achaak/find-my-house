@@ -11,13 +11,23 @@ export function parseClassifiedPrice(pricing?: ClassifiedPricing): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+export function parseClassifiedRooms(card: ClassifiedCard): number | null {
+  if (card.rooms !== undefined) return card.rooms;
+
+  const tag = card.tags?.find((t) => /\d+\s*pièces?\b/i.test(t));
+  if (!tag) return null;
+
+  const match = /(\d+)\s*pièces?\b/i.exec(tag);
+  return match ? Number(match[1]) : null;
+}
+
 export function parseClassifiedBedrooms(card: ClassifiedCard): number | null {
   if (card.bedroomCount !== undefined) return card.bedroomCount;
 
-  const tag = card.tags?.find((t) => /\d+\s*chambre/i.test(t));
+  const tag = card.tags?.find((t) => /\d+\s*chambres?\b/i.test(t));
   if (!tag) return null;
 
-  const match = /(\d+)/.exec(tag);
+  const match = /(\d+)\s*chambres?\b/i.exec(tag);
   return match ? Number(match[1]) : null;
 }
 

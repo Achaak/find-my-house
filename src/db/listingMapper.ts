@@ -20,6 +20,15 @@ function toPublicationRow(row: PrismaPublication): PublicationRow {
   };
 }
 
+function parseHighlights(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null;
+
+  const items = value.filter(
+    (item): item is string => typeof item === "string"
+  );
+  return items.length > 0 ? items : null;
+}
+
 function sortPublications(publications: PublicationRow[]): PublicationRow[] {
   return [...publications].sort(
     (a, b) => new Date(a.scrapedAt).getTime() - new Date(b.scrapedAt).getTime()
@@ -65,6 +74,13 @@ export function toPropertyRow(row: PropertyWithPublications): PropertyRow {
     gesClass: row.gesClass,
     dpeConsumptionKwhM2: row.dpeConsumptionKwhM2,
     gesEmissionKgM2: row.gesEmissionKgM2,
+    bathrooms: row.bathrooms,
+    constructionYear: row.constructionYear,
+    heating: row.heating,
+    orientation: row.orientation,
+    propertyCondition: row.propertyCondition,
+    parkingSpaces: row.parkingSpaces,
+    highlights: parseHighlights(row.highlights),
     firstSeenAt: row.firstSeenAt.toISOString(),
     publications,
     url: primary.url,

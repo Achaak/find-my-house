@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 import { makePropertyRow } from "../../test/listingFixtures.js";
 import { learnCompatibilityPreferences } from "./learn.js";
 import {
+  scoreConstructionYear,
   scoreDpeClass,
+  scoreHighlightsMatch,
   scoreNumericTarget,
   scorePrice,
   scorePropertyCompatibility,
+  scoreRenovationCondition,
   sortByCompatibility,
 } from "./score.js";
 
@@ -39,6 +42,16 @@ describe("compatibility score", () => {
     expect(scoreDpeClass("B", "C")).toBe(100);
     expect(scoreDpeClass("C", "C")).toBe(100);
     expect(scoreDpeClass("E", "C")).toBe(60);
+  });
+
+  it("scores construction year proximity and highlight overlap", () => {
+    expect(scoreConstructionYear(1970, 1972)).toBe(100);
+    expect(scoreConstructionYear(1985, 1970)).toBeLessThan(100);
+    expect(scoreHighlightsMatch(["Garage", "Jardin"], ["Garage", "Cave"])).toBe(
+      50
+    );
+    expect(scoreRenovationCondition("Travaux à prévoir", true)).toBe(0);
+    expect(scoreRenovationCondition("Bon état", true)).toBe(100);
   });
 
   it("ranks a closer match above a weaker one from learned likes", () => {
@@ -136,5 +149,57 @@ describe("compatibility score", () => {
     )?.score;
 
     expect(penalized).toBeLessThan(preferred ?? 100);
+  });
+
+  it("favors listings that match learned amenities", () => {
+    const preferences = preferencesFromLikes(
+      {
+        bathrooms: 2,
+        parkingSpaces: 2,
+        constructionYear: 1975,
+        highlights: ["Garage", "Jardin"],
+        propertyCondition: "Bon état",
+        heating: "Gaz",
+      },
+      {
+        bathrooms: 2,
+        parkingSpaces: 1,
+        constructionYear: 1978,
+        highlights: ["Garage", "Cave"],
+        propertyCondition: "Bon état",
+        heating: "Gaz",
+      }
+    );
+
+    const strongMatch = makePropertyRow({
+      id: 20,
+      price: 250_000,
+      surface: 110,
+      bathrooms: 2,
+      parkingSpaces: 2,
+      constructionYear: 1976,
+      highlights: ["Garage", "Jardin"],
+      propertyCondition: "Bon état",
+      heating: "Gaz individuel",
+    });
+    const weakMatch = makePropertyRow({
+      id: 21,
+      price: 250_000,
+      surface: 110,
+      bathrooms: 1,
+      parkingSpaces: 0,
+      constructionYear: 1920,
+      highlights: ["Piscine"],
+      propertyCondition: "Travaux à prévoir",
+      heating: "Électrique",
+    });
+
+    const strongScore = scorePropertyCompatibility(
+      strongMatch,
+      preferences
+    )?.score;
+    const weakScore = scorePropertyCompatibility(weakMatch, preferences)?.score;
+
+    expect(strongScore).toBeGreaterThan(weakScore ?? 0);
   });
 });

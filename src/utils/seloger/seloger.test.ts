@@ -32,6 +32,37 @@ describe("applySeLogerSearchMetadata", () => {
     expect(enriched.energyClass).toBe("C");
     expect(enriched.gesClass).toBe("D");
   });
+
+  it("fills land surface from keyfacts when available on search cards", () => {
+    const card: SeLogerClassifiedCard = {
+      id: "123",
+      cardType: "classified",
+      tags: ["Terrain de 1 200 m²"],
+    };
+
+    expect(applySeLogerSearchMetadata(card).landSurface).toBe(1200);
+  });
+});
+
+describe("parseSeLogerRooms", () => {
+  it("maps rooms from tags when search cards omit nbroom", async () => {
+    const { mapSeLogerCardToListing } = await import("./index.js");
+
+    const listing = mapSeLogerCardToListing(
+      {
+        id: "tag-rooms",
+        cardType: "classified",
+        pricing: { rawPrice: "350000" },
+        tags: ["6 pièces", "4 chambres"],
+        cityLabel: "Lyon",
+      },
+      "2026-01-01T00:00:00.000Z",
+      "Lyon"
+    );
+
+    expect(listing.rooms).toBe(6);
+    expect(listing.bedrooms).toBe(4);
+  });
 });
 
 describe("parseSeLogerDetailEnergy", () => {
@@ -97,6 +128,7 @@ describe("parseSeLogerSearchHtml", () => {
     expect(result.cards).toHaveLength(1);
     expect(result.cards[0]?.title).toBe("Maison de ville");
     expect(result.cards[0]?.zipCode).toBe("69003");
+    expect(result.cards[0]?.landSurface).toBe(800);
   });
 });
 

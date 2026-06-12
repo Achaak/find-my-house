@@ -13,6 +13,7 @@ import {
   fetchClassifiedListingDetails,
   mapClassifiedCardToListing,
   parseClassifiedBedrooms,
+  parseClassifiedRooms,
   parseClassifiedCoordinatesFromHtml,
   parseClassifiedDetailEnergy,
   parseClassifiedDetailPage,
@@ -42,6 +43,7 @@ export const fetchSeLogerListingDetails = (url: string) =>
 
 export const parseSeLogerPrice = parseClassifiedPrice;
 export const parseSeLogerBedrooms = parseClassifiedBedrooms;
+export const parseSeLogerRooms = parseClassifiedRooms;
 export const buildSeLogerListingUrl = (
   card: Parameters<typeof buildClassifiedListingUrl>[1]
 ) => buildClassifiedListingUrl(SELOGER_PORTAL, card);

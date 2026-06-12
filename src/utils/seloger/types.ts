@@ -38,6 +38,9 @@ export type SeLogerClassifiedCard = {
   gesClass?: string;
   dpeConsumptionKwhM2?: number;
   gesEmissionKgM2?: number;
+  landSurface?: number;
+  latitude?: number;
+  longitude?: number;
 };
 
 export type SeLogerSearchResponse = {

@@ -13,6 +13,7 @@ export {
 export {
   parseClassifiedPrice,
   parseClassifiedBedrooms,
+  parseClassifiedRooms,
   buildClassifiedListingUrl,
   buildClassifiedImageUrl,
 } from "./helpers.js";
@@ -21,6 +22,7 @@ export {
   resolveClassifiedStrtPlaceId,
   buildClassifiedTravelLocation,
   buildClassifiedRadiusLocation,
+  resolveClassifiedLocation,
   buildClassifiedLocation,
   buildClassifiedSearchUrl,
 } from "./place.js";

@@ -5,6 +5,7 @@ import {
   type EnergyClass,
 } from "../energy/energyClass.js";
 import { haversineDistanceKm, type GeoPoint } from "../geo/geo.js";
+import { collectPreferredHighlights } from "./highlights.js";
 
 const DPE_RANK: Record<EnergyClass, number> = {
   A: 7,
@@ -68,6 +69,37 @@ function learnDpeClass(listings: PropertyRow[]): EnergyClass | undefined {
     const nextDistance = Math.abs(DPE_RANK[letter] - medianRank);
     return nextDistance < closestDistance ? letter : closest;
   });
+}
+
+function learnMostCommonText(
+  listings: PropertyRow[],
+  pick: (listing: PropertyRow) => string | null
+): string | undefined {
+  const counts = new Map<string, number>();
+
+  for (const listing of listings) {
+    const value = pick(listing)?.trim();
+    if (!value) continue;
+
+    const key = value.toLowerCase();
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  if (counts.size === 0) return undefined;
+
+  return [...counts.entries()].sort(([, a], [, b]) => b - a)[0]?.[0];
+}
+
+function learnAvoidRenovation(listings: PropertyRow[]): boolean | undefined {
+  const known = listings.filter((listing) => listing.propertyCondition);
+  if (known.length === 0) return undefined;
+
+  const withoutRenovation = known.filter(
+    (listing) =>
+      !/travaux|rafraîchir|rénov/i.test(listing.propertyCondition ?? "")
+  ).length;
+
+  return withoutRenovation / known.length >= 0.7;
 }
 
 function learnAncienPreference(listings: PropertyRow[]): boolean | undefined {
@@ -136,6 +168,22 @@ export function learnCompatibilityPreferences(
   const ancienOnly = learnAncienPreference(likes);
   const roomValues = numericValues(likes, (listing) => listing.rooms);
   const bedroomValues = numericValues(likes, (listing) => listing.bedrooms);
+  const bathroomValues = numericValues(likes, (listing) => listing.bathrooms);
+  const parkingValues = numericValues(
+    likes,
+    (listing) => listing.parkingSpaces
+  );
+  const constructionYears = numericValues(
+    likes,
+    (listing) => listing.constructionYear
+  );
+  const preferredHighlights = collectPreferredHighlights(likes);
+  const avoidRenovation = learnAvoidRenovation(likes);
+  const idealHeating = learnMostCommonText(likes, (listing) => listing.heating);
+  const idealOrientation = learnMostCommonText(
+    likes,
+    (listing) => listing.orientation
+  );
 
   const preferences: CompatibilityPreferences = {
     ...(prices.length > 0
@@ -168,6 +216,25 @@ export function learnCompatibilityPreferences(
           idealBedrooms: median(bedroomValues),
         }
       : {}),
+    ...(bathroomValues.length > 0
+      ? {
+          minBathrooms: Math.min(...bathroomValues),
+          idealBathrooms: median(bathroomValues),
+        }
+      : {}),
+    ...(parkingValues.length > 0
+      ? {
+          minParkingSpaces: Math.min(...parkingValues),
+          idealParkingSpaces: median(parkingValues),
+        }
+      : {}),
+    ...(constructionYears.length > 0
+      ? { idealConstructionYear: Math.round(median(constructionYears)) }
+      : {}),
+    ...(preferredHighlights ? { preferredHighlights } : {}),
+    ...(avoidRenovation ? { avoidRenovation } : {}),
+    ...(idealHeating ? { idealHeating } : {}),
+    ...(idealOrientation ? { idealOrientation } : {}),
     ...(idealDpeClass ? { idealDpeClass } : {}),
     ...(ancienOnly ? { ancienOnly } : {}),
     ...learnGeoPreferences(likes),

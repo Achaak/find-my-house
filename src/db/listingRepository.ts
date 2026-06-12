@@ -180,6 +180,13 @@ function toPropertyData(listing: Listing) {
     gesClass: listing.gesClass,
     dpeConsumptionKwhM2: listing.dpeConsumptionKwhM2,
     gesEmissionKgM2: listing.gesEmissionKgM2,
+    bathrooms: listing.bathrooms,
+    constructionYear: listing.constructionYear,
+    heating: listing.heating,
+    orientation: listing.orientation,
+    propertyCondition: listing.propertyCondition,
+    parkingSpaces: listing.parkingSpaces,
+    highlights: listing.highlights,
   };
 }
 
@@ -213,7 +220,15 @@ function hasPropertyChanges(
     existing.dpeClass !== listing.dpeClass ||
     existing.gesClass !== listing.gesClass ||
     existing.dpeConsumptionKwhM2 !== listing.dpeConsumptionKwhM2 ||
-    existing.gesEmissionKgM2 !== listing.gesEmissionKgM2
+    existing.gesEmissionKgM2 !== listing.gesEmissionKgM2 ||
+    existing.bathrooms !== listing.bathrooms ||
+    existing.constructionYear !== listing.constructionYear ||
+    existing.heating !== listing.heating ||
+    existing.orientation !== listing.orientation ||
+    existing.propertyCondition !== listing.propertyCondition ||
+    existing.parkingSpaces !== listing.parkingSpaces ||
+    JSON.stringify(existing.highlights ?? []) !==
+      JSON.stringify(listing.highlights ?? [])
   );
 }
 
