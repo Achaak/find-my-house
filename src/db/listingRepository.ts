@@ -1,7 +1,8 @@
-import type {
-  ListingPublication as PrismaPublication,
-  PrismaClient,
-  Property as PrismaProperty,
+import {
+  Prisma,
+  type ListingPublication as PrismaPublication,
+  type PrismaClient,
+  type Property as PrismaProperty,
 } from "../generated/prisma/client.js";
 import type {
   ExtendedScrapeResult,
@@ -19,7 +20,7 @@ import type {
   SourcePublicationCounts,
 } from "../types/stats.js";
 import type { PropertyEnrichmentPatch } from "../types/enrichment.js";
-import { toPropertyRow } from "./listingMapper.js";
+import { parseHighlights, toPropertyRow } from "./listingMapper.js";
 import {
   boundingBoxForRadiusKm,
   haversineDistanceKm,
@@ -85,7 +86,7 @@ function mergeIntoPendingCreate(
     }
   }
 
-  if (hasPropertyChanges(pending.listing, listing)) {
+  if (hasPropertyChanges(toPropertyComparableData(pending.listing), listing)) {
     const previousPrimary = pending.listing;
     const previousScrapedAt = pending.scrapedAt;
 
@@ -160,7 +161,43 @@ function searchOrderBy(
   }
 }
 
-function toPropertyData(listing: Listing) {
+type PropertyScalarData = {
+  title: string;
+  price: number;
+  surface: number | null;
+  landSurface: number | null;
+  rooms: number | null;
+  bedrooms: number | null;
+  isNewProperty: boolean | null;
+  latitude: number | null;
+  longitude: number | null;
+  city: string;
+  postalCode: string | null;
+  description: string | null;
+  imageUrl: string | null;
+  propertyType: string | null;
+  dpeClass: string | null;
+  gesClass: string | null;
+  dpeConsumptionKwhM2: number | null;
+  gesEmissionKgM2: number | null;
+  bathrooms: number | null;
+  constructionYear: number | null;
+  heating: string | null;
+  orientation: string | null;
+  propertyCondition: string | null;
+  parkingSpaces: number | null;
+  highlights: string[] | null;
+};
+
+function toPrismaHighlights(
+  highlights: string[] | null | undefined
+): Prisma.NullableJsonNullValueInput | Prisma.InputJsonValue | undefined {
+  if (highlights === undefined) return undefined;
+  if (highlights === null) return Prisma.DbNull;
+  return highlights;
+}
+
+function toPropertyData(listing: Listing): PropertyScalarData {
   return {
     title: listing.title,
     price: listing.price,
@@ -190,6 +227,60 @@ function toPropertyData(listing: Listing) {
   };
 }
 
+function toPrismaPropertyData(data: PropertyScalarData) {
+  const { highlights, ...rest } = data;
+  return {
+    ...rest,
+    highlights: toPrismaHighlights(highlights),
+  };
+}
+
+function toPropertyComparableData(
+  source: Listing | Pick<PrismaProperty, keyof PropertyScalarData>
+): PropertyScalarData {
+  if ("externalId" in source) {
+    return toPropertyData(source);
+  }
+
+  return {
+    title: source.title,
+    price: source.price,
+    surface: source.surface,
+    landSurface: source.landSurface,
+    rooms: source.rooms,
+    bedrooms: source.bedrooms,
+    isNewProperty: source.isNewProperty,
+    latitude: source.latitude,
+    longitude: source.longitude,
+    city: source.city,
+    postalCode: source.postalCode,
+    description: source.description,
+    imageUrl: source.imageUrl,
+    propertyType: source.propertyType,
+    dpeClass: source.dpeClass,
+    gesClass: source.gesClass,
+    dpeConsumptionKwhM2: source.dpeConsumptionKwhM2,
+    gesEmissionKgM2: source.gesEmissionKgM2,
+    bathrooms: source.bathrooms,
+    constructionYear: source.constructionYear,
+    heating: source.heating,
+    orientation: source.orientation,
+    propertyCondition: source.propertyCondition,
+    parkingSpaces: source.parkingSpaces,
+    highlights: parseHighlights(source.highlights),
+  };
+}
+
+function toPrismaEnrichmentPatch(patch: PropertyEnrichmentPatch) {
+  const { highlights, ...rest } = patch;
+  return {
+    ...rest,
+    ...(highlights !== undefined
+      ? { highlights: toPrismaHighlights(highlights) }
+      : {}),
+  };
+}
+
 function isPriceDrop(
   previousPrice: number,
   newPrice: number,
@@ -199,7 +290,7 @@ function isPriceDrop(
 }
 
 function hasPropertyChanges(
-  existing: ReturnType<typeof toPropertyData>,
+  existing: PropertyScalarData,
   listing: Listing
 ): boolean {
   return (
@@ -467,7 +558,10 @@ export class ListingRepository {
 
       if (existingPublication) {
         const property = existingPublication.property;
-        const propertyChanged = hasPropertyChanges(property, listing);
+        const propertyChanged = hasPropertyChanges(
+          toPropertyComparableData(property),
+          listing
+        );
         const scrapedAtChanged =
           existingPublication.scrapedAt.getTime() !== scrapedAt.getTime();
 
@@ -512,7 +606,12 @@ export class ListingRepository {
           scrapedAt,
         });
 
-        if (hasPropertyChanges(existingProperty, listing)) {
+        if (
+          hasPropertyChanges(
+            toPropertyComparableData(existingProperty),
+            listing
+          )
+        ) {
           propertyUpdatesById.set(existingProperty.id, listing);
           if (
             isPriceDrop(
@@ -543,7 +642,9 @@ export class ListingRepository {
           scrapedAt,
         });
 
-        if (hasPropertyChanges(matchedProperty, listing)) {
+        if (
+          hasPropertyChanges(toPropertyComparableData(matchedProperty), listing)
+        ) {
           propertyUpdatesById.set(matchedProperty.id, listing);
           if (
             isPriceDrop(
@@ -572,7 +673,7 @@ export class ListingRepository {
       for (const [propertyId, listing] of propertyUpdatesById) {
         await tx.property.update({
           where: { id: propertyId },
-          data: toPropertyData(listing),
+          data: toPrismaPropertyData(toPropertyData(listing)),
         });
       }
 
@@ -594,7 +695,7 @@ export class ListingRepository {
         const row = await tx.property.create({
           data: {
             propertyKey,
-            ...toPropertyData(pending.listing),
+            ...toPrismaPropertyData(toPropertyData(pending.listing)),
             firstPrice: pending.listing.price,
             firstSeenAt: pending.scrapedAt,
             publications: {
@@ -1016,7 +1117,7 @@ export class ListingRepository {
     try {
       const row = await this.prisma.property.update({
         where: { id },
-        data: patch,
+        data: toPrismaEnrichmentPatch(patch),
         include: propertyInclude,
       });
       return toPropertyRow(row);

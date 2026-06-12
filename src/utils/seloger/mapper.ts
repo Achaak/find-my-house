@@ -1,12 +1,6 @@
 import type { Listing } from "../../types/listing.js";
-import { normalizeEnergyClass } from "../energy/energyClass.js";
-import {
-  buildSeLogerImageUrl,
-  buildSeLogerListingUrl,
-  parseSeLogerBedrooms,
-  parseSeLogerRooms,
-  parseSeLogerPrice,
-} from "./helpers.js";
+import { SELOGER_PORTAL } from "../classifiedPortal/config.js";
+import { mapClassifiedCardToListing } from "../classifiedPortal/mapper.js";
 import type { SeLogerClassifiedCard } from "./types.js";
 
 export function mapSeLogerCardToListing(
@@ -14,29 +8,10 @@ export function mapSeLogerCardToListing(
   scrapedAt: string,
   fallbackCity: string
 ): Listing {
-  return {
-    externalId: String(card.id),
-    source: "seloger",
-    title: card.title ?? card.estateType ?? "Maison",
-    price: parseSeLogerPrice(card.pricing),
-    surface: card.surface ?? null,
-    landSurface: card.landSurface ?? null,
-    rooms: parseSeLogerRooms(card),
-    bedrooms: parseSeLogerBedrooms(card),
-    isNewProperty:
-      card.isNew === true ? true : card.isNew === false ? false : null,
-    latitude: card.latitude ?? null,
-    longitude: card.longitude ?? null,
-    city: card.cityLabel ?? fallbackCity,
-    postalCode: card.zipCode ?? null,
-    url: buildSeLogerListingUrl(card),
-    description: card.description ?? null,
-    imageUrl: buildSeLogerImageUrl(card.photos?.[0]),
-    propertyType: card.estateType ?? null,
-    dpeClass: normalizeEnergyClass(card.energyClass),
-    gesClass: normalizeEnergyClass(card.gesClass),
-    dpeConsumptionKwhM2: card.dpeConsumptionKwhM2 ?? null,
-    gesEmissionKgM2: card.gesEmissionKgM2 ?? null,
+  return mapClassifiedCardToListing(
+    SELOGER_PORTAL,
+    card,
     scrapedAt,
-  };
+    fallbackCity
+  );
 }

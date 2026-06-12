@@ -20,7 +20,7 @@ function toPublicationRow(row: PrismaPublication): PublicationRow {
   };
 }
 
-function parseHighlights(value: unknown): string[] | null {
+export function parseHighlights(value: unknown): string[] | null {
   if (!Array.isArray(value)) return null;
 
   const items = value.filter(
