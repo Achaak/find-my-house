@@ -10,9 +10,46 @@ import { BASE_URL, type SeLogerClassifiedCard } from "./types.js";
 export const SEARCH_PAGE_DELAY_MS = 800;
 /** Minimum delay between detail page fetches (anti-bot). */
 export const DETAIL_FETCH_DELAY_MS = 400;
+/** Retries when the search page returns HTML without embedded JSON (transient blocks). */
+const SEARCH_PARSE_MAX_ATTEMPTS = 3;
+const SEARCH_PARSE_RETRY_DELAY_MS = 3_000;
 
 let lastSearchFetchAt = 0;
 let lastDetailFetchAt = 0;
+
+function isSeLogerSearchParseError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.message.startsWith("SeLoger: données de recherche introuvables")
+  );
+}
+
+async function fetchAndParseSeLogerSearchPage(
+  url: string
+): Promise<ReturnType<typeof parseSeLogerSearchHtml>> {
+  let lastError: Error | undefined;
+
+  for (let attempt = 1; attempt <= SEARCH_PARSE_MAX_ATTEMPTS; attempt++) {
+    const html = await fetchSeLogerSearchPage(url);
+    try {
+      return parseSeLogerSearchHtml(html);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      if (
+        attempt < SEARCH_PARSE_MAX_ATTEMPTS &&
+        isSeLogerSearchParseError(error)
+      ) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, SEARCH_PARSE_RETRY_DELAY_MS * attempt)
+        );
+        continue;
+      }
+      throw lastError;
+    }
+  }
+
+  throw lastError ?? new Error("SeLoger: échec de parsing recherche");
+}
 
 async function fetchSeLogerSearchPage(url: string): Promise<string> {
   const now = Date.now();
@@ -61,8 +98,7 @@ export async function fetchSeLogerClassifieds(
   searchUrl: string,
   maxPages = Number.POSITIVE_INFINITY
 ): Promise<SeLogerClassifiedCard[]> {
-  const firstHtml = await fetchSeLogerSearchPage(searchUrl);
-  const firstPage = parseSeLogerSearchHtml(firstHtml);
+  const firstPage = await fetchAndParseSeLogerSearchPage(searchUrl);
   const allCards = [...firstPage.cards];
 
   if (maxPages <= 1) return allCards;
@@ -77,8 +113,7 @@ export async function fetchSeLogerClassifieds(
 
   for (let page = 2; page <= totalPages; page++) {
     baseUrl.searchParams.set("page", String(page));
-    const html = await fetchSeLogerSearchPage(baseUrl.toString());
-    const pageData = parseSeLogerSearchHtml(html);
+    const pageData = await fetchAndParseSeLogerSearchPage(baseUrl.toString());
     if (!pageData.cards.length) break;
     allCards.push(...pageData.cards);
   }

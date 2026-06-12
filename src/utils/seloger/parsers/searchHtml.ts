@@ -7,6 +7,7 @@ import type {
 import { SELOGER_PAGE_SIZE } from "../types.js";
 import { mapClassifiedDataToCard } from "./classifiedCard.js";
 import { parseEmbeddedWindowJson } from "./embeddedJson.js";
+import { describeSeLogerSearchHtmlFailure } from "./htmlDiagnostics.js";
 
 function decodeInitialDataJson(encoded: string): SeLogerSearchResponse {
   const decoded = encoded
@@ -92,6 +93,6 @@ export function parseSeLogerSearchHtml(html: string): {
   if (ufrnPage) return ufrnPage;
 
   throw new Error(
-    "SeLoger: données de recherche introuvables (protection anti-bot ?)"
+    `SeLoger: données de recherche introuvables — ${describeSeLogerSearchHtmlFailure(html)}`
   );
 }

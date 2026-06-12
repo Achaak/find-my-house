@@ -11,6 +11,7 @@ import {
   parseSeLogerSearchHtml,
   type SeLogerClassifiedCard,
 } from "./index.js";
+import { describeSeLogerSearchHtmlFailure } from "./parsers/htmlDiagnostics.js";
 
 const fixturesDir = join(dirname(fileURLToPath(import.meta.url)), "fixtures");
 
@@ -54,7 +55,29 @@ describe("parseSeLogerDetailEnergy", () => {
   });
 });
 
+describe("describeSeLogerSearchHtmlFailure", () => {
+  it("detects nginx 504 pages", () => {
+    expect(
+      describeSeLogerSearchHtmlFailure(
+        "<html><head><title>504 Gateway Time-out</title></head></html>"
+      )
+    ).toContain("504");
+  });
+
+  it("includes the page title when present", () => {
+    expect(
+      describeSeLogerSearchHtmlFailure("<html><title>Just a moment</title>")
+    ).toContain("Just a moment");
+  });
+});
+
 describe("parseSeLogerSearchHtml", () => {
+  it("throws a descriptive error for unparseable HTML", () => {
+    expect(() =>
+      parseSeLogerSearchHtml("<html><title>Blocked</title></html>")
+    ).toThrowError(/Blocked/);
+  });
+
   it("parses listings from embedded initialData JSON", () => {
     const result = parseSeLogerSearchHtml(
       readFixture("search-initial-data.html")
