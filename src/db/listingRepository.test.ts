@@ -137,8 +137,8 @@ describe("ListingRepository.upsertMany", () => {
       makeListing({
         externalId: `large-batch-${String(index)}`,
         url: `https://www.bienici.com/annonce/large-batch-${String(index)}`,
-        postalCode: String(75000 + (index % 20)).padStart(5, "0"),
-        price: 300_000 + index,
+        postalCode: String(76000 + index).padStart(5, "0"),
+        price: 300_000 + index * 10_000,
       })
     );
 
@@ -167,6 +167,84 @@ describe("ListingRepository.upsertMany", () => {
 
     expect(result.found).toBe(1);
     expect(result.inserted).toBe(1);
+  });
+
+  it("links listings with fuzzy-matching attributes to the same property", async () => {
+    const base = {
+      postalCode: "76170",
+      surface: 125,
+      rooms: 5,
+      bedrooms: 3,
+      landSurface: 1509,
+      city: "Lillebonne",
+      propertyType: "Maison",
+      isNewProperty: false,
+    };
+
+    const first = await repository.upsert(
+      makeListing({
+        ...base,
+        price: 195_500,
+        externalId: "fuzzy-bienici",
+        source: "bienici",
+        url: "https://www.bienici.com/annonce/fuzzy-bienici",
+      })
+    );
+
+    const second = await repository.upsert(
+      makeListing({
+        ...base,
+        price: 195_500,
+        propertyType: "house",
+        externalId: "3165003203",
+        source: "leboncoin",
+        url: "https://www.leboncoin.fr/ad/ventes_immobilieres/3165003203",
+      })
+    );
+
+    expect(first.status).toBe("inserted");
+    expect(second.status).toBe("linked");
+    expect(second.row?.id).toBe(first.row?.id);
+    expect(second.row?.publications).toHaveLength(2);
+  });
+
+  it("links a Bienici republication from the same agency", async () => {
+    const base = {
+      postalCode: "76400",
+      price: 300_000,
+      surface: 152,
+      rooms: 7,
+      bedrooms: 5,
+      landSurface: 1009,
+      city: "Sainte-Hélène-Bondeville",
+      propertyType: "Maison",
+      isNewProperty: false,
+    };
+
+    const first = await repository.upsert(
+      makeListing({
+        ...base,
+        externalId: "dr-house-immo-1-3138859",
+        source: "bienici",
+        url: "https://www.bienici.com/annonce/dr-house-immo-1-3138859",
+      })
+    );
+
+    const second = await repository.upsert(
+      makeListing({
+        ...base,
+        price: 299_000,
+        externalId: "dr-house-immo-1-486880",
+        source: "bienici",
+        url: "https://www.bienici.com/annonce/dr-house-immo-1-486880",
+        scrapedAt: "2026-02-01T00:00:00.000Z",
+      })
+    );
+
+    expect(first.status).toBe("inserted");
+    expect(second.status).toBe("linked");
+    expect(second.row?.id).toBe(first.row?.id);
+    expect(second.row?.publications).toHaveLength(2);
   });
 
   it("does not duplicate publications when merging pending creates", async () => {

@@ -6,29 +6,30 @@ import type {
   ExtendedScrapeResult,
   ScrapeFilters,
 } from "../../types/listing.js";
-import type { DiscordCommandSettings } from "./types.js";
-import { buildAdresseCommand, handleAdresse } from "./adresse.js";
-import { buildAideCommand, handleAide } from "./aide.js";
-import { buildAnnonceCommand, handleAnnonce } from "./annonce.js";
-import { buildAnnoncesCommand, handleAnnonces } from "./annonces.js";
-import { buildJaimeCommand, handleJaime } from "./jaime.js";
-import { buildPasJaimeCommand, handlePasJaime } from "./pas-jaime.js";
+import { buildAddressCommand, handleAddress } from "./address.js";
+import { buildDislikeCommand, handleDislike } from "./dislike.js";
+import { buildHelpCommand, handleHelp } from "./help.js";
+import { buildLikeCommand, handleLike } from "./like.js";
+import { buildListingCommand, handleListing } from "./listing.js";
+import { buildListingsCommand, handleListings } from "./listings.js";
+import { buildReconcileCommand, handleReconcile } from "./reconcile.js";
 import { buildScraperCommand, handleScraper } from "./scraper.js";
 import { buildStatsCommand, handleStats } from "./stats.js";
-import type { CommandContext } from "./types.js";
+import type { CommandContext, DiscordCommandSettings } from "./types.js";
 import { buildVersionCommand, handleVersion } from "./version.js";
 
 export function buildCommands() {
   return [
-    buildAnnoncesCommand(),
-    buildAnnonceCommand(),
+    buildListingsCommand(),
+    buildListingCommand(),
     buildScraperCommand(),
+    buildReconcileCommand(),
     buildStatsCommand(),
     buildVersionCommand(),
-    buildAdresseCommand(),
-    buildAideCommand(),
-    buildJaimeCommand(),
-    buildPasJaimeCommand(),
+    buildAddressCommand(),
+    buildHelpCommand(),
+    buildLikeCommand(),
+    buildDislikeCommand(),
   ].map((cmd) => cmd.toJSON());
 }
 
@@ -51,32 +52,35 @@ export async function handleCommand(
   };
 
   switch (interaction.commandName) {
-    case "annonces":
-      await handleAnnonces(interaction, ctx);
+    case "listings":
+      await handleListings(interaction, ctx);
       return;
-    case "annonce":
-      await handleAnnonce(interaction, ctx);
+    case "listing":
+      await handleListing(interaction, ctx);
       return;
     case "scraper":
       await handleScraper(interaction, ctx);
       return;
+    case "reconcile":
+      await handleReconcile(interaction, ctx);
+      return;
     case "stats":
       await handleStats(interaction, ctx);
       return;
-    case "jaime":
-      await handleJaime(interaction, ctx);
+    case "like":
+      await handleLike(interaction, ctx);
       return;
-    case "pas-jaime":
-      await handlePasJaime(interaction, ctx);
+    case "dislike":
+      await handleDislike(interaction, ctx);
       return;
     case "version":
       await handleVersion(interaction, ctx);
       return;
-    case "adresse":
-      await handleAdresse(interaction, ctx);
+    case "address":
+      await handleAddress(interaction, ctx);
       return;
-    case "aide":
-      await handleAide(interaction, ctx);
+    case "help":
+      await handleHelp(interaction, ctx);
       return;
     default:
       await interaction.reply("Commande inconnue.");

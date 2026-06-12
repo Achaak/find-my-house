@@ -5,25 +5,22 @@ import { buildListingActionRow } from "../components.js";
 import { formatListingEmbed } from "../format.js";
 import type { CommandHandler } from "./types.js";
 
-export function buildAnnoncesCommand() {
+export function buildListingsCommand() {
   return new SlashCommandBuilder()
-    .setName("annonces")
+    .setName("listings")
     .setDescription("Rechercher des annonces enregistrées")
     .addStringOption((opt) =>
-      opt
-        .setName("ville")
-        .setDescription("Filtrer par ville")
-        .setRequired(false)
+      opt.setName("city").setDescription("Filtrer par ville").setRequired(false)
     )
     .addStringOption((opt) =>
       opt
-        .setName("code_postal")
+        .setName("postal_code")
         .setDescription("Filtrer par code postal")
         .setRequired(false)
     )
     .addStringOption((opt) =>
       opt
-        .setName("texte")
+        .setName("text")
         .setDescription("Rechercher dans le titre ou la description")
         .setRequired(false)
     )
@@ -40,49 +37,49 @@ export function buildAnnoncesCommand() {
     )
     .addIntegerOption((opt) =>
       opt
-        .setName("prix_min")
+        .setName("min_price")
         .setDescription("Prix minimum en euros")
         .setRequired(false)
     )
     .addIntegerOption((opt) =>
       opt
-        .setName("prix_max")
+        .setName("max_price")
         .setDescription("Prix maximum en euros")
         .setRequired(false)
     )
     .addIntegerOption((opt) =>
       opt
-        .setName("surface_min")
+        .setName("min_surface")
         .setDescription("Surface minimum en m²")
         .setRequired(false)
     )
     .addIntegerOption((opt) =>
       opt
-        .setName("terrain_min")
+        .setName("min_land")
         .setDescription("Terrain minimum en m²")
         .setRequired(false)
     )
     .addIntegerOption((opt) =>
       opt
-        .setName("pieces_min")
+        .setName("min_rooms")
         .setDescription("Nombre de pièces minimum")
         .setRequired(false)
     )
     .addIntegerOption((opt) =>
       opt
-        .setName("chambres_min")
+        .setName("min_bedrooms")
         .setDescription("Nombre de chambres minimum")
         .setRequired(false)
     )
     .addBooleanOption((opt) =>
       opt
-        .setName("ancien")
+        .setName("old_only")
         .setDescription("Uniquement les biens anciens (pas de neuf)")
         .setRequired(false)
     )
     .addBooleanOption((opt) =>
       opt
-        .setName("neuf")
+        .setName("new_only")
         .setDescription("Uniquement les biens neufs")
         .setRequired(false)
     )
@@ -98,7 +95,7 @@ export function buildAnnoncesCommand() {
     )
     .addIntegerOption((opt) =>
       opt
-        .setName("temps_trajet")
+        .setName("travel_minutes")
         .setDescription(
           "Temps de trajet max en voiture, en minutes (nécessite une ville)"
         )
@@ -108,7 +105,7 @@ export function buildAnnoncesCommand() {
     )
     .addStringOption((opt) =>
       opt
-        .setName("tri")
+        .setName("sort")
         .setDescription("Ordre des résultats")
         .setRequired(false)
         .addChoices(
@@ -120,7 +117,7 @@ export function buildAnnoncesCommand() {
     )
     .addIntegerOption((opt) =>
       opt
-        .setName("limite")
+        .setName("limit")
         .setDescription("Nombre de résultats (max 10)")
         .setMinValue(1)
         .setMaxValue(10)
@@ -128,48 +125,44 @@ export function buildAnnoncesCommand() {
     );
 }
 
-export const handleAnnonces: CommandHandler = async (interaction, ctx) => {
-  const city = interaction.options.getString("ville") ?? undefined;
-  const postalCode = interaction.options.getString("code_postal") ?? undefined;
-  const text = interaction.options.getString("texte") ?? undefined;
+export const handleListings: CommandHandler = async (interaction, ctx) => {
+  const city = interaction.options.getString("city") ?? undefined;
+  const postalCode = interaction.options.getString("postal_code") ?? undefined;
+  const text = interaction.options.getString("text") ?? undefined;
   const sourceOption = interaction.options.getString("source");
   const source = sourceOption
     ? (parseListingSource(sourceOption) ?? undefined)
     : undefined;
-  const minPrice = interaction.options.getInteger("prix_min") ?? undefined;
-  const maxPrice = interaction.options.getInteger("prix_max") ?? undefined;
-  const minSurface = interaction.options.getInteger("surface_min") ?? undefined;
+  const minPrice = interaction.options.getInteger("min_price") ?? undefined;
+  const maxPrice = interaction.options.getInteger("max_price") ?? undefined;
+  const minSurface = interaction.options.getInteger("min_surface") ?? undefined;
   const minLandSurface =
-    interaction.options.getInteger("terrain_min") ?? undefined;
-  const minRooms = interaction.options.getInteger("pieces_min") ?? undefined;
+    interaction.options.getInteger("min_land") ?? undefined;
+  const minRooms = interaction.options.getInteger("min_rooms") ?? undefined;
   const minBedrooms =
-    interaction.options.getInteger("chambres_min") ?? undefined;
-  const ancienOnly = interaction.options.getBoolean("ancien") ?? undefined;
-  const neufOnly = interaction.options.getBoolean("neuf") ?? undefined;
+    interaction.options.getInteger("min_bedrooms") ?? undefined;
+  const ancienOnly = interaction.options.getBoolean("old_only") ?? undefined;
+  const neufOnly = interaction.options.getBoolean("new_only") ?? undefined;
   const radiusKm = interaction.options.getInteger("rayon_km") ?? undefined;
   const maxTravelMinutes =
-    interaction.options.getInteger("temps_trajet") ?? undefined;
+    interaction.options.getInteger("travel_minutes") ?? undefined;
   const sort =
-    (interaction.options.getString("tri") as
+    (interaction.options.getString("sort") as
       | "price_asc"
       | "price_desc"
       | "date_desc"
       | "surface_desc"
       | null) ?? undefined;
-  const limit = interaction.options.getInteger("limite") ?? 5;
+  const limit = interaction.options.getInteger("limit") ?? 5;
   const geoFilter = resolveGeoFilter({ maxTravelMinutes, radiusKm }, true);
 
   if (ancienOnly && neufOnly) {
-    await interaction.reply(
-      "Les options **ancien** et **neuf** sont incompatibles."
-    );
+    await interaction.reply("Les filtres ancien et neuf sont incompatibles.");
     return;
   }
 
   if (geoFilter.mode !== "city" && !city) {
-    await interaction.reply(
-      "Pour un filtre géographique, précisez une **ville**."
-    );
+    await interaction.reply("Pour un filtre géographique, précisez une ville.");
     return;
   }
 

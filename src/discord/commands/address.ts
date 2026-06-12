@@ -8,9 +8,9 @@ import type { CommandHandler } from "./types.js";
 
 const log = createLogger("discord");
 
-export function buildAdresseCommand() {
+export function buildAddressCommand() {
   return new SlashCommandBuilder()
-    .setName("adresse")
+    .setName("address")
     .setDescription(
       "Identifier l'adresse d'une annonce via les données DPE publiques ADEME"
     )
@@ -22,7 +22,7 @@ export function buildAdresseCommand() {
     );
 }
 
-export const handleAdresse: CommandHandler = async (interaction, ctx) => {
+export const handleAddress: CommandHandler = async (interaction, ctx) => {
   const id = interaction.options.getInteger("id", true);
   await interaction.deferReply();
 

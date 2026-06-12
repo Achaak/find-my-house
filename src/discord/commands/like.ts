@@ -2,33 +2,33 @@ import { SlashCommandBuilder } from "discord.js";
 import { formatReactionList } from "./reactions.js";
 import type { CommandHandler } from "./types.js";
 
-export function buildPasJaimeCommand() {
+export function buildLikeCommand() {
   return new SlashCommandBuilder()
-    .setName("pas-jaime")
-    .setDescription("Gérer les annonces que vous n'aimez pas")
+    .setName("like")
+    .setDescription("Gérer vos annonces favorites")
     .addSubcommand((sub) =>
       sub
-        .setName("ajouter")
-        .setDescription("Marquer une annonce comme non aimée")
+        .setName("add")
+        .setDescription("Ajouter une annonce à vos favoris")
         .addIntegerOption((opt) =>
           opt.setName("id").setDescription("ID de l'annonce").setRequired(true)
         )
     )
     .addSubcommand((sub) =>
       sub
-        .setName("retirer")
-        .setDescription("Retirer une annonce de vos non-favoris")
+        .setName("remove")
+        .setDescription("Retirer une annonce de vos favoris")
         .addIntegerOption((opt) =>
           opt.setName("id").setDescription("ID de l'annonce").setRequired(true)
         )
     )
     .addSubcommand((sub) =>
       sub
-        .setName("liste")
-        .setDescription("Afficher les annonces que vous n'aimez pas")
+        .setName("list")
+        .setDescription("Afficher vos annonces favorites")
         .addIntegerOption((opt) =>
           opt
-            .setName("limite")
+            .setName("limit")
             .setDescription("Nombre de résultats (max 10)")
             .setMinValue(1)
             .setMaxValue(10)
@@ -37,19 +37,19 @@ export function buildPasJaimeCommand() {
     );
 }
 
-export const handlePasJaime: CommandHandler = async (interaction, ctx) => {
+export const handleLike: CommandHandler = async (interaction, ctx) => {
   const subcommand = interaction.options.getSubcommand();
   const discordUserId = interaction.user.id;
   await interaction.deferReply();
 
-  if (subcommand === "liste") {
-    const limit = interaction.options.getInteger("limite") ?? 5;
+  if (subcommand === "list") {
+    const limit = interaction.options.getInteger("limit") ?? 5;
     const reply = await formatReactionList(
       ctx.reactionRepository,
       discordUserId,
-      "dislike",
+      "like",
       limit,
-      "Vous n'avez marqué aucune annonce comme non aimée."
+      "Vous n'avez aucune annonce en favori."
     );
     await interaction.editReply(reply);
     return;
@@ -63,16 +63,12 @@ export const handlePasJaime: CommandHandler = async (interaction, ctx) => {
     return;
   }
 
-  if (subcommand === "ajouter") {
-    const result = await ctx.reactionRepository.add(
-      discordUserId,
-      id,
-      "dislike"
-    );
+  if (subcommand === "add") {
+    const result = await ctx.reactionRepository.add(discordUserId, id, "like");
     await interaction.editReply(
       result === "already_exists"
-        ? `L'annonce **#${String(id)}** est déjà dans vos non-favoris.`
-        : `👎 Annonce **#${String(id)}** ajoutée à vos non-favoris.`
+        ? `L'annonce **#${String(id)}** est déjà dans vos favoris.`
+        : `❤️ Annonce **#${String(id)}** ajoutée à vos favoris.`
     );
     return;
   }
@@ -80,11 +76,11 @@ export const handlePasJaime: CommandHandler = async (interaction, ctx) => {
   const removed = await ctx.reactionRepository.remove(
     discordUserId,
     id,
-    "dislike"
+    "like"
   );
   await interaction.editReply(
     removed
-      ? `Annonce **#${String(id)}** retirée de vos non-favoris.`
-      : `L'annonce **#${String(id)}** n'était pas dans vos non-favoris.`
+      ? `Annonce **#${String(id)}** retirée de vos favoris.`
+      : `L'annonce **#${String(id)}** n'était pas dans vos favoris.`
   );
 };

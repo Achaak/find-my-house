@@ -61,6 +61,8 @@ model ListingPublication {
   externalId String   @map("external_id")
   source     ListingSource
   url        String        @unique
+  agencySlug String?  @map("agency_slug")
+  agencyRef  String?  @map("agency_ref")
   isActive   Boolean  @default(true) @map("is_active")
   scrapedAt  DateTime @map("scraped_at")
   createdAt  DateTime @default(now()) @map("created_at")
@@ -71,6 +73,7 @@ model ListingPublication {
   @@unique([source, externalId])
   @@index([propertyId])
   @@index([source, isActive])
+  @@index([agencySlug, agencyRef])
   @@map("listing_publications")
 }
 

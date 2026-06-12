@@ -26,6 +26,11 @@ import {
   resolveRadiusSearchFilter,
 } from "../utils/geo/geoFilter.js";
 import { resolveGeoSearchCenter } from "../utils/geo/geocode.js";
+import { findPropertyMatchForListing } from "./propertyMatchLookup.js";
+import {
+  type PublicationCreateData,
+  toPublicationCreateData,
+} from "./publicationData.js";
 import { computePropertyKey } from "../utils/propertyKey.js";
 
 const propertyInclude = { publications: true } as const;
@@ -99,25 +104,17 @@ function mergeIntoPendingCreate(
   }
 }
 
-function pendingPublicationsToCreate(pending: PendingPropertyCreate) {
+function pendingPublicationsToCreate(
+  pending: PendingPropertyCreate
+): PublicationCreateData[] {
   const seen = new Set<string>();
-  const publications: {
-    externalId: string;
-    source: ListingSource;
-    url: string;
-    scrapedAt: Date;
-  }[] = [];
+  const publications: PublicationCreateData[] = [];
 
   const add = (listing: Listing, scrapedAt: Date) => {
     const key = publicationKey(listing);
     if (seen.has(key)) return;
     seen.add(key);
-    publications.push({
-      externalId: listing.externalId,
-      source: listing.source,
-      url: listing.url,
-      scrapedAt,
-    });
+    publications.push(toPublicationCreateData(listing, scrapedAt));
   };
 
   add(pending.listing, pending.scrapedAt);
@@ -256,6 +253,24 @@ export class ListingRepository {
     return [...byId.values()];
   }
 
+  private async findPropertiesByPostalCodes(
+    postalCodes: string[]
+  ): Promise<PropertyWithPublications[]> {
+    const byId = new Map<number, PropertyWithPublications>();
+
+    for (const postalBatch of chunk(postalCodes, IN_QUERY_BATCH_SIZE)) {
+      const rows = await this.prisma.property.findMany({
+        where: { postalCode: { in: postalBatch } },
+        include: propertyInclude,
+      });
+      for (const row of rows) {
+        byId.set(row.id, row);
+      }
+    }
+
+    return [...byId.values()];
+  }
+
   private async findPropertiesByKeys(
     propertyKeys: string[]
   ): Promise<PropertyWithPublications[]> {
@@ -357,10 +372,20 @@ export class ListingRepository {
       ...new Set(enriched.map((entry) => entry.propertyKey)),
     ];
 
-    const [existingPublications, existingProperties] = await Promise.all([
-      this.findExistingPublications(listings),
-      this.findPropertiesByKeys(propertyKeys),
-    ]);
+    const postalCodes = [
+      ...new Set(
+        listings
+          .map((listing) => listing.postalCode)
+          .filter((postalCode): postalCode is string => postalCode !== null)
+      ),
+    ];
+
+    const [existingPublications, existingProperties, propertiesByPostal] =
+      await Promise.all([
+        this.findExistingPublications(listings),
+        this.findPropertiesByKeys(propertyKeys),
+        this.findPropertiesByPostalCodes(postalCodes),
+      ]);
 
     const publicationBySourceExternalId = new Map<
       string,
@@ -378,6 +403,16 @@ export class ListingRepository {
     const propertyByKey = new Map(
       existingProperties.map((property) => [property.propertyKey, property])
     );
+    const propertiesByPostalCode = new Map<
+      string,
+      PropertyWithPublications[]
+    >();
+    for (const property of propertiesByPostal) {
+      if (!property.postalCode) continue;
+      const bucket = propertiesByPostalCode.get(property.postalCode) ?? [];
+      bucket.push(property);
+      propertiesByPostalCode.set(property.postalCode, bucket);
+    }
 
     const result: ScrapeResult = {
       found: listings.length,
@@ -473,6 +508,37 @@ export class ListingRepository {
         continue;
       }
 
+      const postalCandidates = listing.postalCode
+        ? (propertiesByPostalCode.get(listing.postalCode) ?? [])
+        : [];
+      const matchedProperty = findPropertyMatchForListing(
+        listing,
+        postalCandidates
+      );
+      if (matchedProperty) {
+        linkedPublications.push({
+          propertyId: matchedProperty.id,
+          listing,
+          scrapedAt,
+        });
+
+        if (hasPropertyChanges(matchedProperty, listing)) {
+          propertyUpdatesById.set(matchedProperty.id, listing);
+          if (
+            isPriceDrop(
+              matchedProperty.price,
+              listing.price,
+              matchedProperty.firstPrice
+            )
+          ) {
+            priceDropPropertyIds.add(matchedProperty.id);
+          }
+        }
+
+        result.linked++;
+        continue;
+      }
+
       pendingPropertyCreates.set(propertyKey, {
         listing,
         scrapedAt,
@@ -522,10 +588,7 @@ export class ListingRepository {
         await tx.listingPublication.create({
           data: {
             propertyId: link.propertyId,
-            externalId: link.listing.externalId,
-            source: link.listing.source,
-            url: link.listing.url,
-            scrapedAt: link.scrapedAt,
+            ...toPublicationCreateData(link.listing, link.scrapedAt),
           },
         });
       }

@@ -4,16 +4,16 @@ import { buildListingActionRow } from "../components.js";
 import { formatListingEmbed } from "../format.js";
 import type { CommandHandler } from "./types.js";
 
-export function buildAnnonceCommand() {
+export function buildListingCommand() {
   return new SlashCommandBuilder()
-    .setName("annonce")
+    .setName("listing")
     .setDescription("Afficher le détail d'une annonce")
     .addIntegerOption((opt) =>
       opt.setName("id").setDescription("ID de l'annonce").setRequired(true)
     );
 }
 
-export const handleAnnonce: CommandHandler = async (interaction, ctx) => {
+export const handleListing: CommandHandler = async (interaction, ctx) => {
   const id = interaction.options.getInteger("id", true);
   await interaction.deferReply();
 

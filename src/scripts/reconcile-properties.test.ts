@@ -99,7 +99,9 @@ describe("reconcileProperties", () => {
 
       const result = await reconcileProperties(prisma);
 
-      expect(result).toEqual({ merged: 1, unique: 1 });
+      expect(result.merged).toBe(1);
+      expect(result.fuzzyMerged).toBe(0);
+      expect(result.unique).toBe(1);
 
       const properties = await prisma.property.findMany({
         include: { publications: true },
