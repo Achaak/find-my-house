@@ -203,7 +203,13 @@ export const handleAnnonces: CommandHandler = async (interaction, ctx) => {
     return;
   }
 
+  const resultHeader =
+    listings.length === 1
+      ? "📋 **1 annonce** trouvée"
+      : `📋 **${String(listings.length)} annonces** trouvées`;
+
   await interaction.editReply({
+    content: resultHeader,
     embeds: [formatListingEmbed(listings[0])],
     components: [buildListingActionRow(listings[0].id)],
   });

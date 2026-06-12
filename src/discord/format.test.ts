@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { makePropertyRow } from "../test/listingFixtures.js";
-import { formatPrice, formatPriceDrop } from "./format.js";
+import { formatListingEmbed, formatPrice, formatPriceDrop } from "./format.js";
 
 describe("discord/format", () => {
   it("formats prices in EUR without decimals", () => {
@@ -24,5 +24,45 @@ describe("discord/format", () => {
     expect(
       formatPriceDrop(makePropertyRow({ price: 300_000, firstPrice: 300_000 }))
     ).toBeNull();
+  });
+
+  it("builds a structured embed with fields and source color", () => {
+    const embed = formatListingEmbed(
+      makePropertyRow({
+        source: "seloger",
+        publications: [
+          {
+            id: 1,
+            externalId: "ext-1",
+            source: "seloger",
+            url: "https://www.seloger.com/annonce/1",
+            scrapedAt: "2026-01-15T10:00:00.000Z",
+          },
+        ],
+        url: "https://www.seloger.com/annonce/1",
+      })
+    );
+
+    expect(embed.color).toBe(0xe00034);
+    expect(embed.author?.name).toContain("SeLoger");
+    expect(embed.fields.some((field) => field.name === "Surface")).toBe(true);
+    expect(embed.description).toContain("/m²");
+  });
+
+  it("uses green color and price drop in description when price fell", () => {
+    const embed = formatListingEmbed(
+      makePropertyRow({ price: 280_000, firstPrice: 300_000 })
+    );
+
+    expect(embed.color).toBe(0x2ecc71);
+    expect(embed.description).toContain("Baisse de prix");
+  });
+
+  it("omits invalid image urls from embeds", () => {
+    const embed = formatListingEmbed(
+      makePropertyRow({ imageUrl: "not-a-valid-url" })
+    );
+
+    expect(embed.image).toBeUndefined();
   });
 });

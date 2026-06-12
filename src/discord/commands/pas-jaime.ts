@@ -44,14 +44,14 @@ export const handlePasJaime: CommandHandler = async (interaction, ctx) => {
 
   if (subcommand === "liste") {
     const limit = interaction.options.getInteger("limite") ?? 5;
-    const message = await formatReactionList(
+    const reply = await formatReactionList(
       ctx.reactionRepository,
       discordUserId,
       "dislike",
       limit,
       "Vous n'avez marqué aucune annonce comme non aimée."
     );
-    await interaction.editReply(message.slice(0, 2000));
+    await interaction.editReply(reply);
     return;
   }
 

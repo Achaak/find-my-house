@@ -44,14 +44,14 @@ export const handleJaime: CommandHandler = async (interaction, ctx) => {
 
   if (subcommand === "liste") {
     const limit = interaction.options.getInteger("limite") ?? 5;
-    const message = await formatReactionList(
+    const reply = await formatReactionList(
       ctx.reactionRepository,
       discordUserId,
       "like",
       limit,
       "Vous n'avez aucune annonce en favori."
     );
-    await interaction.editReply(message.slice(0, 2000));
+    await interaction.editReply(reply);
     return;
   }
 
