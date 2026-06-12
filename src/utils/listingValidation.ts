@@ -4,7 +4,12 @@ import { createLogger } from "./logger.js";
 
 const log = createLogger("validation");
 
-const listingSourceSchema = z.enum(["bienici", "seloger", "leboncoin"]);
+const listingSourceSchema = z.enum([
+  "bienici",
+  "seloger",
+  "leboncoin",
+  "logicimmo",
+]);
 
 const listingSchema = z.object({
   externalId: z.string().min(1),

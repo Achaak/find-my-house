@@ -4,7 +4,7 @@ Discord bot + French real-estate listing scraper, with SQLite storage and automa
 
 ## Features
 
-- Multi-source scraping: **BienIci**, **Leboncoin**, and **SeLoger** (modular scrapers, enabled via `SCRAPE_SCRAPERS`)
+- Multi-source scraping: **BienIci**, **Leboncoin**, **SeLoger**, and **Logic-Immo** (modular scrapers, enabled via `SCRAPE_SCRAPERS`)
 - Advanced filters: land area, rooms, bedrooms, old/new builds, radius in km or driving travel time
 - SQLite storage via Prisma 7 with uniqueness constraints (no duplicates)
 - Discord bot with slash commands and rich embeds (photo, price, surface area, link…)
@@ -35,7 +35,7 @@ pnpm run db:migrate
 | `DISCORD_CLIENT_ID`         | Discord application ID                                                                                                             |
 | `DISCORD_GUILD_ID`          | (Optional) Server ID for registering commands in dev                                                                               |
 | `DISCORD_CHANNEL_ID`        | (Optional) Channel for new listing notifications. The bot needs **Send Messages** and **Embed Links** permissions on this channel. |
-| `SCRAPE_SCRAPERS`           | (Optional) Active scrapers, comma-separated (`bienici`, `leboncoin`, `seloger`). All enabled if omitted.                           |
+| `SCRAPE_SCRAPERS`           | (Optional) Active scrapers, comma-separated (`bienici`, `leboncoin`, `seloger`, `logicimmo`). All enabled if omitted.              |
 | `SCRAPE_CITY`               | Reference city (e.g. Paris)                                                                                                        |
 | `SCRAPE_MAX_PRICE`          | Maximum price in euros                                                                                                             |
 | `SCRAPE_MIN_SURFACE`        | Minimum surface area in m²                                                                                                         |

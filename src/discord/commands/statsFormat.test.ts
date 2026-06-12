@@ -18,6 +18,7 @@ describe("formatOverviewStatsEmbed", () => {
         bienici: { active: 4, inactive: 1 },
         seloger: { active: 3, inactive: 0 },
         leboncoin: { active: 2, inactive: 1 },
+        logicimmo: { active: 0, inactive: 0 },
       },
       priceStats: {
         count: 8,
@@ -60,6 +61,7 @@ describe("formatSourcesStatsEmbed", () => {
         bienici: { active: 2, inactive: 0 },
         seloger: { active: 0, inactive: 0 },
         leboncoin: { active: 1, inactive: 1 },
+        logicimmo: { active: 0, inactive: 0 },
       },
       1
     );

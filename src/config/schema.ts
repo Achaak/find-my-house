@@ -1,6 +1,11 @@
 import { z } from "zod";
 
-const scraperNameSchema = z.enum(["bienici", "leboncoin", "seloger"]);
+const scraperNameSchema = z.enum([
+  "bienici",
+  "leboncoin",
+  "seloger",
+  "logicimmo",
+]);
 
 const optionalPositiveNumber = z.preprocess((value) => {
   if (value === undefined || value === null) return undefined;

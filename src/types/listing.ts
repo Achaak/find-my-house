@@ -1,4 +1,4 @@
-export type ListingSource = "bienici" | "seloger" | "leboncoin";
+export type ListingSource = "bienici" | "seloger" | "leboncoin" | "logicimmo";
 
 export type Listing = {
   externalId: string;
@@ -91,7 +91,7 @@ export type ListingSearchFilters = {
   limit?: number;
 };
 
-/** Shared listing filters across portal APIs (BienIci, Leboncoin, SeLoger). */
+/** Shared listing filters across portal APIs. */
 export type PortalListingCriteria = {
   maxPrice?: number;
   minSurface?: number;

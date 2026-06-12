@@ -32,7 +32,8 @@ export function buildListingsCommand() {
         .addChoices(
           { name: "Bien'ici", value: "bienici" },
           { name: "SeLoger", value: "seloger" },
-          { name: "Leboncoin", value: "leboncoin" }
+          { name: "Leboncoin", value: "leboncoin" },
+          { name: "Logic-Immo", value: "logicimmo" }
         )
     )
     .addIntegerOption((opt) =>

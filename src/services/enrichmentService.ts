@@ -5,6 +5,7 @@ import type {
   PropertyRow,
   PublicationRow,
 } from "../types/listing.js";
+import { formatSourceLabel } from "../discord/format.js";
 import {
   fetchBienIciAdById,
   mapBienIciAdToEnrichmentPatch,
@@ -15,6 +16,10 @@ import {
   fetchLeboncoinAdById,
   mapLeboncoinAdToEnrichmentPatch,
 } from "../utils/leboncoin/index.js";
+import {
+  fetchLogicImmoListingDetails,
+  LogicImmoAccessBlockedError,
+} from "../utils/logicimmo/index.js";
 import {
   fetchSeLogerListingDetails,
   SeLogerAccessBlockedError,
@@ -41,15 +46,16 @@ export function propertyNeedsEnrichment(
     property.gesEmissionKgM2 === null;
   const missingCoords =
     property.latitude === null || property.longitude === null;
-  const hasSeLogerPublication = property.publications.some(
-    (publication) => publication.source === "seloger"
+  const hasHtmlPortalPublication = property.publications.some(
+    (publication) =>
+      publication.source === "seloger" || publication.source === "logicimmo"
   );
 
   if (purpose === "address") {
     return (
       missingEnergy ||
       property.surface === null ||
-      (hasSeLogerPublication && missingCoords)
+      (hasHtmlPortalPublication && missingCoords)
     );
   }
 
@@ -57,11 +63,16 @@ export function propertyNeedsEnrichment(
     missingEnergy ||
     property.landSurface === null ||
     property.description === null ||
-    (hasSeLogerPublication && missingCoords)
+    (hasHtmlPortalPublication && missingCoords)
   );
 }
 
-const SOURCE_PRIORITY: ListingSource[] = ["seloger", "bienici", "leboncoin"];
+const SOURCE_PRIORITY: ListingSource[] = [
+  "seloger",
+  "logicimmo",
+  "bienici",
+  "leboncoin",
+];
 
 function pickDefined<T extends Record<string, unknown>>(patch: T): Partial<T> {
   return Object.fromEntries(
@@ -106,12 +117,33 @@ async function enrichFromLeboncoin(
   return pickDefined(mapLeboncoinAdToEnrichmentPatch(ad));
 }
 
+async function enrichFromLogicImmo(
+  publication: PublicationRow
+): Promise<PropertyEnrichmentPatch> {
+  const details = await fetchLogicImmoListingDetails(publication.url);
+  return pickDefined({
+    description: details.description,
+    surface: details.surface,
+    landSurface: details.landSurface,
+    rooms: details.rooms,
+    bedrooms: details.bedrooms,
+    latitude: details.latitude,
+    longitude: details.longitude,
+    dpeClass: normalizeEnergyClass(details.dpeClass),
+    gesClass: normalizeEnergyClass(details.gesClass),
+    dpeConsumptionKwhM2: details.dpeConsumptionKwhM2,
+    gesEmissionKgM2: details.gesEmissionKgM2,
+  });
+}
+
 async function enrichFromPublication(
   publication: PublicationRow
 ): Promise<PropertyEnrichmentPatch> {
   switch (publication.source) {
     case "seloger":
       return enrichFromSeLoger(publication);
+    case "logicimmo":
+      return enrichFromLogicImmo(publication);
     case "bienici":
       return enrichFromBienIci(publication);
     case "leboncoin":
@@ -197,9 +229,12 @@ export async function enrichProperty(
     try {
       patches.push(await enrichFromPublication(publication));
     } catch (error) {
-      if (error instanceof SeLogerAccessBlockedError) {
+      if (
+        error instanceof SeLogerAccessBlockedError ||
+        error instanceof LogicImmoAccessBlockedError
+      ) {
         warnings.push(
-          `SeLoger bloque l'enrichissement (${publication.url}). Réessayez plus tard.`
+          `${formatSourceLabel(publication.source)} bloque l'enrichissement (${publication.url}). Réessayez plus tard.`
         );
         continue;
       }

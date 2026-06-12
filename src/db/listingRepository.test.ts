@@ -249,12 +249,12 @@ describe("ListingRepository.upsertMany", () => {
 
   it("does not duplicate publications when merging pending creates", async () => {
     const base = {
-      postalCode: "76210",
+      postalCode: "75000",
       price: 300_000,
       surface: 90,
       rooms: 5,
       bedrooms: 3,
-      city: "Lanquetot",
+      city: "Paris",
     };
 
     const result = await repository.upsertMany([

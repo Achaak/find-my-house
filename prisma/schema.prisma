@@ -11,6 +11,7 @@ enum ListingSource {
   bienici
   seloger
   leboncoin
+  logicimmo
 }
 
 enum ReactionType {

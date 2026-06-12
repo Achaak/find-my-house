@@ -836,6 +836,7 @@ export class ListingRepository {
       bienici: { active: 0, inactive: 0 },
       seloger: { active: 0, inactive: 0 },
       leboncoin: { active: 0, inactive: 0 },
+      logicimmo: { active: 0, inactive: 0 },
     };
 
     for (const row of rows) {

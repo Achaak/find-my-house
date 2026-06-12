@@ -15,7 +15,7 @@ options:
   discord_client_id: ""
   discord_guild_id: ""
   discord_channel_id: ""
-  scrape_scrapers: bienici,leboncoin,seloger
+  scrape_scrapers: bienici,leboncoin,seloger,logicimmo
   scrape_cron: "0 */2 * * *"
   scrape_city: Paris
   scrape_max_price: 500000

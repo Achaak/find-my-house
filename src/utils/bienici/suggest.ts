@@ -6,6 +6,7 @@ export type BienIciSuggestResult = {
   name: string;
   type?: string;
   insee_code?: string;
+  postalCodes?: string[];
   boundingBox?: {
     west: number;
     south: number;

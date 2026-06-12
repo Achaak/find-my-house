@@ -23,6 +23,7 @@ const repository = {
       bienici: { active: 5, inactive: 1 },
       seloger: { active: 4, inactive: 1 },
       leboncoin: { active: 2, inactive: 1 },
+      logicimmo: { active: 0, inactive: 0 },
     })
   ),
   getPriceStats: vi.fn(() =>

@@ -8,7 +8,12 @@ import type {
 import { formatPrice, formatSourceLabel } from "../format.js";
 
 const EMBED_COLOR = 0x5865f2;
-const LISTING_SOURCES = ["bienici", "seloger", "leboncoin"] as const;
+const LISTING_SOURCES = [
+  "bienici",
+  "seloger",
+  "leboncoin",
+  "logicimmo",
+] as const;
 
 type StatsEmbed = {
   color: number;

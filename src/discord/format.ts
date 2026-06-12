@@ -5,12 +5,14 @@ const SOURCE_LABELS: Record<ListingSource, string> = {
   bienici: "Bien'ici",
   leboncoin: "Leboncoin",
   seloger: "SeLoger",
+  logicimmo: "Logic-Immo",
 };
 
 const SOURCE_COLORS: Record<ListingSource, number> = {
   bienici: 0x00a8e8,
   leboncoin: 0xff6e14,
   seloger: 0xe00034,
+  logicimmo: 0x003b7a,
 };
 
 const PROPERTY_TYPE_LABELS: Record<string, string> = {
