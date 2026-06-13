@@ -29,7 +29,6 @@ describe("filterClassifiedCardsByPostalCode", () => {
 
     expect(filterClassifiedCardsByPostalCode(cards, "69001")).toEqual([
       { id: "1", zipCode: "69001" },
-      { id: "3" },
     ]);
   });
 });

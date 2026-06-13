@@ -71,8 +71,10 @@ function handleFetchError(
   wrapHttpError(portal.label, error);
 }
 
-function clearPortalSession(portal: ClassifiedPortalConfig): void {
-  void clearBrowserCookiesForHost(new URL(portal.baseUrl).hostname);
+async function clearPortalSession(
+  portal: ClassifiedPortalConfig
+): Promise<void> {
+  await clearBrowserCookiesForHost(new URL(portal.baseUrl).hostname);
 }
 
 function applySearchFilters(
@@ -124,7 +126,7 @@ async function recoverFromBlockedFetch(
   portal: ClassifiedPortalConfig,
   attempt: number
 ): Promise<void> {
-  clearPortalSession(portal);
+  await clearPortalSession(portal);
   if (attempt >= 2) {
     await resetBrowserProfile();
   }
@@ -172,7 +174,7 @@ async function fetchAndParseClassifiedSearchPage(
       try {
         const apiResult = await fetchClassifiedSearchViaSerpBff(
           portal,
-          filterUrl
+          fetchUrl
         );
         if (apiResult?.cards.length) {
           return applySearchFilters(apiResult, filterUrl, options.postalCode);
@@ -200,7 +202,7 @@ async function fetchAndParseClassifiedSearchPage(
       isIncompleteClassifiedSearchHtml(html) &&
       attempt < SEARCH_PARSE_MAX_ATTEMPTS
     ) {
-      clearPortalSession(portal);
+      await clearPortalSession(portal);
       await new Promise((resolve) =>
         setTimeout(resolve, SEARCH_PARSE_RETRY_DELAY_MS * attempt)
       );
@@ -249,7 +251,7 @@ async function fetchAndParseClassifiedSearchPage(
         attempt < SEARCH_PARSE_MAX_ATTEMPTS &&
         isClassifiedSearchParseError(portal, error)
       ) {
-        clearPortalSession(portal);
+        await clearPortalSession(portal);
         await new Promise((resolve) =>
           setTimeout(resolve, SEARCH_PARSE_RETRY_DELAY_MS * attempt)
         );

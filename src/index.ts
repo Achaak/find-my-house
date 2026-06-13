@@ -90,7 +90,9 @@ async function main(): Promise<void> {
   });
 }
 
-main().catch((error: unknown) => {
+main().catch(async (error: unknown) => {
   log.error("Fatal error:", error);
+  await closeBrowserContext().catch(() => undefined);
+  await disconnectPrisma().catch(() => undefined);
   process.exit(1);
 });

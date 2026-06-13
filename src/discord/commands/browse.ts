@@ -14,6 +14,7 @@ import type { CommandHandler } from "./types.js";
 function scrapeFiltersToSearch(filters: ScrapeFilters): ListingSearchFilters {
   return {
     city: filters.city,
+    postalCode: filters.postalCode,
     maxPrice: filters.maxPrice,
     minSurface: filters.minSurface,
     minLandSurface: filters.minLandSurface,

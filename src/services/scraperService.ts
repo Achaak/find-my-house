@@ -15,6 +15,9 @@ export type ScrapeOptions = ScrapeFilters;
 
 const log = createLogger("scraper");
 
+/** Serializes scrape runs so cron, Discord, and scripts do not overlap. */
+let scrapeRunLock: Promise<void> = Promise.resolve();
+
 export class ScraperService {
   constructor(
     private readonly scrapers: Scraper[],
@@ -22,6 +25,23 @@ export class ScraperService {
   ) {}
 
   async run(options: ScrapeOptions): Promise<ExtendedScrapeResult> {
+    let releaseLock!: () => void;
+    const waitForLock = scrapeRunLock;
+    scrapeRunLock = new Promise<void>((resolve) => {
+      releaseLock = resolve;
+    });
+    await waitForLock;
+
+    try {
+      return await this.runUnlocked(options);
+    } finally {
+      releaseLock();
+    }
+  }
+
+  private async runUnlocked(
+    options: ScrapeOptions
+  ): Promise<ExtendedScrapeResult> {
     const allListings: Listing[] = [];
     const scrapedBySource = new Map<ListingSource, Listing[]>();
     const errors: ScraperError[] = [];
@@ -64,8 +84,22 @@ export class ScraperService {
       await this.repository.upsertMany(validListings);
 
     let deactivated = 0;
-    for (const [source] of scrapedBySource) {
+    for (const [source, rawForSource] of scrapedBySource) {
       const validForSource = validBySource.get(source) ?? [];
+
+      if (validForSource.length === 0) {
+        if (rawForSource.length > 0) {
+          log.warn(
+            `${source} — ${String(rawForSource.length)} listing(s) dropped by validation — skipping deactivation`
+          );
+        } else {
+          log.warn(
+            `${source} — no valid listings — skipping deactivation (empty result or possible block)`
+          );
+        }
+        continue;
+      }
+
       const count = await this.repository.deactivateMissingPublications(
         source,
         validForSource

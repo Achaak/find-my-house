@@ -246,10 +246,7 @@ export function isCityOnlyClassifiedSearchUrl(searchUrl: string): boolean {
 export function filterClassifiedCardsByPostalCode<
   T extends { zipCode?: string },
 >(cards: T[], postalCode: string): T[] {
-  return cards.filter((card) => {
-    if (!card.zipCode) return true;
-    return card.zipCode === postalCode;
-  });
+  return cards.filter((card) => card.zipCode === postalCode);
 }
 
 export function classifiedSearchResultsPerPage(

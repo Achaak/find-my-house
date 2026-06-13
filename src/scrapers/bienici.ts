@@ -36,7 +36,10 @@ async function resolveZoneIdsByTypes(
   const geoFilter = resolveGeoFilter(options, true);
 
   if (geoFilter.mode === "travel") {
-    const origin = (await resolveBienIciTravelOrigin(options.city)) ?? {
+    const origin = (await resolveBienIciTravelOrigin(
+      options.city,
+      options.postalCode
+    )) ?? {
       center: place.center,
       address: place.name,
     };

@@ -36,7 +36,7 @@ export async function retryBrowserOperation<T>(
       }
 
       if (options.clearCookiesHost) {
-        void clearBrowserCookiesForHost(options.clearCookiesHost);
+        await clearBrowserCookiesForHost(options.clearCookiesHost);
       }
       await new Promise((resolve) =>
         setTimeout(resolve, options.retryDelayMs * attempt)

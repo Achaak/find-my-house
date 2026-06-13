@@ -1,42 +1,74 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mergePropertiesIntoCanonical } from "./propertyMerge.js";
 
+function createMergePrismaMocks() {
+  const publicationUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
+  const reactionFindMany = vi.fn().mockResolvedValue([]);
+  const reactionFindUnique = vi.fn().mockResolvedValue(null);
+  const reactionUpdate = vi.fn().mockResolvedValue({});
+  const reactionDelete = vi.fn().mockResolvedValue({});
+  const propertyDelete = vi.fn().mockResolvedValue({});
+  const propertyUpdate = vi.fn().mockResolvedValue({});
+
+  const tx = {
+    listingPublication: { updateMany: publicationUpdateMany },
+    listingReaction: {
+      findMany: reactionFindMany,
+      findUnique: reactionFindUnique,
+      update: reactionUpdate,
+      delete: reactionDelete,
+    },
+    property: {
+      delete: propertyDelete,
+      update: propertyUpdate,
+    },
+  };
+
+  const prisma = {
+    ...tx,
+    $transaction: vi.fn(async (fn: (client: typeof tx) => Promise<void>) =>
+      fn(tx)
+    ),
+  };
+
+  return {
+    prisma,
+    tx,
+    publicationUpdateMany,
+    reactionFindMany,
+    reactionFindUnique,
+    reactionUpdate,
+    reactionDelete,
+    propertyDelete,
+    propertyUpdate,
+  };
+}
+
 describe("mergePropertiesIntoCanonical", () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
   it("moves publications and reactions from duplicates to the canonical property", async () => {
-    const publicationUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
-    const reactionFindMany = vi
-      .fn()
-      .mockResolvedValueOnce([
-        { id: 10, discordUserId: "user-a", propertyId: 2 },
-      ])
-      .mockResolvedValueOnce([]);
-    const reactionFindUnique = vi.fn().mockResolvedValue(null);
-    const reactionUpdate = vi.fn().mockResolvedValue({});
-    const propertyDelete = vi.fn().mockResolvedValue({});
-    const propertyUpdate = vi.fn().mockResolvedValue({});
+    const {
+      prisma,
+      publicationUpdateMany,
+      reactionFindMany,
+      reactionFindUnique,
+      reactionUpdate,
+      propertyDelete,
+      propertyUpdate,
+    } = createMergePrismaMocks();
 
-    const prisma = {
-      listingPublication: { updateMany: publicationUpdateMany },
-      listingReaction: {
-        findMany: reactionFindMany,
-        findUnique: reactionFindUnique,
-        update: reactionUpdate,
-        delete: vi.fn(),
-      },
-      property: {
-        delete: propertyDelete,
-        update: propertyUpdate,
-      },
-    };
+    reactionFindMany.mockResolvedValueOnce([
+      { id: 10, discordUserId: "user-a", propertyId: 2 },
+    ]);
 
     await mergePropertiesIntoCanonical(prisma, { id: 1, firstPrice: 300_000 }, [
       { id: 2, firstPrice: 295_000 },
     ]);
 
+    expect(prisma.$transaction).toHaveBeenCalledOnce();
     expect(publicationUpdateMany).toHaveBeenCalledWith({
       where: { propertyId: 2 },
       data: { propertyId: 1 },
@@ -50,30 +82,17 @@ describe("mergePropertiesIntoCanonical", () => {
       where: { id: 1 },
       data: { firstPrice: 295_000 },
     });
+    expect(reactionFindUnique).toHaveBeenCalled();
   });
 
   it("drops duplicate reactions when the canonical property already has one", async () => {
-    const reactionDelete = vi.fn().mockResolvedValue({});
+    const { prisma, reactionFindMany, reactionFindUnique, reactionDelete } =
+      createMergePrismaMocks();
 
-    const prisma = {
-      listingPublication: {
-        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
-      },
-      listingReaction: {
-        findMany: vi
-          .fn()
-          .mockResolvedValue([
-            { id: 11, discordUserId: "user-a", propertyId: 2 },
-          ]),
-        findUnique: vi.fn().mockResolvedValue({ id: 99 }),
-        update: vi.fn(),
-        delete: reactionDelete,
-      },
-      property: {
-        delete: vi.fn().mockResolvedValue({}),
-        update: vi.fn(),
-      },
-    };
+    reactionFindMany.mockResolvedValueOnce([
+      { id: 11, discordUserId: "user-a", propertyId: 2 },
+    ]);
+    reactionFindUnique.mockResolvedValueOnce({ id: 99 });
 
     await mergePropertiesIntoCanonical(prisma, { id: 1, firstPrice: 300_000 }, [
       { id: 2, firstPrice: 300_000 },
@@ -83,23 +102,15 @@ describe("mergePropertiesIntoCanonical", () => {
   });
 
   it("no-ops when there are no duplicates", async () => {
-    const publicationUpdateMany = vi.fn();
+    const { prisma, publicationUpdateMany } = createMergePrismaMocks();
 
     await mergePropertiesIntoCanonical(
-      {
-        listingPublication: { updateMany: publicationUpdateMany },
-        listingReaction: {
-          findMany: vi.fn(),
-          findUnique: vi.fn(),
-          update: vi.fn(),
-          delete: vi.fn(),
-        },
-        property: { delete: vi.fn(), update: vi.fn() },
-      },
+      prisma,
       { id: 1, firstPrice: 300_000 },
       []
     );
 
+    expect(prisma.$transaction).not.toHaveBeenCalled();
     expect(publicationUpdateMany).not.toHaveBeenCalled();
   });
 });

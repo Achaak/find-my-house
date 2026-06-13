@@ -125,6 +125,12 @@ describe("ScraperService", () => {
 
   it("drops invalid listings before persistence", async () => {
     const { repository, dispose } = createTestRepository();
+    const existing = makeListing({
+      externalId: "existing-good",
+      url: "https://www.bienici.com/annonce/existing-good",
+    });
+    await repository.upsertMany([existing]);
+
     const invalid = makeListing({
       externalId: "bad-price",
       url: "https://www.bienici.com/annonce/bad-price",
@@ -142,6 +148,34 @@ describe("ScraperService", () => {
 
       expect(result.found).toBe(0);
       expect(result.inserted).toBe(0);
+      expect(result.deactivated).toBe(0);
+      expect(await repository.countPublications()).toBe(1);
+    } finally {
+      await dispose();
+    }
+  });
+
+  it("skips deactivation when a scraper returns no listings", async () => {
+    const { repository, dispose } = createTestRepository();
+    const existing = makeListing({
+      externalId: "keep-me",
+      source: "leboncoin",
+      url: "https://www.leboncoin.fr/ad/keep-me",
+    });
+    await repository.upsertMany([existing]);
+
+    const scrapers = [mockScraper("leboncoin", [])];
+
+    try {
+      const service = new ScraperService(scrapers, repository);
+      const result = await service.run({
+        city: "Paris",
+        maxPrice: 500_000,
+        minSurface: 30,
+      });
+
+      expect(result.deactivated).toBe(0);
+      expect(await repository.countPublications()).toBe(1);
     } finally {
       await dispose();
     }

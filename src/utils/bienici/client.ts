@@ -181,9 +181,10 @@ async function requestBienIciTravelZone(
     }
   );
 
-  const zoneId = (response.data as ZoneByTimeResponse).zone?._id;
+  const data = response.data as ZoneByTimeResponse;
+  const zoneId = data.zone?._id;
 
-  if (!response.data.success || !zoneId) {
+  if (!data.success || !zoneId) {
     throw new Error("BienIci zone-by-time: zone not found");
   }
 

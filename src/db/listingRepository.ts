@@ -788,7 +788,10 @@ export class ListingRepository {
 
     if (useGeoFilter) {
       if (!filters.city) return [];
-      const searchCenter = await resolveGeoSearchCenter(filters.city);
+      const searchCenter = await resolveGeoSearchCenter(
+        filters.city,
+        filters.postalCode
+      );
       if (!searchCenter) return [];
       radiusFilter = resolveRadiusSearchFilter(geoFilter, searchCenter.center);
     }
