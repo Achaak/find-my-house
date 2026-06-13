@@ -97,6 +97,8 @@ The Docker image is **pre-built on GitHub Actions** (GHCR) — the Pi downloads 
 
 Variables are set through the HA UI (no `.env`). SQLite: persistent volume `/data/listings.db`.
 
+Add-on options mirror `.env` / `.env.local`, including `discord_admin_role_id`, `scrape_postal_code`, `scrape_max_pages`, and `log_level` (`debug`, `info`, `warn`, `error`).
+
 **Updates**: run `pnpm release:patch` (or `minor` / `major`) — release-it bumps, syncs `config.yaml`, pushes, and creates the GitHub release. Wait for the Actions build, then **Apps → Update** (or Rebuild → Restart).
 
 Version is managed in `package.json` and synced automatically to `home-assistant/config.yaml`. Use `/version` in Discord to check the running build.

@@ -15,9 +15,11 @@ options:
   discord_client_id: ""
   discord_guild_id: ""
   discord_channel_id: ""
+  discord_admin_role_id: ""
   scrape_scrapers: bienici,leboncoin,seloger,logicimmo
   scrape_cron: "0 */2 * * *"
   scrape_city: Paris
+  scrape_postal_code: ""
   scrape_max_price: 500000
   scrape_min_surface: 30
   scrape_min_land_surface: ""
@@ -25,14 +27,18 @@ options:
   scrape_min_bedrooms: ""
   scrape_ancien_only: false
   scrape_max_travel_minutes: ""
+  scrape_max_pages: 20
+  log_level: info
 schema:
   discord_token: password
   discord_client_id: str
   discord_guild_id: str?
   discord_channel_id: str?
+  discord_admin_role_id: str?
   scrape_scrapers: str?
   scrape_cron: str?
   scrape_city: str?
+  scrape_postal_code: str?
   scrape_max_price: int?
   scrape_min_surface: int?
   scrape_min_land_surface: int?
@@ -40,3 +46,5 @@ schema:
   scrape_min_bedrooms: int?
   scrape_ancien_only: bool?
   scrape_max_travel_minutes: int?
+  scrape_max_pages: int?
+  log_level: str?
