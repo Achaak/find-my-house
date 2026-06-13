@@ -2,8 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestRepository } from "../test/db.js";
 import { makeListing, makePropertyRow } from "../test/listingFixtures.js";
 import type { ListingRepository } from "../db/listingRepository.js";
-import { fetchBienIciAdById } from "../utils/bienici/index.js";
-import { fetchLeboncoinAdById } from "../utils/leboncoin/index.js";
+import {
+  fetchBienIciAdById,
+  fetchBienIciListingHtml,
+} from "../utils/bienici/index.js";
+import {
+  fetchLeboncoinAdById,
+  fetchLeboncoinDetailById,
+} from "../utils/leboncoin/index.js";
 import {
   fetchSeLogerListingDetails,
   SeLogerAccessBlockedError,
@@ -20,6 +26,7 @@ vi.mock("../utils/bienici/index.js", async (importOriginal) => {
   return {
     ...actual,
     fetchBienIciAdById: vi.fn(),
+    fetchBienIciListingHtml: vi.fn(),
   };
 });
 
@@ -28,6 +35,7 @@ vi.mock("../utils/leboncoin/index.js", async (importOriginal) => {
     await importOriginal<typeof import("../utils/leboncoin/index.js")>();
   return {
     ...actual,
+    fetchLeboncoinDetailById: vi.fn(),
     fetchLeboncoinAdById: vi.fn(),
   };
 });
@@ -42,7 +50,9 @@ vi.mock("../utils/seloger/index.js", async (importOriginal) => {
 });
 
 const mockFetchBienIci = vi.mocked(fetchBienIciAdById);
-const mockFetchLeboncoin = vi.mocked(fetchLeboncoinAdById);
+const mockFetchBienIciListingHtml = vi.mocked(fetchBienIciListingHtml);
+const mockFetchLeboncoin = vi.mocked(fetchLeboncoinDetailById);
+const mockFetchLeboncoinAd = vi.mocked(fetchLeboncoinAdById);
 const mockFetchSeLoger = vi.mocked(fetchSeLogerListingDetails);
 
 function publication(
@@ -110,8 +120,19 @@ describe("propertyNeedsEnrichment", () => {
     ).toBe(false);
   });
 
+  it("requires image URL for display", () => {
+    expect(
+      propertyNeedsEnrichment(makePropertyRow({ imageUrl: null }), "display")
+    ).toBe(true);
+  });
+
   it("returns false when display fields are complete", () => {
-    expect(propertyNeedsEnrichment(makePropertyRow(), "display")).toBe(false);
+    expect(
+      propertyNeedsEnrichment(
+        makePropertyRow({ imageUrl: "https://example.com/photo.jpg" }),
+        "display"
+      )
+    ).toBe(false);
   });
 });
 
@@ -119,7 +140,9 @@ describe("enrichProperty", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mockFetchBienIci.mockResolvedValue(null);
+    mockFetchBienIciListingHtml.mockResolvedValue("");
     mockFetchLeboncoin.mockResolvedValue(null);
+    mockFetchLeboncoinAd.mockResolvedValue(null);
   });
 
   it("prioritizes SeLoger over BienIci and Leboncoin for overlapping fields", async () => {
@@ -146,12 +169,16 @@ describe("enrichProperty", () => {
       greenhouseGazClassification: "E",
     });
     mockFetchLeboncoin.mockResolvedValue({
-      list_id: 1,
-      subject: "LBC",
-      body: "Description Leboncoin",
-      price: [300_000],
-      location: { lat: 48.2, lng: 2.2 },
-      attributes: [{ key: "energy_rate", value: "F" }],
+      ad: {
+        list_id: 1,
+        subject: "LBC",
+        body: "Description Leboncoin",
+        url: "https://www.leboncoin.fr/ad/ventes_immobilieres/1",
+        price: [300_000],
+        location: { city: "Paris", lat: 48.2, lng: 2.2 },
+        attributes: [{ key: "energy_rate", value: "F" }],
+      },
+      imageUrl: null,
     });
 
     const property = makePropertyRow({
@@ -178,6 +205,82 @@ describe("enrichProperty", () => {
     expect(result.updatedFields).toContain("dpeClass");
   });
 
+  it("prefers SeLoger og:image over BienIci when both publications exist", async () => {
+    mockFetchSeLoger.mockResolvedValue({
+      description: "Description SeLoger",
+      surface: null,
+      landSurface: null,
+      rooms: null,
+      bedrooms: null,
+      latitude: null,
+      longitude: null,
+      dpeClass: null,
+      gesClass: null,
+      dpeConsumptionKwhM2: null,
+      gesEmissionKgM2: null,
+      imageUrl: "https://example.com/seloger-og.jpg",
+    });
+    mockFetchBienIci.mockResolvedValue({
+      id: "bi-1",
+      title: "BienIci",
+      price: 300_000,
+      city: "Paris",
+    });
+    mockFetchBienIciListingHtml.mockResolvedValue(
+      '<meta property="og:image" content="https://example.com/bienici-og.jpg">'
+    );
+
+    const result = await enrichProperty(
+      makePropertyRow({
+        imageUrl: null,
+        publications: [
+          publication("bienici", 1, "bi-1"),
+          publication("seloger", 2, "sl-1"),
+        ],
+      })
+    );
+
+    expect(result.patch.imageUrl).toBe("https://example.com/seloger-og.jpg");
+    expect(mockFetchBienIciListingHtml).not.toHaveBeenCalled();
+  });
+
+  it("prefers Leboncoin og:image over BienIci when both publications exist", async () => {
+    mockFetchLeboncoin.mockResolvedValue({
+      ad: {
+        list_id: 1,
+        subject: "LBC",
+        body: "Description Leboncoin",
+        url: "https://www.leboncoin.fr/ad/ventes_immobilieres/1",
+        price: [300_000],
+        location: { city: "Paris", lat: 48.2, lng: 2.2 },
+        attributes: [],
+      },
+      imageUrl: "https://example.com/leboncoin-og.jpg",
+    });
+    mockFetchBienIci.mockResolvedValue({
+      id: "bi-1",
+      title: "BienIci",
+      price: 300_000,
+      city: "Paris",
+    });
+    mockFetchBienIciListingHtml.mockResolvedValue(
+      '<meta property="og:image" content="https://example.com/bienici-og.jpg">'
+    );
+
+    const result = await enrichProperty(
+      makePropertyRow({
+        imageUrl: null,
+        publications: [
+          publication("bienici", 1, "bi-1"),
+          publication("leboncoin", 2, "lbc-1"),
+        ],
+      })
+    );
+
+    expect(result.patch.imageUrl).toBe("https://example.com/leboncoin-og.jpg");
+    expect(mockFetchBienIciListingHtml).not.toHaveBeenCalled();
+  });
+
   it("merges complementary fields from lower-priority sources", async () => {
     mockFetchSeLoger.mockResolvedValue({
       description: "Description SeLoger",
@@ -198,9 +301,12 @@ describe("enrichProperty", () => {
       price: 300_000,
       city: "Paris",
       landSurfaceArea: 750,
-      photos: [{ url_photo: "https://example.com/photo.jpg" }],
     });
+    mockFetchBienIciListingHtml.mockResolvedValue(
+      '<meta property="og:image" content="https://example.com/og-photo.jpg">'
+    );
     mockFetchLeboncoin.mockResolvedValue(null);
+    mockFetchLeboncoinAd.mockResolvedValue(null);
 
     const property = makePropertyRow({
       landSurface: null,
@@ -214,7 +320,7 @@ describe("enrichProperty", () => {
     const result = await enrichProperty(property);
 
     expect(result.patch.landSurface).toBe(750);
-    expect(result.patch.imageUrl).toBe("https://example.com/photo.jpg");
+    expect(result.patch.imageUrl).toBe("https://example.com/og-photo.jpg");
     expect(result.patch.description).toBe("Description SeLoger");
   });
 
@@ -255,6 +361,7 @@ describe("enrichProperty", () => {
       greenhouseGazClassification: "B",
     });
     mockFetchLeboncoin.mockResolvedValue(null);
+    mockFetchLeboncoinAd.mockResolvedValue(null);
 
     const property = makePropertyRow({
       description: null,
@@ -311,7 +418,9 @@ describe("ensurePropertyEnriched", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mockFetchBienIci.mockResolvedValue(null);
+    mockFetchBienIciListingHtml.mockResolvedValue("");
     mockFetchLeboncoin.mockResolvedValue(null);
+    mockFetchLeboncoinAd.mockResolvedValue(null);
     const testDb = createTestRepository();
     repository = testDb.repository;
     dispose = testDb.dispose;
@@ -326,6 +435,7 @@ describe("ensurePropertyEnriched", () => {
       makeListing({
         externalId: "full-1",
         description: "Description complète",
+        imageUrl: "https://example.com/photo.jpg",
         dpeConsumptionKwhM2: 100,
         gesEmissionKgM2: 20,
       })
@@ -370,6 +480,9 @@ describe("ensurePropertyEnriched", () => {
       energyConsumption: 88,
       greenhouseGazConsumption: 12,
     });
+    mockFetchBienIciListingHtml.mockResolvedValue(
+      '<meta property="og:image" content="https://example.com/og-photo.jpg">'
+    );
 
     if (!inserted.row) {
       throw new Error("Expected inserted property row");

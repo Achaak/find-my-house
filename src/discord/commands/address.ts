@@ -1,9 +1,13 @@
 import { SlashCommandBuilder } from "discord.js";
 import { ensurePropertyEnriched } from "../../services/enrichmentService.js";
 import { searchDpeForProperty } from "../../utils/energy/ademeDpeApi.js";
+import { getDpeAddressSearchReadiness } from "../../utils/energy/dpePropertyMatch.js";
 import { createLogger } from "../../utils/logger.js";
 import { buildDpeCandidateComponents } from "../dpeComponents.js";
-import { formatDpePropertySearchReply } from "../dpeFormat.js";
+import {
+  formatDpePropertySearchReply,
+  formatDpeSearchUnavailableReply,
+} from "../dpeFormat.js";
 import type { CommandHandler } from "./types.js";
 
 const log = createLogger("discord");
@@ -21,23 +25,36 @@ export const handleAddress: CommandHandler = async (interaction, ctx) => {
   const id = interaction.options.getInteger("id", true);
   await interaction.deferReply();
 
-  const { property, warnings } = await ensurePropertyEnriched(
-    ctx.repository,
-    id,
-    "address"
-  );
+  const { property, warnings: enrichmentWarnings } =
+    await ensurePropertyEnriched(ctx.repository, id, "address");
   if (!property) {
     await interaction.editReply(`Listing #${String(id)} not found.`);
     return;
   }
 
-  try {
-    const { query, candidates } = await searchDpeForProperty(property);
+  if (getDpeAddressSearchReadiness(property) === "unavailable") {
     const warningNote =
-      warnings.length > 0 ? `\n\n_${warnings.join(" — ")}_` : "";
-    const content = (
-      formatDpePropertySearchReply(property, query, candidates) + warningNote
-    ).slice(0, 2000);
+      enrichmentWarnings.length > 0
+        ? `\n\n_${enrichmentWarnings.join(" — ")}_`
+        : "";
+    await interaction.editReply(
+      (formatDpeSearchUnavailableReply(property) + warningNote).slice(0, 2000)
+    );
+    return;
+  }
+
+  try {
+    const {
+      query,
+      candidates,
+      readiness,
+      warnings: searchWarnings,
+    } = await searchDpeForProperty(property);
+    const warnings = [...enrichmentWarnings, ...searchWarnings];
+    const content = formatDpePropertySearchReply(property, query, candidates, {
+      readiness,
+      warnings,
+    }).slice(0, 2000);
 
     if (candidates.length === 0) {
       await interaction.editReply(content);

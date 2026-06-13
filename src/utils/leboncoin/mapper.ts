@@ -75,11 +75,7 @@ export function mapLeboncoinAdToListing(
     postalCode: ad.location.zipcode ?? null,
     url: ad.url,
     description: ad.body,
-    imageUrl:
-      ad.images?.urls_large?.[0] ??
-      ad.images?.urls?.[0] ??
-      ad.images?.thumb_url ??
-      null,
+    imageUrl: null,
     propertyType: leboncoinPropertyType(ad),
     dpeClass: normalizeEnergyClass(getLeboncoinAttribute(ad, "energy_rate")),
     gesClass: normalizeEnergyClass(getLeboncoinAttribute(ad, "ges")),
@@ -102,11 +98,6 @@ export function mapLeboncoinAdToEnrichmentPatch(
     ...dimensions,
     latitude: ad.location.lat,
     longitude: ad.location.lng,
-    imageUrl:
-      ad.images?.urls_large?.[0] ??
-      ad.images?.urls?.[0] ??
-      ad.images?.thumb_url ??
-      null,
     dpeClass: normalizeEnergyClass(getLeboncoinAttribute(ad, "energy_rate")),
     gesClass: normalizeEnergyClass(getLeboncoinAttribute(ad, "ges")),
     dpeConsumptionKwhM2: metrics.dpeConsumptionKwhM2,

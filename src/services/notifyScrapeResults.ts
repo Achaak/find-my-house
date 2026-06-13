@@ -2,16 +2,20 @@ import {
   sendNewListingNotifications,
   sendPriceDropNotifications,
 } from "../discord/notifications.js";
-import type { ReactionRepository } from "../db/reactionRepository.js";
+import type { ListingRepository } from "../db/listingRepository.js";
+import type { PropertyRow } from "../types/listing.js";
 import type { CompatibilityPreferences } from "../types/compatibility.js";
+import type { ReactionRepository } from "../db/reactionRepository.js";
 import type { ExtendedScrapeResult } from "../types/listing.js";
 import { learnCompatibilityPreferences } from "../utils/compatibility/learn.js";
 import type { Logger } from "../utils/logger.js";
+import { ensurePropertyEnriched } from "./enrichmentService.js";
 
 export type NotifyScrapeResultsOptions = {
   token: string;
   channelId?: string;
   maxNotifications?: number;
+  repository?: ListingRepository;
   reactionRepository?: ReactionRepository;
   compatibilityPreferences?: CompatibilityPreferences;
   log?: Pick<Logger, "info">;
@@ -21,6 +25,24 @@ export type NotifyScrapeResultsSummary = {
   newListingsSent: number;
   priceDropsSent: number;
 };
+
+async function enrichListingsForDisplay(
+  repository: ListingRepository,
+  listings: PropertyRow[]
+): Promise<PropertyRow[]> {
+  const enriched: PropertyRow[] = [];
+
+  for (const listing of listings) {
+    const { property } = await ensurePropertyEnriched(
+      repository,
+      listing.id,
+      "display"
+    );
+    enriched.push(property ?? listing);
+  }
+
+  return enriched;
+}
 
 export async function notifyScrapeResults(
   result: ExtendedScrapeResult,
@@ -48,11 +70,24 @@ export async function notifyScrapeResults(
     compatibilityPreferences,
   };
 
-  if (result.insertedListings.length > 0) {
+  const insertedListings = options.repository
+    ? await enrichListingsForDisplay(
+        options.repository,
+        result.insertedListings
+      )
+    : result.insertedListings;
+  const priceDropListings = options.repository
+    ? await enrichListingsForDisplay(
+        options.repository,
+        result.priceDropListings
+      )
+    : result.priceDropListings;
+
+  if (insertedListings.length > 0) {
     summary.newListingsSent = await sendNewListingNotifications(
       options.token,
       options.channelId,
-      result.insertedListings,
+      insertedListings,
       limits
     );
     options.log?.info(
@@ -60,11 +95,11 @@ export async function notifyScrapeResults(
     );
   }
 
-  if (result.priceDropListings.length > 0) {
+  if (priceDropListings.length > 0) {
     summary.priceDropsSent = await sendPriceDropNotifications(
       options.token,
       options.channelId,
-      result.priceDropListings,
+      priceDropListings,
       limits
     );
     options.log?.info(

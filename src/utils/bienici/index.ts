@@ -4,6 +4,7 @@ export {
   computeBienIciTravelZone,
   fetchBienIciAdById,
   fetchBienIciAds,
+  fetchBienIciListingHtml,
 } from "./client.js";
 export type { BienIciSearchFilters, BienIciZoneIdsByTypes } from "./client.js";
 export {

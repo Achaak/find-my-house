@@ -56,7 +56,7 @@ export function parseClassifiedDetailPage(
     landSurface: parseClassifiedLandSurface(text),
     latitude: coords?.lat ?? null,
     longitude: coords?.lng ?? null,
-    imageUrl: parseClassifiedOgImageFromHtml(html) ?? card?.photos?.[0] ?? null,
+    imageUrl: parseClassifiedOgImageFromHtml(html),
     bathrooms: extras?.bathrooms ?? null,
     constructionYear:
       extras?.constructionYear ?? parseConstructionYearFromText(text),

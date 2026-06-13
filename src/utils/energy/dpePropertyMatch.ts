@@ -1,4 +1,5 @@
 import type { PropertyRow } from "../../types/listing.js";
+import { haversineDistanceKm } from "../geo/geo.js";
 import type { DpeSearchResult } from "./ademeDpeApi.js";
 import {
   buildConsumptionRange,
@@ -16,12 +17,24 @@ export type AdemeSearchParams = {
   legacy: Record<string, string>;
 };
 
-/** Relative margin applied around the listing surface (±10 %). */
-export const SURFACE_MARGIN_RATIO = 0.1;
+export type AdemeSearchVariant = {
+  id: string;
+  params: AdemeSearchParams;
+  /** Surface filter on the ADEME query — last resort when result volume is too high. */
+  includeSurfaceFilter: boolean;
+};
+
+export type DpeAddressSearchReadiness = "unavailable" | "full" | "degraded";
+
+/** Margin for optional ADEME surface query filter (listing may show floor area, not Carrez). */
+export const SURFACE_API_MARGIN_RATIO = 0.25;
+
+/** Margin for surface scoring only — wider than listing vs DPE habitable gap. */
+export const SURFACE_SCORE_MARGIN_RATIO = 0.25;
 
 export function buildSurfaceRange(
   surface: number,
-  marginRatio = SURFACE_MARGIN_RATIO
+  marginRatio: number
 ): { min: number; max: number } {
   const margin = surface * marginRatio;
   return {
@@ -48,6 +61,18 @@ export function extractDepartmentCode(
   return /^\d{2}$/.test(dept) ? dept : null;
 }
 
+export function getDpeAddressSearchReadiness(
+  property: PropertyRow
+): DpeAddressSearchReadiness {
+  if (!extractDepartmentCode(property.postalCode)) return "unavailable";
+  if (!property.dpeClass) return "unavailable";
+
+  const hasPreciseMetrics =
+    property.dpeConsumptionKwhM2 !== null || property.gesEmissionKgM2 !== null;
+
+  return hasPreciseMetrics ? "full" : "degraded";
+}
+
 export function formatDpeSearchCriteria(property: PropertyRow): string {
   const parts: string[] = [];
 
@@ -66,17 +91,70 @@ export function formatDpeSearchCriteria(property: PropertyRow): string {
   }
 
   if (property.surface) {
-    const { min, max } = buildSurfaceRange(property.surface);
-    parts.push(
-      `${String(property.surface)} m² (±${String(Math.round(SURFACE_MARGIN_RATIO * 100))} % → ${String(min)}–${String(max)})`
-    );
+    parts.push(`${String(property.surface)} m² (classement)`);
   }
 
   return parts.join(" · ") || property.city;
 }
 
+type BuildParamsOptions = {
+  consumptionMode: "exact" | "range" | "omit";
+  emissionMode: "exact" | "range" | "omit";
+  includeGes: boolean;
+  includeSurface: boolean;
+};
+
+function applyConsumptionFilter(
+  recent: Record<string, string>,
+  legacy: Record<string, string>,
+  consumption: number,
+  mode: "exact" | "range"
+): void {
+  const rounded = Math.round(consumption);
+  if (mode === "exact" && Math.abs(consumption - rounded) < 0.05) {
+    recent.conso_5_usages_par_m2_ep_eq = String(rounded);
+    legacy.consommation_energie_eq = String(rounded);
+    return;
+  }
+
+  const { min, max } = buildConsumptionRange(consumption);
+  recent.conso_5_usages_par_m2_ep_gte = String(min);
+  recent.conso_5_usages_par_m2_ep_lte = String(max);
+  legacy.consommation_energie_gte = String(min);
+  legacy.consommation_energie_lte = String(max);
+}
+
+function applyEmissionFilter(
+  recent: Record<string, string>,
+  consumption: number,
+  mode: "exact" | "range"
+): void {
+  const rounded = Math.round(consumption);
+  if (mode === "exact" && Math.abs(consumption - rounded) < 0.05) {
+    recent.emission_ges_5_usages_par_m2_eq = String(rounded);
+    return;
+  }
+
+  const { min, max } = buildEmissionRange(consumption);
+  recent.emission_ges_5_usages_par_m2_gte = String(min);
+  recent.emission_ges_5_usages_par_m2_lte = String(max);
+}
+
+function applySurfaceFilter(
+  recent: Record<string, string>,
+  legacy: Record<string, string>,
+  surface: number
+): void {
+  const { min, max } = buildSurfaceRange(surface, SURFACE_API_MARGIN_RATIO);
+  recent.surface_habitable_logement_gte = String(min);
+  recent.surface_habitable_logement_lte = String(max);
+  legacy.surface_thermique_lot_gte = String(min);
+  legacy.surface_thermique_lot_lte = String(max);
+}
+
 export function buildAdemeSearchParams(
-  property: PropertyRow
+  property: PropertyRow,
+  options: BuildParamsOptions
 ): AdemeSearchParams | null {
   const department = extractDepartmentCode(property.postalCode);
   if (!department) return null;
@@ -93,52 +171,104 @@ export function buildAdemeSearchParams(
     legacy.classe_consommation_energie_eq = property.dpeClass;
   }
 
-  if (property.gesClass) {
+  if (options.includeGes && property.gesClass) {
     recent.etiquette_ges_eq = property.gesClass;
     legacy.classe_estimation_ges_eq = property.gesClass;
   }
 
-  if (property.dpeConsumptionKwhM2 !== null) {
-    const rounded = Math.round(property.dpeConsumptionKwhM2);
-    if (Math.abs(property.dpeConsumptionKwhM2 - rounded) < 0.05) {
-      recent.conso_5_usages_par_m2_ep_eq = String(rounded);
-      legacy.consommation_energie_eq = String(rounded);
-    } else {
-      const { min, max } = buildConsumptionRange(property.dpeConsumptionKwhM2);
-      recent.conso_5_usages_par_m2_ep_gte = String(min);
-      recent.conso_5_usages_par_m2_ep_lte = String(max);
-      legacy.consommation_energie_gte = String(min);
-      legacy.consommation_energie_lte = String(max);
-    }
+  if (
+    options.consumptionMode !== "omit" &&
+    property.dpeConsumptionKwhM2 !== null
+  ) {
+    applyConsumptionFilter(
+      recent,
+      legacy,
+      property.dpeConsumptionKwhM2,
+      options.consumptionMode
+    );
   }
 
-  if (property.gesEmissionKgM2 !== null) {
-    const rounded = Math.round(property.gesEmissionKgM2);
-    if (Math.abs(property.gesEmissionKgM2 - rounded) < 0.05) {
-      recent.emission_ges_5_usages_par_m2_eq = String(rounded);
-    } else {
-      const { min, max } = buildEmissionRange(property.gesEmissionKgM2);
-      recent.emission_ges_5_usages_par_m2_gte = String(min);
-      recent.emission_ges_5_usages_par_m2_lte = String(max);
-    }
+  if (options.emissionMode !== "omit" && property.gesEmissionKgM2 !== null) {
+    applyEmissionFilter(recent, property.gesEmissionKgM2, options.emissionMode);
   }
 
-  if (property.surface) {
-    const { min, max } = buildSurfaceRange(property.surface);
-    recent.surface_habitable_logement_gte = String(min);
-    recent.surface_habitable_logement_lte = String(max);
-    legacy.surface_thermique_lot_gte = String(min);
-    legacy.surface_thermique_lot_lte = String(max);
+  if (options.includeSurface && property.surface) {
+    applySurfaceFilter(recent, legacy, property.surface);
   }
 
   return { recent, legacy };
 }
 
+function buildVariant(
+  property: PropertyRow,
+  id: string,
+  options: BuildParamsOptions
+): AdemeSearchVariant | null {
+  const params = buildAdemeSearchParams(property, options);
+  if (!params) return null;
+
+  return {
+    id,
+    params,
+    includeSurfaceFilter: options.includeSurface,
+  };
+}
+
 export function buildAdemeSearchParamVariants(
   property: PropertyRow
-): AdemeSearchParams[] {
-  const params = buildAdemeSearchParams(property);
-  return params ? [params] : [];
+): AdemeSearchVariant[] {
+  const readiness = getDpeAddressSearchReadiness(property);
+  if (readiness === "unavailable") return [];
+
+  if (readiness === "degraded") {
+    return [
+      buildVariant(property, "degraded", {
+        consumptionMode: "omit",
+        emissionMode: "omit",
+        includeGes: true,
+        includeSurface: false,
+      }),
+      buildVariant(property, "degraded_no_ges", {
+        consumptionMode: "omit",
+        emissionMode: "omit",
+        includeGes: false,
+        includeSurface: false,
+      }),
+      buildVariant(property, "degraded_surface", {
+        consumptionMode: "omit",
+        emissionMode: "omit",
+        includeGes: true,
+        includeSurface: true,
+      }),
+    ].filter((variant): variant is AdemeSearchVariant => variant !== null);
+  }
+
+  return [
+    buildVariant(property, "strict", {
+      consumptionMode: "exact",
+      emissionMode: "exact",
+      includeGes: true,
+      includeSurface: false,
+    }),
+    buildVariant(property, "relaxed", {
+      consumptionMode: "range",
+      emissionMode: "range",
+      includeGes: true,
+      includeSurface: false,
+    }),
+    buildVariant(property, "relaxed_no_ges", {
+      consumptionMode: "range",
+      emissionMode: "range",
+      includeGes: false,
+      includeSurface: false,
+    }),
+    buildVariant(property, "relaxed_surface", {
+      consumptionMode: "range",
+      emissionMode: "range",
+      includeGes: false,
+      includeSurface: true,
+    }),
+  ].filter((variant): variant is AdemeSearchVariant => variant !== null);
 }
 
 function normalizeAddress(address: string): string {
@@ -184,6 +314,9 @@ const PLACE_STOPWORDS = new Set([
   "vendre",
 ]);
 
+const STREET_PATTERN =
+  /\b(?:rue|route|chemin|impasse|avenue|allee|allée|boulevard|place|lieu[- ]dit|hameau)\s+(?:de\s+|du\s+|des\s+|d['']|l['']|la\s+)?([a-zàâäéèêëïîôùûüç0-9][\wàâäéèêëïîôùûüç'-]{2,})/giu;
+
 export function extractPlaceHints(property: PropertyRow): string[] {
   const hints = new Set<string>();
 
@@ -198,12 +331,17 @@ export function extractPlaceHints(property: PropertyRow): string[] {
     for (const part of text.split(/[\s,-]+/)) {
       addToken(part);
     }
+
+    for (const match of text.matchAll(STREET_PATTERN)) {
+      const captured = match[1];
+      if (captured) addToken(captured);
+    }
   };
 
-  addText(property.city);
   if (property.title) addText(property.title);
 
   if (property.description) {
+    addText(property.description);
     for (const segment of property.description.split(/\s*-\s*/)) {
       const trimmed = segment.trim();
       if (!trimmed || /^\d/.test(trimmed)) continue;
@@ -227,6 +365,49 @@ function scorePlaceHints(property: PropertyRow, address: string): number {
   return score;
 }
 
+function scoreGeoProximity(
+  property: PropertyRow,
+  candidate: DpeSearchResult
+): number {
+  if (
+    property.latitude === null ||
+    property.longitude === null ||
+    candidate.latitude === null ||
+    candidate.longitude === null
+  ) {
+    return 0;
+  }
+
+  const distanceKm = haversineDistanceKm(
+    property.latitude,
+    property.longitude,
+    candidate.latitude,
+    candidate.longitude
+  );
+
+  if (distanceKm <= 0.5) return 40;
+  if (distanceKm <= 2) return 25;
+  if (distanceKm <= 5) return 10;
+  return 0;
+}
+
+function scoreConstructionYear(
+  property: PropertyRow,
+  candidate: DpeSearchResult
+): number {
+  if (
+    property.constructionYear === null ||
+    candidate.constructionYear === null
+  ) {
+    return 0;
+  }
+
+  const diff = Math.abs(property.constructionYear - candidate.constructionYear);
+  if (diff === 0) return 10;
+  if (diff <= 5) return 5;
+  return 0;
+}
+
 function consumptionWithinTolerance(
   expected: number,
   actual: number | null,
@@ -243,16 +424,6 @@ function emissionWithinTolerance(
 ): boolean {
   if (actual === null) return false;
   return Math.abs(expected - actual) <= tolerance;
-}
-
-function surfaceWithinMargin(
-  propertySurface: number,
-  candidateSurface: number | null,
-  marginRatio = SURFACE_MARGIN_RATIO
-): boolean {
-  if (candidateSurface === null) return false;
-  const { min, max } = buildSurfaceRange(propertySurface, marginRatio);
-  return candidateSurface >= min && candidateSurface <= max;
 }
 
 export function isDpeCandidateEligible(
@@ -297,13 +468,6 @@ export function isDpeCandidateEligible(
     return false;
   }
 
-  if (
-    property.surface &&
-    !surfaceWithinMargin(property.surface, candidate.surfaceM2)
-  ) {
-    return false;
-  }
-
   return true;
 }
 
@@ -343,11 +507,13 @@ export function scoreDpeCandidate(
 
   if (property.surface && candidate.surfaceM2 !== null) {
     const diff = Math.abs(property.surface - candidate.surfaceM2);
-    const margin = property.surface * SURFACE_MARGIN_RATIO || 1;
+    const margin = property.surface * SURFACE_SCORE_MARGIN_RATIO || 1;
     score += Math.max(0, 20 * (1 - diff / margin));
   }
 
+  score += scoreGeoProximity(property, candidate);
   score += scorePlaceHints(property, candidate.address);
+  score += scoreConstructionYear(property, candidate);
 
   if (candidate.establishmentDate) {
     const ageMs = Date.now() - Date.parse(candidate.establishmentDate);

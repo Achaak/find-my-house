@@ -5,6 +5,7 @@ export {
   SEARCH_PAGE_DELAY_MS,
   buildLeboncoinAreaLocation,
   fetchLeboncoinAdById,
+  fetchLeboncoinDetailById,
   fetchLeboncoinAds,
   getLeboncoinAttribute,
   parseLeboncoinNumber,
@@ -25,6 +26,7 @@ export {
 export type {
   LeboncoinAd,
   LeboncoinAdAttribute,
+  LeboncoinDetail,
   LeboncoinLocation,
   LeboncoinPlace,
 } from "./client.js";

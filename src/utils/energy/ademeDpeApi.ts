@@ -10,8 +10,11 @@ import {
 import {
   buildAdemeSearchParamVariants,
   formatDpeSearchCriteria,
+  getDpeAddressSearchReadiness,
   rankDpeCandidates,
   type AdemeSearchParams,
+  type AdemeSearchVariant,
+  type DpeAddressSearchReadiness,
   type RankedDpeSearchResult,
 } from "./dpePropertyMatch.js";
 
@@ -26,8 +29,8 @@ const DATASETS = {
   legacy: "dpe-france",
 } as const;
 
-const FETCH_PAGE_SIZE = 100;
-const MAX_FETCH_TOTAL = 500;
+export const ADEME_FETCH_PAGE_SIZE = 100;
+export const ADEME_MAX_FETCH_TOTAL = 500;
 
 type DpeApiResponse<T> = {
   results?: T[];
@@ -35,52 +38,77 @@ type DpeApiResponse<T> = {
   total?: number;
 };
 
+type FetchDatasetResult<T> = {
+  lines: T[];
+  total: number | null;
+  truncated: boolean;
+};
+
 async function fetchDatasetAll<T>(
   datasetId: string,
   params: Record<string, string>
-): Promise<T[] | null> {
+): Promise<FetchDatasetResult<T>> {
   const initialUrl = new URL(`${BASE_URL}/${datasetId}/lines`);
-  initialUrl.searchParams.set("size", String(FETCH_PAGE_SIZE));
+  initialUrl.searchParams.set("size", String(ADEME_FETCH_PAGE_SIZE));
   for (const [key, value] of Object.entries(params)) {
     initialUrl.searchParams.set(key, value);
   }
 
-  const all: T[] = [];
+  const lines: T[] = [];
   let url: string | null = initialUrl.toString();
+  let total: number | null = null;
 
   try {
-    while (url && all.length < MAX_FETCH_TOTAL) {
+    while (url && lines.length < ADEME_MAX_FETCH_TOTAL) {
       const data: DpeApiResponse<T> = await ademeHttpClient.get(url).json();
-      all.push(...(data.results ?? []));
+      if (total === null && data.total !== undefined) {
+        total = data.total;
+      }
+      lines.push(...(data.results ?? []));
       if (!data.next || (data.results?.length ?? 0) === 0) break;
       url = data.next;
     }
-    return all;
   } catch (error) {
     const status =
       error instanceof HTTPError
         ? String(error.response.statusCode)
         : "network";
     log.warn(`Request failed (${status}) on ${datasetId}:`, initialUrl.search);
-    return all.length > 0 ? all : null;
   }
+
+  const truncated =
+    total !== null
+      ? total > lines.length
+      : lines.length >= ADEME_MAX_FETCH_TOTAL;
+
+  return { lines, total, truncated };
 }
+
+type DatasetFetchSummary = {
+  recentLines: RecentDpeLine[];
+  legacyLines: LegacyDpeLine[];
+  truncated: boolean;
+  total: number | null;
+};
 
 async function fetchBothDatasets(
   params: AdemeSearchParams
-): Promise<{ recentLines: RecentDpeLine[]; legacyLines: LegacyDpeLine[] }> {
-  const recentLines = await fetchDatasetAll<RecentDpeLine>(
-    DATASETS.recent,
-    params.recent
-  );
-  const legacyLines = await fetchDatasetAll<LegacyDpeLine>(
-    DATASETS.legacy,
-    params.legacy
-  );
+): Promise<DatasetFetchSummary> {
+  const [recent, legacy] = await Promise.all([
+    fetchDatasetAll<RecentDpeLine>(DATASETS.recent, params.recent),
+    fetchDatasetAll<LegacyDpeLine>(DATASETS.legacy, params.legacy),
+  ]);
+
+  const total =
+    recent.total !== null || legacy.total !== null
+      ? (recent.total ?? 0) + (legacy.total ?? 0)
+      : null;
 
   return {
-    recentLines: recentLines ?? [],
-    legacyLines: legacyLines ?? [],
+    recentLines: recent.lines,
+    legacyLines: legacy.lines,
+    truncated: recent.truncated || legacy.truncated,
+    total,
   };
 }
 
@@ -107,37 +135,118 @@ function dedupeResults(results: DpeSearchResult[]): DpeSearchResult[] {
   return [...byNumero.values()];
 }
 
-async function searchDpeWithParams(
-  params: AdemeSearchParams
-): Promise<DpeSearchResult[]> {
-  const { recentLines, legacyLines } = await fetchBothDatasets(params);
+function mergeResults(
+  target: Map<string, DpeSearchResult>,
+  batch: DpeSearchResult[]
+): void {
+  for (const result of batch) {
+    const existing = target.get(result.numeroDpe);
+    if (!existing || compareResults(result, existing) > 0) {
+      target.set(result.numeroDpe, result);
+    }
+  }
+}
+
+async function searchDpeWithParams(params: AdemeSearchParams): Promise<{
+  results: DpeSearchResult[];
+  truncated: boolean;
+  total: number | null;
+}> {
+  const { recentLines, legacyLines, truncated, total } =
+    await fetchBothDatasets(params);
 
   if (recentLines.length === 0 && legacyLines.length === 0) {
-    return [];
+    return { results: [], truncated, total };
   }
 
-  return dedupeResults(mapDatasetResults(recentLines, legacyLines));
+  return {
+    results: dedupeResults(mapDatasetResults(recentLines, legacyLines)),
+    truncated,
+    total,
+  };
 }
+
+function shouldRetryWithSurfaceVariant(
+  variant: AdemeSearchVariant,
+  truncated: boolean,
+  property: PropertyRow
+): boolean {
+  return (
+    truncated &&
+    !variant.includeSurfaceFilter &&
+    property.surface !== null &&
+    variant.id !== "degraded_surface" &&
+    variant.id !== "relaxed_surface"
+  );
+}
+
+function surfaceFallbackVariant(
+  variants: AdemeSearchVariant[],
+  current: AdemeSearchVariant
+): AdemeSearchVariant | undefined {
+  if (current.id.startsWith("degraded")) {
+    return variants.find((variant) => variant.id === "degraded_surface");
+  }
+  return variants.find((variant) => variant.id === "relaxed_surface");
+}
+
+export type DpePropertySearchResult = {
+  query: string;
+  candidates: RankedDpeSearchResult[];
+  readiness: DpeAddressSearchReadiness;
+  warnings: string[];
+};
 
 export async function searchDpeForProperty(
   property: PropertyRow,
   limit = 5
-): Promise<{ query: string; candidates: RankedDpeSearchResult[] }> {
+): Promise<DpePropertySearchResult> {
   const query = formatDpeSearchCriteria(property);
-  const variants = buildAdemeSearchParamVariants(property);
+  const readiness = getDpeAddressSearchReadiness(property);
+  const warnings: string[] = [];
 
+  if (readiness === "unavailable") {
+    return { query, candidates: [], readiness, warnings };
+  }
+
+  if (readiness === "degraded") {
+    warnings.push(
+      "DPE letter only (no kWh/m² or kg CO₂/m²) — results may be incomplete."
+    );
+  }
+
+  const variants = buildAdemeSearchParamVariants(property);
   if (variants.length === 0) {
-    return { query, candidates: [] };
+    return { query, candidates: [], readiness, warnings };
   }
 
   const rawByNumero = new Map<string, DpeSearchResult>();
+  let truncated = false;
+  let totalResults: number | null = null;
 
-  for (const params of variants) {
-    const batch = await searchDpeWithParams(params);
-    for (const result of batch) {
-      const existing = rawByNumero.get(result.numeroDpe);
-      if (!existing || compareResults(result, existing) > 0) {
-        rawByNumero.set(result.numeroDpe, result);
+  for (let index = 0; index < variants.length; index += 1) {
+    const variant = variants[index];
+    const {
+      results,
+      truncated: batchTruncated,
+      total,
+    } = await searchDpeWithParams(variant.params);
+
+    truncated ||= batchTruncated;
+    if (total !== null) {
+      totalResults =
+        totalResults === null ? total : Math.max(totalResults, total);
+    }
+
+    mergeResults(rawByNumero, results);
+
+    if (shouldRetryWithSurfaceVariant(variant, batchTruncated, property)) {
+      const fallback = surfaceFallbackVariant(variants, variant);
+      if (
+        fallback &&
+        !variants.slice(0, index + 1).some((v) => v.id === fallback.id)
+      ) {
+        variants.splice(index + 1, 0, fallback);
       }
     }
 
@@ -147,13 +256,26 @@ export async function searchDpeForProperty(
       limit
     );
     if (candidates.length > 0) {
-      return { query, candidates };
+      if (truncated) {
+        warnings.push(
+          `ADEME returned more matches than fetched (analyzed ${String(ADEME_MAX_FETCH_TOTAL)} max per dataset${totalResults !== null ? `, ${String(totalResults)}+ total` : ""}).`
+        );
+      }
+      return { query, candidates, readiness, warnings };
     }
+  }
+
+  if (truncated) {
+    warnings.push(
+      `ADEME returned more matches than fetched (analyzed ${String(ADEME_MAX_FETCH_TOTAL)} max per dataset${totalResults !== null ? `, ${String(totalResults)}+ total` : ""}).`
+    );
   }
 
   return {
     query,
     candidates: rankDpeCandidates(property, [...rawByNumero.values()], limit),
+    readiness,
+    warnings,
   };
 }
 

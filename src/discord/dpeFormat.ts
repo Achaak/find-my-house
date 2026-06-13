@@ -1,5 +1,8 @@
 import type { PropertyRow } from "../types/listing.js";
-import type { RankedDpeSearchResult } from "../utils/energy/dpePropertyMatch.js";
+import type {
+  DpeAddressSearchReadiness,
+  RankedDpeSearchResult,
+} from "../utils/energy/dpePropertyMatch.js";
 import { formatEnergyClasses } from "../utils/energy/energyClass.js";
 import { formatPrice } from "./format.js";
 
@@ -62,19 +65,42 @@ function formatCandidate(index: number, result: RankedDpeSearchResult): string {
     .join("\n");
 }
 
+function formatWarnings(warnings: string[]): string {
+  if (warnings.length === 0) return "";
+  return `\n\n_${warnings.join(" — ")}_`;
+}
+
+export function formatDpeSearchUnavailableReply(property: PropertyRow): string {
+  return [
+    formatPropertyContext(property),
+    "",
+    "Address search requires a DPE class and a postal code on the listing.",
+    "Precise kWh/m² and kg CO₂/m² values improve matching.",
+  ].join("\n");
+}
+
 export function formatDpePropertySearchReply(
   property: PropertyRow,
   query: string,
-  candidates: RankedDpeSearchResult[]
+  candidates: RankedDpeSearchResult[],
+  options: {
+    readiness: DpeAddressSearchReadiness;
+    warnings?: string[];
+  } = { readiness: "full" }
 ): string {
+  const warnings = options.warnings ?? [];
+
   if (candidates.length === 0) {
     return [
       formatPropertyContext(property),
       "",
       `No candidate address found via ADEME for **${query}**.`,
       "",
-      "Criteria: department, DPE, GES, consumption/emissions, surface ±10%. Location is a ranking bonus.",
+      options.readiness === "degraded"
+        ? "Degraded search (DPE letter only) — try enriching the listing first."
+        : "Criteria: department, DPE/GES, consumption/emissions. Surface and map coords are ranking bonuses only.",
       `[ADEME public DPE data](${OBSERVATOIRE_URL})`,
+      formatWarnings(warnings),
     ].join("\n");
   }
 
@@ -82,6 +108,9 @@ export function formatDpePropertySearchReply(
     formatPropertyContext(property),
     "",
     `ADEME search: **${query}**`,
+    options.readiness === "degraded"
+      ? "⚠️ _Degraded search — verify each candidate carefully._"
+      : null,
     "",
     "Check on Google Maps (🗺️), then confirm the address (✅):",
     "",
@@ -90,5 +119,8 @@ export function formatDpePropertySearchReply(
       .join("\n\n"),
     "",
     `[ADEME public DPE data](${OBSERVATOIRE_URL})`,
-  ].join("\n");
+    formatWarnings(warnings),
+  ]
+    .filter((line) => line !== null)
+    .join("\n");
 }

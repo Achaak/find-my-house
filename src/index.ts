@@ -56,6 +56,7 @@ async function main(): Promise<void> {
           token: discord.token,
           channelId: discord.channelId,
           maxNotifications: discord.maxNotifications,
+          repository,
           reactionRepository,
           log: cronLog,
         });

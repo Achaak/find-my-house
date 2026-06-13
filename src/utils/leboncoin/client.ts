@@ -13,6 +13,7 @@ import {
   warmUpBrowserSession,
 } from "../browser/client.js";
 import { wrapHttpError } from "../errors/httpError.js";
+import { parseOgImageFromHtml } from "../html/ogImage.js";
 import { LeboncoinAccessBlockedError } from "./errors.js";
 import { parseLeboncoinDetailHtml } from "./parsers/detailHtml.js";
 import {
@@ -240,9 +241,14 @@ export async function fetchLeboncoinAds(
   return fetchLeboncoinAdsForPage(criteria, location, maxPages);
 }
 
-export async function fetchLeboncoinAdById(
+export type LeboncoinDetail = {
+  ad: LeboncoinAd;
+  imageUrl: string | null;
+};
+
+export async function fetchLeboncoinDetailById(
   listId: string
-): Promise<LeboncoinAd | null> {
+): Promise<LeboncoinDetail | null> {
   const url = `${LEBONCOIN_ORIGIN}ad/ventes_immobilieres/${listId}`;
 
   try {
@@ -252,13 +258,23 @@ export async function fetchLeboncoinAdById(
       referer: `${LEBONCOIN_ORIGIN}recherche`,
       timeoutMs: 30_000,
     });
-    return parseLeboncoinDetailHtml(html);
+    return {
+      ad: parseLeboncoinDetailHtml(html),
+      imageUrl: parseOgImageFromHtml(html),
+    };
   } catch (error) {
     if (error instanceof Error && error.message.includes("not found")) {
       return null;
     }
     handleLeboncoinFetchError(error);
   }
+}
+
+export async function fetchLeboncoinAdById(
+  listId: string
+): Promise<LeboncoinAd | null> {
+  const detail = await fetchLeboncoinDetailById(listId);
+  return detail?.ad ?? null;
 }
 
 export function getLeboncoinAttribute(

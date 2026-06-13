@@ -9,13 +9,16 @@ import { formatSourceLabel } from "../discord/format.js";
 import { classifiedImageNeedsRefresh } from "../utils/classifiedPortal/helpers.js";
 import {
   fetchBienIciAdById,
+  fetchBienIciListingHtml,
   mapBienIciAdToEnrichmentPatch,
   type BienIciAd,
 } from "../utils/bienici/index.js";
+import { parseOgImageFromHtml } from "../utils/html/ogImage.js";
 import { mergeHighlights } from "../utils/listing/amenities.js";
 import { normalizeEnergyClass } from "../utils/energy/energyClass.js";
 import {
   fetchLeboncoinAdById,
+  fetchLeboncoinDetailById,
   mapLeboncoinAdToEnrichmentPatch,
 } from "../utils/leboncoin/index.js";
 import {
@@ -36,6 +39,10 @@ export type EnrichmentResult = {
 };
 
 export type EnrichmentPurpose = "display" | "address";
+
+type EnrichPublicationOptions = {
+  skipImage?: boolean;
+};
 
 export function propertyNeedsEnrichment(
   property: PropertyRow,
@@ -65,6 +72,7 @@ export function propertyNeedsEnrichment(
     missingEnergy ||
     property.landSurface === null ||
     property.description === null ||
+    property.imageUrl === null ||
     (hasHtmlPortalPublication && missingCoords) ||
     (hasHtmlPortalPublication && classifiedImageNeedsRefresh(property.imageUrl))
   );
@@ -73,8 +81,8 @@ export function propertyNeedsEnrichment(
 const SOURCE_PRIORITY: ListingSource[] = [
   "seloger",
   "logicimmo",
-  "bienici",
   "leboncoin",
+  "bienici",
 ];
 
 function pickDefined<T extends Record<string, unknown>>(patch: T): Partial<T> {
@@ -84,7 +92,8 @@ function pickDefined<T extends Record<string, unknown>>(patch: T): Partial<T> {
 }
 
 async function enrichFromSeLoger(
-  publication: PublicationRow
+  publication: PublicationRow,
+  options: EnrichPublicationOptions = {}
 ): Promise<PropertyEnrichmentPatch> {
   const details = await fetchSeLogerListingDetails(publication.url);
   return pickDefined({
@@ -106,30 +115,53 @@ async function enrichFromSeLoger(
     propertyCondition: details.propertyCondition,
     parkingSpaces: details.parkingSpaces,
     highlights: details.highlights,
-    imageUrl: details.imageUrl,
+    ...(options.skipImage ? {} : { imageUrl: details.imageUrl }),
   });
 }
 
 async function enrichFromBienIci(
-  publication: PublicationRow
+  publication: PublicationRow,
+  options: EnrichPublicationOptions = {}
 ): Promise<PropertyEnrichmentPatch> {
   const ad = await fetchBienIciAdById<BienIciAd>(publication.externalId);
   if (!ad) return {};
 
-  return pickDefined(mapBienIciAdToEnrichmentPatch(ad));
+  const patch = mapBienIciAdToEnrichmentPatch(ad);
+  if (options.skipImage) {
+    return pickDefined(patch);
+  }
+
+  const listingUrl = ad.url ?? publication.url;
+  const html = await fetchBienIciListingHtml(listingUrl);
+
+  return pickDefined({
+    ...patch,
+    imageUrl: parseOgImageFromHtml(html),
+  });
 }
 
 async function enrichFromLeboncoin(
-  publication: PublicationRow
+  publication: PublicationRow,
+  options: EnrichPublicationOptions = {}
 ): Promise<PropertyEnrichmentPatch> {
-  const ad = await fetchLeboncoinAdById(publication.externalId);
-  if (!ad) return {};
+  if (options.skipImage) {
+    const ad = await fetchLeboncoinAdById(publication.externalId);
+    if (!ad) return {};
+    return pickDefined(mapLeboncoinAdToEnrichmentPatch(ad));
+  }
 
-  return pickDefined(mapLeboncoinAdToEnrichmentPatch(ad));
+  const detail = await fetchLeboncoinDetailById(publication.externalId);
+  if (!detail) return {};
+
+  return pickDefined({
+    ...mapLeboncoinAdToEnrichmentPatch(detail.ad),
+    imageUrl: detail.imageUrl,
+  });
 }
 
 async function enrichFromLogicImmo(
-  publication: PublicationRow
+  publication: PublicationRow,
+  options: EnrichPublicationOptions = {}
 ): Promise<PropertyEnrichmentPatch> {
   const details = await fetchLogicImmoListingDetails(publication.url);
   return pickDefined({
@@ -151,22 +183,23 @@ async function enrichFromLogicImmo(
     propertyCondition: details.propertyCondition,
     parkingSpaces: details.parkingSpaces,
     highlights: details.highlights,
-    imageUrl: details.imageUrl,
+    ...(options.skipImage ? {} : { imageUrl: details.imageUrl }),
   });
 }
 
 async function enrichFromPublication(
-  publication: PublicationRow
+  publication: PublicationRow,
+  options: EnrichPublicationOptions = {}
 ): Promise<PropertyEnrichmentPatch> {
   switch (publication.source) {
     case "seloger":
-      return enrichFromSeLoger(publication);
+      return enrichFromSeLoger(publication, options);
     case "logicimmo":
-      return enrichFromLogicImmo(publication);
+      return enrichFromLogicImmo(publication, options);
     case "bienici":
-      return enrichFromBienIci(publication);
+      return enrichFromBienIci(publication, options);
     case "leboncoin":
-      return enrichFromLeboncoin(publication);
+      return enrichFromLeboncoin(publication, options);
   }
 }
 
@@ -273,10 +306,17 @@ export async function enrichProperty(
 
   const patches: PropertyEnrichmentPatch[] = [];
   const warnings: string[] = [];
+  let resolvedImageUrl: string | null = null;
 
   for (const publication of ordered) {
     try {
-      patches.push(await enrichFromPublication(publication));
+      const patch = await enrichFromPublication(publication, {
+        skipImage: resolvedImageUrl !== null,
+      });
+      patches.push(patch);
+      if (resolvedImageUrl === null && patch.imageUrl) {
+        resolvedImageUrl = patch.imageUrl;
+      }
     } catch (error) {
       if (
         error instanceof SeLogerAccessBlockedError ||

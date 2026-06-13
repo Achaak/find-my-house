@@ -1,7 +1,6 @@
 import type { Listing } from "../../types/listing.js";
 import { normalizeEnergyClass } from "../energy/energyClass.js";
 import {
-  buildClassifiedImageUrl,
   buildClassifiedListingUrl,
   parseClassifiedBedrooms,
   parseClassifiedPrice,
@@ -35,7 +34,7 @@ export function mapClassifiedCardToListing(
     postalCode: card.zipCode ?? null,
     url: buildClassifiedListingUrl(portal, card),
     description: card.description ?? null,
-    imageUrl: buildClassifiedImageUrl(portal, card.photos?.[0]),
+    imageUrl: null,
     propertyType: card.estateType ?? null,
     dpeClass: normalizeEnergyClass(card.energyClass),
     gesClass: normalizeEnergyClass(card.gesClass),

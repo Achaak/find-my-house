@@ -5,6 +5,7 @@ import {
   BrowserHttpError,
   browserPageFetch,
   browserPagePostJson,
+  fetchPageHtml,
   isBrowserAccessBlocked,
   warmUpBrowserSession,
 } from "../browser/client.js";
@@ -320,4 +321,12 @@ export async function fetchBienIciAdById<T extends { id: string }>(
   } catch (error) {
     wrapHttpError(`BienIci listing ${id}`, error);
   }
+}
+
+export async function fetchBienIciListingHtml(url: string): Promise<string> {
+  await warmUpBrowserSession(BIENICI_ORIGIN);
+  return fetchPageHtml(url, {
+    referer: BIENICI_ORIGIN,
+    timeoutMs: REQUEST_TIMEOUT_MS,
+  });
 }
