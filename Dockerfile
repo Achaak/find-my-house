@@ -14,8 +14,8 @@ ENV DATABASE_URL=file:/data/listings.db
 ENV HUSKY=0
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
-COPY packages/api-types/package.json ./packages/api-types/
-COPY packages/api-types/tsconfig.json ./packages/api-types/
+COPY packages/api-types/package.json packages/api-types/tsconfig.json ./packages/api-types/
+COPY packages/api-types/src ./packages/api-types/src
 COPY web/package.json ./web/
 COPY prisma ./prisma
 COPY prisma.config.ts prisma.config.js prisma.config.d.ts tsconfig.json ./
