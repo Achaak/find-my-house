@@ -101,7 +101,6 @@ export type ListingSearchFilters = {
   ancienOnly?: boolean;
   neufOnly?: boolean;
   maxTravelMinutes?: number;
-  radiusKm?: number;
   sort?: ListingSearchSort;
   limit?: number;
   excludeReactedByUser?: string;
@@ -119,13 +118,13 @@ export type PortalListingCriteria = {
 
 export type ScrapeFilters = {
   city: string;
+  postalCode?: string;
   maxPrice: number;
   minSurface: number;
   minLandSurface?: number;
   minRooms?: number;
   minBedrooms?: number;
   ancienOnly?: boolean;
-  radiusKm?: number;
   maxTravelMinutes?: number;
 };
 

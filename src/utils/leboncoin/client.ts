@@ -1,27 +1,40 @@
-import { scrapeConfig } from "../../config/scrape.js";
 import type { PortalListingCriteria } from "../../types/listing.js";
+import { resolveGeoSearchCenter } from "../geo/geocode.js";
 import type { GeoPoint } from "../geo/geo.js";
-import { HTTPError, httpClient } from "../http/client.js";
+import {
+  DETAIL_FETCH_DELAY_MS,
+  SEARCH_PAGE_DELAY_MS,
+} from "../browser/delays.js";
+import { retryBrowserOperation } from "../browser/retryFetch.js";
+import {
+  browserPagePostJson,
+  fetchPageHtml,
+  isBrowserAccessBlocked,
+  warmUpBrowserSession,
+} from "../browser/client.js";
 import { wrapHttpError } from "../errors/httpError.js";
+import { LeboncoinAccessBlockedError } from "./errors.js";
+import { parseLeboncoinDetailHtml } from "./parsers/detailHtml.js";
+import {
+  buildLeboncoinSearchRequest,
+  LEBONCOIN_SEARCH_API,
+  parseLeboncoinSearchResponse,
+} from "./searchApi.js";
 
-const SEARCH_URL = "https://api.leboncoin.fr/finder/search";
-const LOCATION_URL =
-  "https://api.leboncoin.fr/api/parrot-location/v1/complete/location";
-
-const CATEGORY_VENTES_IMMO = "9";
-const REAL_ESTATE_MAISON = "1";
+export const LEBONCOIN_ORIGIN = "https://www.leboncoin.fr/";
 export const LEBONCOIN_PAGE_SIZE = 35;
 
-function jsonHeaders(): Record<string, string> {
-  return {
-    Accept: "application/json",
-    "Content-Type": "application/json",
-    api_key: scrapeConfig.leboncoin.apiKey,
-    "User-Agent":
-      "LBC;iOS;16.4.1;iPhone;phone;AFACB532-200B-476A-98B3-B2346A97EA54;wifi;6.102.0;24.32.1930",
-    "Accept-Language": "fr-FR,fr;q=0.9",
-  };
-}
+export {
+  DETAIL_FETCH_DELAY_MS,
+  SEARCH_PAGE_DELAY_MS,
+} from "../browser/delays.js";
+
+const SEARCH_REQUEST_TIMEOUT_MS = 60_000;
+const SEARCH_PARSE_MAX_ATTEMPTS = 4;
+const SEARCH_PARSE_RETRY_DELAY_MS = 4_000;
+
+let lastSearchFetchAt = 0;
+let lastDetailFetchAt = 0;
 
 export type LeboncoinLocation = {
   locationType: string;
@@ -71,59 +84,99 @@ export type LeboncoinAd = {
   };
 };
 
-type LeboncoinSearchBody = {
-  filters: {
-    category: { id: string };
-    enums: Record<string, string[]>;
-    ranges: Record<string, { min?: number; max?: number }>;
-    location: {
-      locations: LeboncoinLocation[];
-      shippable: boolean;
-    };
-  };
-  limit: number;
-  owner_type: string;
-  sort_by: string;
-  sort_order: string;
-  pivot?: string;
-};
+function handleLeboncoinFetchError(error: unknown): never {
+  if (isBrowserAccessBlocked(error)) {
+    throw new LeboncoinAccessBlockedError(error.statusCode);
+  }
+  wrapHttpError("LeBonCoin", error);
+}
 
-type LeboncoinSearchResult = {
-  total: number;
-  pivot?: string;
-  ads?: LeboncoinAd[];
-};
+async function throttleSearchFetch(): Promise<void> {
+  const now = Date.now();
+  const wait = Math.max(0, lastSearchFetchAt + SEARCH_PAGE_DELAY_MS - now);
+  if (wait > 0) {
+    await new Promise((resolve) => setTimeout(resolve, wait));
+  }
+  lastSearchFetchAt = Date.now();
+}
 
-export async function resolveLeboncoinPlace(
-  city: string
-): Promise<LeboncoinPlace | null> {
-  const response = await httpClient.post(LOCATION_URL, {
-    headers: jsonHeaders(),
-    json: { context: [], text: city.trim() },
-    throwHttpErrors: false,
+async function throttleDetailFetch(): Promise<void> {
+  const now = Date.now();
+  const wait = Math.max(0, lastDetailFetchAt + DETAIL_FETCH_DELAY_MS - now);
+  if (wait > 0) {
+    await new Promise((resolve) => setTimeout(resolve, wait));
+  }
+  lastDetailFetchAt = Date.now();
+}
+
+async function fetchAndParseLeboncoinSearchPage(
+  criteria: PortalListingCriteria,
+  location: LeboncoinLocation,
+  page: number
+): Promise<ReturnType<typeof parseLeboncoinSearchResponse>> {
+  return retryBrowserOperation({
+    maxAttempts: SEARCH_PARSE_MAX_ATTEMPTS,
+    retryDelayMs: SEARCH_PARSE_RETRY_DELAY_MS,
+    warmUpOrigin: LEBONCOIN_ORIGIN,
+    clearCookiesHost: "www.leboncoin.fr",
+    beforeEachAttempt: throttleSearchFetch,
+    onAccessBlocked: handleLeboncoinFetchError,
+    run: async () => {
+      const request = buildLeboncoinSearchRequest(
+        criteria,
+        location,
+        page,
+        LEBONCOIN_PAGE_SIZE
+      );
+      const response = await browserPagePostJson(
+        LEBONCOIN_SEARCH_API,
+        request,
+        {
+          warmUpOrigin: LEBONCOIN_ORIGIN,
+          timeoutMs: SEARCH_REQUEST_TIMEOUT_MS,
+        }
+      );
+
+      return parseLeboncoinSearchResponse(
+        response.data as {
+          ads?: LeboncoinAd[];
+          total?: number;
+          max_pages?: number;
+        }
+      );
+    },
   });
+}
 
-  if (response.statusCode !== 200) return null;
-
-  const locations = JSON.parse(response.body) as LeboncoinLocation[];
-  const cityLower = city.trim().toLowerCase();
-  const match =
-    locations.find(
-      (loc) =>
-        loc.locationType === "city" &&
-        (loc.label?.toLowerCase() === cityLower ||
-          loc.city?.toLowerCase() === cityLower)
-    ) ?? locations.find((loc) => loc.locationType === "city");
-
-  if (!match?.area) return null;
-
-  const center = { lat: match.area.lat, lng: match.area.lng };
+export async function resolveLeboncoinPlaceFromGeocode(
+  city: string,
+  postalCode?: string
+): Promise<LeboncoinPlace | null> {
+  const geo = await resolveGeoSearchCenter(city, postalCode);
+  if (!geo) return null;
 
   return {
-    name: match.label ?? match.city ?? city,
-    center,
-    location: match,
+    name: geo.placeName,
+    center: geo.center,
+    location: {
+      locationType: "city",
+      label: geo.placeName,
+      city,
+      zipcode: geo.zipcode,
+      area: {
+        lat: geo.center.lat,
+        lng: geo.center.lng,
+        default_radius: 5000,
+      },
+    },
   };
+}
+
+export async function resolveLeboncoinPlace(
+  city: string,
+  postalCode?: string
+): Promise<LeboncoinPlace | null> {
+  return resolveLeboncoinPlaceFromGeocode(city, postalCode);
 }
 
 /** Radius search (meters), as on leboncoin.fr/recherche?locations=... */
@@ -150,114 +203,61 @@ export function buildLeboncoinAreaLocation(
   };
 }
 
-export function buildLeboncoinSearchBody(
+async function fetchLeboncoinAdsForPage(
   criteria: PortalListingCriteria,
-  location: LeboncoinLocation
-): LeboncoinSearchBody {
-  const enums: Record<string, string[]> = {
-    ad_type: ["offer"],
-    real_estate_type: [REAL_ESTATE_MAISON],
-  };
-
-  if (criteria.ancienOnly) {
-    enums.immo_sell_type = ["old"];
-  }
-
-  const ranges: Record<string, { min?: number; max?: number }> = {};
-
-  if (criteria.maxPrice !== undefined) {
-    ranges.price = { max: criteria.maxPrice };
-  }
-  if (criteria.minSurface !== undefined) {
-    ranges.square = { min: criteria.minSurface };
-  }
-  if (criteria.minLandSurface !== undefined) {
-    ranges.land_plot_surface = { min: criteria.minLandSurface };
-  }
-  if (criteria.minRooms !== undefined) {
-    ranges.rooms = { min: criteria.minRooms };
-  }
-  if (criteria.minBedrooms !== undefined) {
-    ranges.bedrooms = { min: criteria.minBedrooms };
-  }
-
-  return {
-    filters: {
-      category: { id: CATEGORY_VENTES_IMMO },
-      enums,
-      ranges,
-      location: {
-        locations: [location],
-        shippable: false,
-      },
-    },
-    limit: LEBONCOIN_PAGE_SIZE,
-    owner_type: "all",
-    sort_by: "time",
-    sort_order: "desc",
-  };
-}
-
-async function fetchLeboncoinPage(
-  body: LeboncoinSearchBody
-): Promise<LeboncoinSearchResult> {
-  try {
-    return await httpClient
-      .post(SEARCH_URL, {
-        headers: jsonHeaders(),
-        json: body,
-      })
-      .json<LeboncoinSearchResult>();
-  } catch (error) {
-    wrapHttpError("LeBonCoin API", error);
-  }
-}
-
-export async function fetchLeboncoinAds(
-  body: LeboncoinSearchBody,
-  maxPages = Number.POSITIVE_INFINITY
+  location: LeboncoinLocation,
+  maxPages: number
 ): Promise<LeboncoinAd[]> {
-  const allAds: LeboncoinAd[] = [];
-  let pivot = "";
-  let lastPivot = "";
-  let pagesFetched = 0;
+  const firstPage = await fetchAndParseLeboncoinSearchPage(
+    criteria,
+    location,
+    1
+  );
+  const allAds = [...firstPage.ads];
 
-  while (pagesFetched < maxPages) {
-    const result = await fetchLeboncoinPage({
-      ...body,
-      pivot: pivot || undefined,
-    });
+  if (maxPages <= 1) return allAds;
 
-    pagesFetched += 1;
+  const totalPages = Math.min(maxPages, firstPage.maxPages);
 
-    if (!result.ads?.length) break;
-
-    allAds.push(...result.ads);
-
-    if (!result.pivot || result.pivot === lastPivot) break;
-
-    lastPivot = result.pivot;
-    pivot = result.pivot;
+  for (let page = 2; page <= totalPages; page++) {
+    const pageData = await fetchAndParseLeboncoinSearchPage(
+      criteria,
+      location,
+      page
+    );
+    if (!pageData.ads.length) break;
+    allAds.push(...pageData.ads);
   }
 
   return allAds;
 }
 
-const CLASSIFIED_URL = "https://api.leboncoin.fr/finder/classified";
+export async function fetchLeboncoinAds(
+  criteria: PortalListingCriteria,
+  location: LeboncoinLocation,
+  maxPages = Number.POSITIVE_INFINITY
+): Promise<LeboncoinAd[]> {
+  return fetchLeboncoinAdsForPage(criteria, location, maxPages);
+}
 
 export async function fetchLeboncoinAdById(
   listId: string
 ): Promise<LeboncoinAd | null> {
+  const url = `${LEBONCOIN_ORIGIN}ad/ventes_immobilieres/${listId}`;
+
   try {
-    const ad = await httpClient(`${CLASSIFIED_URL}/${listId}`, {
-      headers: jsonHeaders(),
-    }).json<LeboncoinAd>();
-    return ad;
+    await warmUpBrowserSession(LEBONCOIN_ORIGIN);
+    await throttleDetailFetch();
+    const html = await fetchPageHtml(url, {
+      referer: `${LEBONCOIN_ORIGIN}recherche`,
+      timeoutMs: 30_000,
+    });
+    return parseLeboncoinDetailHtml(html);
   } catch (error) {
-    if (error instanceof HTTPError && error.response.statusCode === 404) {
+    if (error instanceof Error && error.message.includes("introuvable")) {
       return null;
     }
-    wrapHttpError(`LeBonCoin annonce ${listId}`, error);
+    handleLeboncoinFetchError(error);
   }
 }
 

@@ -22,10 +22,12 @@ Discord bot + French real-estate listing scraper, with SQLite storage and automa
 
 ```bash
 pnpm install
-cp .env.example .env
-# Fill in the variables in .env
+cp .env.local.example .env.local
+# Renseigner Discord et tes critères dans .env.local
 pnpm run db:migrate
 ```
+
+Les **défauts** sont dans `.env` (versionné). Les **secrets** et **overrides** (token Discord, ville, scrapers…) vont dans `.env.local` (ignoré par git, prioritaire sur `.env`).
 
 ## Configuration
 
@@ -37,16 +39,20 @@ pnpm run db:migrate
 | `DISCORD_CHANNEL_ID`        | (Optional) Channel for new listing notifications. The bot needs **Send Messages** and **Embed Links** permissions on this channel. |
 | `SCRAPE_SCRAPERS`           | (Optional) Active scrapers, comma-separated (`bienici`, `leboncoin`, `seloger`, `logicimmo`). All enabled if omitted.              |
 | `SCRAPE_CITY`               | Reference city (e.g. Paris)                                                                                                        |
+| `SCRAPE_POSTAL_CODE`        | (Optional) 5-digit postal code — disambiguates homonyms and filters SeLoger/Logic-Immo listings by commune                         |
 | `SCRAPE_MAX_PRICE`          | Maximum price in euros                                                                                                             |
 | `SCRAPE_MIN_SURFACE`        | Minimum surface area in m²                                                                                                         |
 | `SCRAPE_MIN_LAND_SURFACE`   | (Optional) Minimum land area in m²                                                                                                 |
 | `SCRAPE_MIN_ROOMS`          | (Optional) Minimum number of rooms                                                                                                 |
 | `SCRAPE_MIN_BEDROOMS`       | (Optional) Minimum number of bedrooms                                                                                              |
 | `SCRAPE_ANCIEN_ONLY`        | (Optional) `true` to exclude new builds                                                                                            |
-| `SCRAPE_MAX_TRAVEL_MINUTES` | (Optional) Max driving time from `SCRAPE_CITY`. Takes priority over `SCRAPE_RADIUS_KM`.                                            |
-| `SCRAPE_RADIUS_KM`          | (Optional) Search radius in km (used when `SCRAPE_MAX_TRAVEL_MINUTES` is not set)                                                  |
+| `SCRAPE_MAX_TRAVEL_MINUTES` | (Optional) Max driving time from `SCRAPE_CITY` in minutes.                                                                         |
 | `SCRAPE_CRON`               | Cron expression (default: every 2 hours)                                                                                           |
 | `DATABASE_URL`              | Prisma SQLite URL (e.g. `file:./data/listings.db`)                                                                                 |
+| `DATABASE_PATH`             | (Optional) Alternative to `DATABASE_URL` — relative path under `file:` (e.g. `./data/listings.db`)                                 |
+| `CLOAKBROWSER_HEADLESS`     | (Optional) Set to `false` for headed mode if portals still block requests                                                          |
+| `CLOAKBROWSER_PROXY`        | (Optional) Residential proxy URL for CloakBrowser                                                                                  |
+| `CLOAKBROWSER_GEOIP`        | (Optional) Match timezone/locale to proxy IP (default `true` when proxy is set)                                                    |
 
 > **Discord migration**: replace the legacy `DISCORD_WEBHOOK_URL` variable with `DISCORD_CHANNEL_ID`. Notifications now go through the bot (REST API) instead of a webhook.
 
@@ -56,7 +62,7 @@ pnpm run db:migrate
 # Development (hot reload)
 pnpm run dev
 
-# Manual scrape (no Discord)
+# Manual scrape (uses .env criteria; notifies Discord if DISCORD_CHANNEL_ID is set)
 pnpm run scrape
 
 # Production
@@ -107,23 +113,25 @@ ha addons install find_my_house
 ### Docker (NAS, NUC, VPS)
 
 ```bash
-cp .env.example .env   # edit the variables
+cp .env.local.example .env.local   # edit the variables
 docker compose up -d --build
 ```
 
 ## Discord commands
 
-| Command                              | Description                                                                                                                                                                   |
-| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/annonces`                          | Search the database (city, postal code, text, source, min/max price, surface, land, rooms, bedrooms, old/new, radius km, travel time, sort…). Results as embeds with buttons. |
-| `/annonce id:123`                    | Listing details                                                                                                                                                               |
-| `/adresse id:123`                    | Identify a listing address from ADEME public DPE data (confirm with a button to save it)                                                                                      |
-| `/jaime ajouter\|retirer\|liste`     | Manage favorites                                                                                                                                                              |
-| `/pas-jaime ajouter\|retirer\|liste` | Manage disliked listings                                                                                                                                                      |
-| `/scraper`                           | Run a manual scrape (`.env` criteria)                                                                                                                                         |
-| `/stats`                             | Database statistics                                                                                                                                                           |
-| `/version`                           | Application version                                                                                                                                                           |
-| `/aide`                              | Help                                                                                                                                                                          |
+| Command                                       | Description                                                                                                                                                                   |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/listings`                                   | Search the database (city, postal code, text, source, min/max price, surface, land, rooms, bedrooms, old/new, radius km, travel time, sort…). Results as embeds with buttons. |
+| `/listing id:123`                             | Listing details                                                                                                                                                               |
+| `/browse`                                     | Browse listings with compatibility scoring based on your likes/dislikes                                                                                                       |
+| `/address id:123`                             | Identify a listing address from ADEME public DPE data (confirm with a button to save it)                                                                                      |
+| `/like add\|remove\|list\|archive\|unarchive` | Manage favorites                                                                                                                                                              |
+| `/dislike add\|remove\|list`                  | Manage disliked listings                                                                                                                                                      |
+| `/scraper`                                    | Run a manual scrape (`.env` criteria)                                                                                                                                         |
+| `/reconcile`                                  | Merge duplicate properties in the database                                                                                                                                    |
+| `/stats`                                      | Database statistics                                                                                                                                                           |
+| `/version`                                    | Application version                                                                                                                                                           |
+| `/help`                                       | Help                                                                                                                                                                          |
 
 The **❤️ Like** and **👎 Dislike** buttons under each listing let you add or remove a reaction in one click (ephemeral reply, visible only to you). Clicking an already active button removes the reaction.
 
@@ -146,15 +154,18 @@ src/
 ├── db/                    # Prisma client, listing + reaction repositories
 ├── types/                 # Domain types (listings, enrichment)
 ├── utils/
+│   ├── browser/           # CloakBrowser client (in-page fetch + HTML scraping)
+│   ├── classifiedPortal/  # Shared SeLoger / Logic-Immo stack
 │   ├── bienici/           # Bien'ici client, place resolution, mapper
-│   ├── leboncoin/         # Leboncoin client, mapper
-│   ├── seloger/           # SeLoger client, parsers, mapper
+│   ├── leboncoin/         # Leboncoin JSON search API + HTML detail parsing
+│   ├── seloger/           # SeLoger facade over classifiedPortal
+│   ├── logicimmo/         # Logic-Immo facade over classifiedPortal
 │   ├── geo/               # Coordinates, radius, travel-time filters
 │   ├── energy/            # DPE/GES classes, ADEME API, matching
 │   ├── errors/            # HTTP and invariant error helpers
-│   ├── http/              # Shared HTTP client (got)
+│   ├── http/              # got client (ADEME public API only)
 │   └── …                  # Shared helpers (logger, validation, …)
-├── scrapers/              # Modular scrapers (bienici, leboncoin, seloger)
+├── scrapers/              # Modular scrapers (bienici, leboncoin, seloger, logicimmo)
 ├── services/              # Scraping orchestration + enrichment
 ├── scripts/               # CLI utilities (scrape-once, reconcile)
 ├── discord/               # Bot, slash commands, embeds, buttons, notifications

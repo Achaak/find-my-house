@@ -52,7 +52,6 @@ export_opt SCRAPE_MIN_ROOMS scrape_min_rooms
 export_opt SCRAPE_MIN_BEDROOMS scrape_min_bedrooms
 export_bool_opt SCRAPE_ANCIEN_ONLY scrape_ancien_only
 export_opt SCRAPE_MAX_TRAVEL_MINUTES scrape_max_travel_minutes
-export_opt SCRAPE_RADIUS_KM scrape_radius_km
 export DATABASE_URL="file:/data/listings.db"
 
 mkdir -p /data

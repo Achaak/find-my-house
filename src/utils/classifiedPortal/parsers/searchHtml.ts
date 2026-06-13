@@ -75,6 +75,27 @@ function parseSearchResponse(data: ClassifiedSearchResponse): {
   };
 }
 
+function parseUfrnPageProps(pageProps: ClassifiedUfrnPageProps): {
+  cards: ClassifiedCard[];
+  totalCount: number;
+  resultsPerPage: number;
+} {
+  const classifiedsData = pageProps.classifiedsData ?? {};
+  const cards = (pageProps.classifieds ?? [])
+    .map((classifiedId) => classifiedsData[classifiedId])
+    .filter((data): data is ClassifiedData => Boolean(data))
+    .map(mapClassifiedDataToCard)
+    .filter((card): card is ClassifiedCard => card !== null);
+
+  const resultsPerPage = cards.length || CLASSIFIED_PAGE_SIZE;
+
+  return {
+    cards,
+    totalCount: pageProps.totalCount ?? cards.length,
+    resultsPerPage,
+  };
+}
+
 function parseUfrnFetcherHtml(html: string): {
   cards: ClassifiedCard[];
   totalCount: number;
@@ -92,20 +113,17 @@ function parseUfrnFetcherHtml(html: string): {
   const pageProps = fetcher.data["classified-serp-init-data"]?.pageProps;
   if (!pageProps) return null;
 
-  const classifiedsData = pageProps.classifiedsData ?? {};
-  const cards = (pageProps.classifieds ?? [])
-    .map((classifiedId) => classifiedsData[classifiedId])
-    .filter((data): data is ClassifiedData => Boolean(data))
-    .map(mapClassifiedDataToCard)
-    .filter((card): card is ClassifiedCard => card !== null);
+  return parseUfrnPageProps(pageProps);
+}
 
-  const resultsPerPage = cards.length || CLASSIFIED_PAGE_SIZE;
-
-  return {
-    cards,
-    totalCount: pageProps.totalCount ?? cards.length,
-    resultsPerPage,
-  };
+export function parseClassifiedUfrnSearchPageProps(
+  pageProps: ClassifiedUfrnPageProps
+): {
+  cards: ClassifiedCard[];
+  totalCount: number;
+  resultsPerPage: number;
+} {
+  return parseUfrnPageProps(pageProps);
 }
 
 export function parseClassifiedSearchHtml(

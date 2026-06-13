@@ -16,7 +16,7 @@ export class LogicImmoScraper implements Scraper {
   readonly supportsTravelTime = true;
 
   async scrape(options: ScraperOptions): Promise<Listing[]> {
-    const place = await resolveLogicImmoPlace(options.city);
+    const place = await resolveLogicImmoPlace(options.city, options.postalCode);
     if (!place) {
       throw new Error(
         `Impossible de géolocaliser "${options.city}" sur Logic-Immo`
@@ -27,11 +27,17 @@ export class LogicImmoScraper implements Scraper {
     const location = await buildLogicImmoLocation(
       options.city,
       place,
-      geoFilter
+      geoFilter,
+      options.postalCode
     );
     const searchUrl = buildLogicImmoSearchUrl(options, location);
     const cards = (
-      await fetchLogicImmoClassifieds(searchUrl, scrapeConfig.scrape.maxPages)
+      await fetchLogicImmoClassifieds(
+        searchUrl,
+        scrapeConfig.scrape.maxPages,
+        place,
+        options.postalCode
+      )
     ).map(applyLogicImmoSearchMetadata);
     const scrapedAt = new Date().toISOString();
 

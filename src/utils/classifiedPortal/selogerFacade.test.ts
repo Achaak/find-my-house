@@ -11,7 +11,7 @@ import {
   parseSeLogerDetailPage,
   parseSeLogerSearchHtml,
   type SeLogerClassifiedCard,
-} from "./index.js";
+} from "../seloger/index.js";
 
 const fixturesDir = join(dirname(fileURLToPath(import.meta.url)), "fixtures");
 
@@ -46,7 +46,7 @@ describe("applySeLogerSearchMetadata", () => {
 
 describe("parseSeLogerRooms", () => {
   it("maps rooms from tags when search cards omit nbroom", async () => {
-    const { mapSeLogerCardToListing } = await import("./index.js");
+    const { mapSeLogerCardToListing } = await import("../seloger/index.js");
 
     const listing = mapSeLogerCardToListing(
       {

@@ -11,8 +11,8 @@ describe("buildScrapeFilters", () => {
       minRooms: scrapeConfig.scrape.minRooms,
       minBedrooms: scrapeConfig.scrape.minBedrooms,
       ancienOnly: scrapeConfig.scrape.ancienOnly,
-      radiusKm: scrapeConfig.scrape.radiusKm,
       maxTravelMinutes: scrapeConfig.scrape.maxTravelMinutes,
+      postalCode: scrapeConfig.scrape.postalCode,
     });
   });
 });

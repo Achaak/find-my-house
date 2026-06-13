@@ -21,10 +21,6 @@ export const httpClient = got.extend({
   timeout: { request: 30_000 },
 });
 
-export function createHttpClient(options?: ExtendOptions) {
-  return httpClient.extend(options ?? {});
-}
-
 /** ADEME public datasets can be slow — longer timeout, same retry policy. */
 export const ademeHttpClient = httpClient.extend({
   timeout: { request: 45_000 },

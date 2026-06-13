@@ -2,7 +2,6 @@ import { scrapeConfig } from "../config/scrape.js";
 import type { Listing } from "../types/listing.js";
 import {
   buildLeboncoinAreaLocation,
-  buildLeboncoinSearchBody,
   fetchLeboncoinAds,
   mapLeboncoinAdToListing,
   resolveLeboncoinPlace,
@@ -17,7 +16,7 @@ export class LeboncoinScraper implements Scraper {
   readonly supportsTravelTime = false;
 
   async scrape(options: ScraperOptions): Promise<Listing[]> {
-    const place = await resolveLeboncoinPlace(options.city);
+    const place = await resolveLeboncoinPlace(options.city, options.postalCode);
     if (!place) {
       throw new Error(
         `Impossible de géolocaliser "${options.city}" sur LeBonCoin`
@@ -31,8 +30,8 @@ export class LeboncoinScraper implements Scraper {
     if (geoFilter.mode === "radius") {
       const searchCenter =
         options.maxTravelMinutes !== undefined
-          ? ((await resolveGeoSearchCenter(options.city))?.center ??
-            place.center)
+          ? ((await resolveGeoSearchCenter(options.city, options.postalCode))
+              ?.center ?? place.center)
           : place.center;
       searchLocation = buildLeboncoinAreaLocation(
         place,
@@ -42,8 +41,11 @@ export class LeboncoinScraper implements Scraper {
       radiusFilter = { center: searchCenter, radiusKm: geoFilter.radiusKm };
     }
 
-    const body = buildLeboncoinSearchBody(options, searchLocation);
-    let allAds = await fetchLeboncoinAds(body, scrapeConfig.scrape.maxPages);
+    let allAds = await fetchLeboncoinAds(
+      options,
+      searchLocation,
+      scrapeConfig.scrape.maxPages
+    );
 
     if (radiusFilter) {
       const { center, radiusKm } = radiusFilter;
@@ -55,6 +57,7 @@ export class LeboncoinScraper implements Scraper {
         )
       );
     }
+
     const scrapedAt = new Date().toISOString();
 
     return allAds.map((ad) =>

@@ -8,11 +8,10 @@ export type GeoFilter =
   | { mode: "radius"; radiusKm: number }
   | { mode: "city" };
 
-type GeoFilterOptions = Pick<ScrapeFilters, "maxTravelMinutes" | "radiusKm">;
+type GeoFilterOptions = Pick<ScrapeFilters, "maxTravelMinutes">;
 
 /**
  * Resolves the geographic filter to apply for a scraper.
- * Travel time takes priority over radius when the scraper supports it.
  */
 export function resolveGeoFilter(
   options: GeoFilterOptions,
@@ -20,10 +19,6 @@ export function resolveGeoFilter(
 ): GeoFilter {
   if (supportsTravelTime && options.maxTravelMinutes !== undefined) {
     return { mode: "travel", maxTravelMinutes: options.maxTravelMinutes };
-  }
-
-  if (options.radiusKm !== undefined) {
-    return { mode: "radius", radiusKm: options.radiusKm };
   }
 
   return { mode: "city" };

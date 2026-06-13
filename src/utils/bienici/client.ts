@@ -1,13 +1,29 @@
 import type { PortalListingCriteria } from "../../types/listing.js";
 import type { GeoPoint } from "../geo/geo.js";
-import { HTTPError, httpClient } from "../http/client.js";
+import { SEARCH_PAGE_DELAY_MS } from "../browser/delays.js";
+import {
+  BrowserHttpError,
+  browserPageFetch,
+  browserPagePostJson,
+  isBrowserAccessBlocked,
+  warmUpBrowserSession,
+} from "../browser/client.js";
 import { wrapHttpError } from "../errors/httpError.js";
 
 const AUTH_URL =
   "https://account.bienici.com/autoAuthenticate?createGuestAccountOnFailure";
 const ZONE_URL = "https://www.bienici.com/zone-by-time";
 const ADS_URL = "https://www.bienici.com/realEstateAds.json";
+export const BIENICI_ORIGIN = "https://www.bienici.com/";
 export const BIENICI_PAGE_SIZE = 24;
+
+export { SEARCH_PAGE_DELAY_MS };
+
+const REQUEST_TIMEOUT_MS = 60_000;
+const ZONE_MAX_ATTEMPTS = 4;
+const ZONE_BASE_DELAY_MS = 1500;
+const SEARCH_MAX_ATTEMPTS = 4;
+const SEARCH_RETRY_DELAY_MS = 4_000;
 
 export type BienIciZoneIdsByTypes = {
   zoneIds?: string[];
@@ -49,15 +65,7 @@ type BienIciAdsPage<T> = {
 };
 
 let cachedSession: GuestSession | null = null;
-
-const ZONE_MAX_ATTEMPTS = 4;
-const ZONE_BASE_DELAY_MS = 1500;
-
-const JSON_HEADERS = {
-  Accept: "application/json",
-  "Content-Type": "application/json",
-  "User-Agent": "Mozilla/5.0",
-} as const;
+let lastSearchFetchAt = 0;
 
 export function buildBienIciSearchFilters(
   criteria: PortalListingCriteria,
@@ -89,16 +97,52 @@ export function buildBienIciSearchFilters(
   return filters;
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function clearGuestSession(): void {
+  cachedSession = null;
+}
+
+function isRetryableZoneError(error: unknown): boolean {
+  if (error instanceof BrowserHttpError) {
+    return (
+      error.statusCode === 401 ||
+      error.statusCode === 408 ||
+      error.statusCode >= 500
+    );
+  }
+  return true;
+}
+
+async function throttleSearchFetch(): Promise<void> {
+  const now = Date.now();
+  const wait = Math.max(0, lastSearchFetchAt + SEARCH_PAGE_DELAY_MS - now);
+  if (wait > 0) {
+    await sleep(wait);
+  }
+  lastSearchFetchAt = Date.now();
+}
+
 async function getGuestSession(): Promise<GuestSession> {
   if (cachedSession) return cachedSession;
 
-  const data = await httpClient
-    .post(AUTH_URL, {
-      headers: JSON_HEADERS,
-      body: "{}",
-    })
-    .json<{ account?: { id: string; token: string } }>();
+  await warmUpBrowserSession(BIENICI_ORIGIN);
+  const response = await browserPagePostJson(
+    AUTH_URL,
+    {},
+    {
+      warmUpOrigin: BIENICI_ORIGIN,
+      timeoutMs: REQUEST_TIMEOUT_MS,
+    }
+  );
 
+  const data = response.data as {
+    account?: { id: string; token: string };
+  };
   if (!data.account?.id || !data.account.token) {
     throw new Error("BienIci auth: réponse invalide");
   }
@@ -110,22 +154,6 @@ async function getGuestSession(): Promise<GuestSession> {
   return cachedSession;
 }
 
-function clearGuestSession(): void {
-  cachedSession = null;
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
-
-function isRetryableZoneError(error: unknown): boolean {
-  if (!(error instanceof HTTPError)) return true;
-  const status = error.response.statusCode;
-  return status === 401 || status === 408 || status >= 500;
-}
-
 async function requestBienIciTravelZone(
   params: {
     center: GeoPoint;
@@ -135,33 +163,27 @@ async function requestBienIciTravelZone(
   },
   session: GuestSession
 ): Promise<string> {
-  let data: ZoneByTimeResponse;
+  await warmUpBrowserSession(BIENICI_ORIGIN);
+  const response = await browserPagePostJson(
+    ZONE_URL,
+    {
+      duration: params.durationMinutes * 60,
+      lat: params.center.lat,
+      lng: params.center.lng,
+      address: params.address,
+      mode: params.mode ?? "car",
+      accountId: session.accountId,
+    },
+    {
+      warmUpOrigin: BIENICI_ORIGIN,
+      timeoutMs: REQUEST_TIMEOUT_MS,
+      headers: { Authorization: `Bearer ${session.token}` },
+    }
+  );
 
-  try {
-    data = await httpClient
-      .post(ZONE_URL, {
-        headers: {
-          ...JSON_HEADERS,
-          Authorization: `Bearer ${session.token}`,
-        },
-        json: {
-          duration: params.durationMinutes * 60,
-          lat: params.center.lat,
-          lng: params.center.lng,
-          address: params.address,
-          mode: params.mode ?? "car",
-          accountId: session.accountId,
-        },
-        retry: { limit: 2 },
-      })
-      .json<ZoneByTimeResponse>();
-  } catch (error) {
-    wrapHttpError("BienIci zone-by-time", error);
-  }
+  const zoneId = (response.data as ZoneByTimeResponse).zone?._id;
 
-  const zoneId = data.zone?._id;
-
-  if (!data.success || !zoneId) {
+  if (!response.data.success || !zoneId) {
     throw new Error("BienIci zone-by-time: zone introuvable");
   }
 
@@ -202,13 +224,42 @@ async function fetchBienIciPage<T>(
   const from = (page - 1) * BIENICI_PAGE_SIZE;
   const pageFilters = { ...filters, from, page, size: BIENICI_PAGE_SIZE };
   const url = `${ADS_URL}?filters=${encodeURIComponent(JSON.stringify(pageFilters))}`;
-  try {
-    return await httpClient(url, {
-      headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" },
-    }).json<BienIciAdsPage<T>>();
-  } catch (error) {
-    wrapHttpError(`BienIci API page ${String(page)}`, error);
+
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= SEARCH_MAX_ATTEMPTS; attempt++) {
+    await warmUpBrowserSession(BIENICI_ORIGIN);
+    await throttleSearchFetch();
+
+    try {
+      const response = await browserPageFetch(url, {
+        warmUpOrigin: BIENICI_ORIGIN,
+        timeoutMs: REQUEST_TIMEOUT_MS,
+        headers: { Accept: "application/json" },
+      });
+
+      if (response.status >= 400) {
+        throw new BrowserHttpError(
+          response.status,
+          response.body.slice(0, 120)
+        );
+      }
+
+      return JSON.parse(response.body) as BienIciAdsPage<T>;
+    } catch (error) {
+      lastError = error;
+
+      if (isBrowserAccessBlocked(error) && attempt < SEARCH_MAX_ATTEMPTS) {
+        clearGuestSession();
+        await sleep(SEARCH_RETRY_DELAY_MS * attempt);
+        continue;
+      }
+
+      wrapHttpError(`BienIci API page ${String(page)}`, error);
+    }
   }
+
+  wrapHttpError(`BienIci API page ${String(page)}`, lastError);
 }
 
 export async function fetchBienIciAds<T extends { id: string }>(
@@ -250,10 +301,20 @@ export async function fetchBienIciAdById<T extends { id: string }>(
   } satisfies BienIciSearchFilters & { id: string };
 
   const url = `${ADS_URL}?filters=${encodeURIComponent(JSON.stringify(filters))}`;
+
   try {
-    const page = await httpClient(url, {
-      headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" },
-    }).json<BienIciAdsPage<T>>();
+    await warmUpBrowserSession(BIENICI_ORIGIN);
+    const response = await browserPageFetch(url, {
+      warmUpOrigin: BIENICI_ORIGIN,
+      timeoutMs: REQUEST_TIMEOUT_MS,
+      headers: { Accept: "application/json" },
+    });
+
+    if (response.status >= 400) {
+      throw new BrowserHttpError(response.status, response.body.slice(0, 120));
+    }
+
+    const page = JSON.parse(response.body) as BienIciAdsPage<T>;
     return page.realEstateAds[0] ?? null;
   } catch (error) {
     wrapHttpError(`BienIci annonce ${id}`, error);

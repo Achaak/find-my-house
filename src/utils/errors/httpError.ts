@@ -1,9 +1,17 @@
+import { BrowserHttpError } from "../browser/client.js";
 import { HTTPError } from "../http/client.js";
 
 export function wrapHttpError(context: string, error: unknown): never {
   if (error instanceof HTTPError) {
     throw new Error(
       `${context}: HTTP ${String(error.response.statusCode)} ${error.response.statusMessage ?? ""}`.trim(),
+      { cause: error }
+    );
+  }
+
+  if (error instanceof BrowserHttpError) {
+    throw new Error(
+      `${context}: HTTP ${String(error.statusCode)} ${error.statusText}`.trim(),
       { cause: error }
     );
   }

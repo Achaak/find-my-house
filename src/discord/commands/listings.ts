@@ -90,16 +90,6 @@ export function buildListingsCommand() {
     )
     .addIntegerOption((opt) =>
       opt
-        .setName("rayon_km")
-        .setDescription(
-          "Rayon de recherche en kilomètres (nécessite une ville)"
-        )
-        .setMinValue(1)
-        .setMaxValue(100)
-        .setRequired(false)
-    )
-    .addIntegerOption((opt) =>
-      opt
         .setName("travel_minutes")
         .setDescription(
           "Temps de trajet max en voiture, en minutes (nécessite une ville)"
@@ -152,7 +142,6 @@ export const handleListings: CommandHandler = async (interaction, ctx) => {
     interaction.options.getInteger("min_bedrooms") ?? undefined;
   const ancienOnly = interaction.options.getBoolean("old_only") ?? undefined;
   const neufOnly = interaction.options.getBoolean("new_only") ?? undefined;
-  const radiusKm = interaction.options.getInteger("rayon_km") ?? undefined;
   const maxTravelMinutes =
     interaction.options.getInteger("travel_minutes") ?? undefined;
   const sort =
@@ -164,7 +153,7 @@ export const handleListings: CommandHandler = async (interaction, ctx) => {
       | "compat_desc"
       | null) ?? undefined;
   const limit = interaction.options.getInteger("limit") ?? 5;
-  const geoFilter = resolveGeoFilter({ maxTravelMinutes, radiusKm }, true);
+  const geoFilter = resolveGeoFilter({ maxTravelMinutes }, true);
 
   if (ancienOnly && neufOnly) {
     await interaction.reply("Les filtres ancien et neuf sont incompatibles.");
@@ -192,7 +181,6 @@ export const handleListings: CommandHandler = async (interaction, ctx) => {
     ancienOnly,
     neufOnly,
     maxTravelMinutes,
-    radiusKm,
     sort: sort === "compat_desc" ? undefined : sort,
     limit: sort === "compat_desc" ? Math.max(limit, 50) : limit,
   });

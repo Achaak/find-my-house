@@ -68,14 +68,6 @@ async function resolveZoneIdsByTypes(
     }
   }
 
-  if (geoFilter.mode === "radius") {
-    const zoneIds =
-      place.departmentZoneIds.length > 0
-        ? place.departmentZoneIds
-        : place.cityZoneIds;
-    return { zoneIdsByTypes: { zoneIds }, travelRadiusFallback: null };
-  }
-
   return {
     zoneIdsByTypes: { zoneIds: place.cityZoneIds },
     travelRadiusFallback: null,
@@ -87,14 +79,13 @@ export class BienIciScraper implements Scraper {
   readonly supportsTravelTime = true;
 
   async scrape(options: ScraperOptions): Promise<Listing[]> {
-    const place = await resolveBienIciPlace(options.city);
+    const place = await resolveBienIciPlace(options.city, options.postalCode);
     if (!place) {
       throw new Error(
         `Impossible de géolocaliser "${options.city}" sur BienIci`
       );
     }
 
-    const geoFilter = resolveGeoFilter(options, true);
     const { zoneIdsByTypes, travelRadiusFallback } =
       await resolveZoneIdsByTypes(options, place);
 
@@ -117,14 +108,6 @@ export class BienIciScraper implements Scraper {
       allAds = allAds.filter((ad) => {
         const coords = extractBienIciAdCoords(ad);
         return coords !== null && isWithinRadiusKm(coords, center, radiusKm);
-      });
-    } else if (geoFilter.mode === "radius") {
-      const radiusKm = geoFilter.radiusKm;
-      allAds = allAds.filter((ad) => {
-        const coords = extractBienIciAdCoords(ad);
-        return (
-          coords !== null && isWithinRadiusKm(coords, place.center, radiusKm)
-        );
       });
     }
 

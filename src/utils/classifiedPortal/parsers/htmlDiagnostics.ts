@@ -1,3 +1,4 @@
+import { parseEmbeddedWindowJson } from "./embeddedJson.js";
 import type { ClassifiedPortalConfig } from "../types.js";
 
 function hasEmbeddedSearchData(html: string): boolean {
@@ -29,6 +30,33 @@ export function isIncompleteClassifiedSearchHtml(html: string): boolean {
   }
 
   return false;
+}
+
+/** True when UFRN is present but the SERP returned zero listings (classified-search soft block). */
+export function isEmptyClassifiedSearchShell(html: string): boolean {
+  const fetcher = parseEmbeddedWindowJson("__UFRN_FETCHER__", html) as {
+    data?: {
+      "classified-serp-init-data"?: {
+        pageProps?: {
+          totalCount?: number;
+          classifieds?: unknown[];
+          classifiedsData?: Record<string, unknown>;
+        };
+      };
+    };
+  } | null;
+
+  const pageProps = fetcher?.data?.["classified-serp-init-data"]?.pageProps;
+  if (!pageProps) return false;
+
+  const classifiedCount = pageProps.classifieds?.length ?? 0;
+  const dataCount = Object.keys(pageProps.classifiedsData ?? {}).length;
+
+  return (
+    (pageProps.totalCount ?? 0) === 0 &&
+    classifiedCount === 0 &&
+    dataCount === 0
+  );
 }
 
 /** Explains why classified search HTML could not be parsed (for error messages). */

@@ -20,15 +20,12 @@ export const handleScraper: CommandHandler = async (interaction, ctx) => {
 
   await interaction.deferReply();
 
-  const { city, radiusKm, maxTravelMinutes } = ctx.defaultScrapeOptions;
+  const { city, maxTravelMinutes } = ctx.defaultScrapeOptions;
   const result = await ctx.scraperService.run(ctx.defaultScrapeOptions);
 
   await ctx.notifyScrapeResults(result);
 
-  const scrapeGeoFilter = resolveGeoFilter(
-    { maxTravelMinutes, radiusKm },
-    true
-  );
+  const scrapeGeoFilter = resolveGeoFilter({ maxTravelMinutes }, true);
   const zoneLabel =
     scrapeGeoFilter.mode === "city"
       ? ""

@@ -39,12 +39,8 @@ function formatScrapersLabel(): string {
   return scrapers.join(", ");
 }
 
-function formatZoneLabel(
-  city: string,
-  maxTravelMinutes?: number,
-  radiusKm?: number
-): string {
-  const geoFilter = resolveGeoFilter({ maxTravelMinutes, radiusKm }, true);
+function formatZoneLabel(city: string, maxTravelMinutes?: number): string {
+  const geoFilter = resolveGeoFilter({ maxTravelMinutes }, true);
   const zone = geoFilterLabel(geoFilter);
   return geoFilter.mode === "city" ? city : `${city} (${zone})`;
 }
@@ -154,7 +150,7 @@ export const handleStats: CommandHandler = async (interaction, ctx) => {
     }
 
     case "activity": {
-      const { city, maxTravelMinutes, radiusKm } = ctx.defaultScrapeOptions;
+      const { city, maxTravelMinutes } = ctx.defaultScrapeOptions;
       const [activity, recent] = await Promise.all([
         ctx.repository.getActivityStats(),
         ctx.repository.findRecent(5),
@@ -164,7 +160,7 @@ export const handleStats: CommandHandler = async (interaction, ctx) => {
         embeds: [
           formatActivityStatsEmbed({
             activity,
-            zoneLabel: formatZoneLabel(city, maxTravelMinutes, radiusKm),
+            zoneLabel: formatZoneLabel(city, maxTravelMinutes),
             cron: scrapeConfig.scrape.cron,
             scrapersLabel: formatScrapersLabel(),
             recent,

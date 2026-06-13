@@ -2,9 +2,13 @@ import { describe, expect, it } from "vitest";
 import { travelTimeRadiusKm } from "../geo/geoFilter.js";
 import {
   buildClassifiedRadiusLocation,
+  buildClassifiedSeoSearchUrl,
   buildClassifiedTravelLocation,
+  departmentFromClassifiedLocationCode,
   resolveClassifiedLocation,
+  snapClassifiedTravelMinutes,
 } from "./place.js";
+import { SELOGER_PORTAL } from "./config.js";
 import type { ClassifiedPlace } from "./types.js";
 
 const samplePlace: ClassifiedPlace = {
@@ -25,6 +29,18 @@ describe("resolveClassifiedLocation", () => {
     );
 
     expect(location).toBe(buildClassifiedTravelLocation("STRTFR123", 40));
+  });
+
+  it("snaps unsupported travel durations to the nearest SeLoger option", () => {
+    expect(snapClassifiedTravelMinutes(40)).toBe(45);
+    expect(snapClassifiedTravelMinutes(32)).toBe(30);
+    expect(snapClassifiedTravelMinutes(30)).toBe(30);
+
+    const encoded = buildClassifiedTravelLocation("STRTFR123", 40);
+    const decoded = JSON.parse(
+      Buffer.from(encoded, "base64url").toString("utf8")
+    ) as { duration: string };
+    expect(decoded.duration).toBe("45");
   });
 
   it("falls back to server-side radius search when STRT is missing", () => {
@@ -70,5 +86,23 @@ describe("resolveClassifiedLocation", () => {
     );
 
     expect(location).toBe("AD08FR12345");
+  });
+});
+
+describe("buildClassifiedSeoSearchUrl", () => {
+  it("builds SeLoger SEO listing URLs with pagination", () => {
+    const place: ClassifiedPlace = {
+      name: "Villeexemple",
+      center: { lat: 48.5, lng: 2.3 },
+      locationCode: "AD08FR12345",
+    };
+
+    expect(buildClassifiedSeoSearchUrl(SELOGER_PORTAL, place)).toBe(
+      "https://www.seloger.com/immobilier/achat/immo-villeexemple-12/bien-maison/"
+    );
+    expect(buildClassifiedSeoSearchUrl(SELOGER_PORTAL, place, 2)).toBe(
+      "https://www.seloger.com/immobilier/achat/immo-villeexemple-12/bien-maison/?LISTING-LISTpg=2"
+    );
+    expect(departmentFromClassifiedLocationCode("AD08FR12345")).toBe("12");
   });
 });

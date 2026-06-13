@@ -1,26 +1,67 @@
 import type { PortalListingCriteria } from "../../types/listing.js";
-import { httpClient } from "../http/client.js";
+import { browserPageFetch } from "../browser/client.js";
 import { createLogger } from "../logger.js";
 import { fetchBienIciSuggest } from "../bienici/suggest.js";
+import { pickSuggestResult } from "../bienici/pickSuggestResult.js";
 import { resolveBienIciTravelOrigin } from "../bienici/place.js";
 import { bboxCenter, type GeoPoint } from "../geo/geo.js";
-import { travelTimeRadiusKm, type GeoFilter } from "../geo/geoFilter.js";
-import { getClassifiedPortalHeaders } from "./headers.js";
+import { type GeoFilter, travelTimeRadiusKm } from "../geo/geoFilter.js";
 import type { ClassifiedPlace, ClassifiedPortalConfig } from "./types.js";
 
 function encodeClassifiedLocation(payload: Record<string, unknown>): string {
   return Buffer.from(JSON.stringify(payload)).toString("base64url");
 }
 
+function slugifyClassifiedCity(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/['']/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+export function departmentFromClassifiedLocationCode(
+  locationCode: string
+): string {
+  const insee = locationCode.replace(/^AD08FR/i, "");
+  if (/^2[AB]/i.test(insee)) return insee.slice(0, 2).toUpperCase();
+  return insee.slice(0, 2);
+}
+
+/** SEO listing URL — SSR includes UFRN data (works with CloakBrowser; classified-search often does not). */
+export function buildClassifiedSeoSearchUrl(
+  portal: ClassifiedPortalConfig,
+  place: ClassifiedPlace,
+  page = 1
+): string {
+  const slug = slugifyClassifiedCity(place.name);
+  const department = departmentFromClassifiedLocationCode(place.locationCode);
+  const base = `${portal.baseUrl}/immobilier/achat/immo-${slug}-${department}/bien-maison/`;
+  if (page <= 1) return base;
+  return `${base}?LISTING-LISTpg=${String(page)}`;
+}
+
+export function isClassifiedSeoSearchUrl(url: string): boolean {
+  try {
+    return new URL(url).pathname.includes("/immobilier/");
+  } catch {
+    return false;
+  }
+}
+
+/** Plain AD08FR… place id (commune), not a base64 radius/travel payload. */
+export function isCityOnlyClassifiedLocation(location: string): boolean {
+  return location.startsWith("AD08FR");
+}
+
 export async function resolveClassifiedPlace(
-  city: string
+  city: string,
+  postalCode?: string
 ): Promise<ClassifiedPlace | null> {
   const results = await fetchBienIciSuggest(city);
-  const cityLower = city.trim().toLowerCase();
-  const match =
-    results.find(
-      (r) => r.insee_code && r.boundingBox && r.name.toLowerCase() === cityLower
-    ) ?? results.find((r) => r.insee_code && r.boundingBox);
+  const match = pickSuggestResult(results, city, postalCode);
 
   if (!match?.insee_code || !match.boundingBox) return null;
 
@@ -40,11 +81,14 @@ export async function resolveClassifiedStrtPlaceId(
   url.searchParams.set("lat", String(center.lat));
   url.searchParams.set("typeKey", "STRT");
 
-  const response = await httpClient(url.toString(), {
-    headers: getClassifiedPortalHeaders(portal, "json"),
-    throwHttpErrors: false,
+  const response = await browserPageFetch(url.toString(), {
+    headers: {
+      Accept: "application/json",
+      "Accept-Language": "fr-FR,fr;q=0.9",
+    },
+    warmUpOrigin: `${portal.baseUrl}/`,
   });
-  if (response.statusCode !== 200) return null;
+  if (response.status !== 200) return null;
 
   const text = response.body.trim();
   if (!text || text.startsWith("{")) return null;
@@ -52,13 +96,32 @@ export async function resolveClassifiedStrtPlaceId(
   return text.replace(/^"|"$/g, "");
 }
 
+/** Durations offered by SeLoger / Logic-Immo travel-time search (minutes by car). */
+export const CLASSIFIED_TRAVEL_MINUTE_OPTIONS = [
+  5, 10, 15, 20, 25, 30, 45, 60,
+] as const;
+
+/** Map a requested duration to the nearest portal-supported travel time. */
+export function snapClassifiedTravelMinutes(minutes: number): number {
+  if (
+    (CLASSIFIED_TRAVEL_MINUTE_OPTIONS as readonly number[]).includes(minutes)
+  ) {
+    return minutes;
+  }
+
+  return CLASSIFIED_TRAVEL_MINUTE_OPTIONS.reduce((best, option) =>
+    Math.abs(option - minutes) < Math.abs(best - minutes) ? option : best
+  );
+}
+
 export function buildClassifiedTravelLocation(
   strtPlaceId: string,
   durationMinutes: number
 ): string {
+  const duration = snapClassifiedTravelMinutes(durationMinutes);
   return encodeClassifiedLocation({
     placeIds: [strtPlaceId],
-    duration: String(durationMinutes),
+    duration: String(duration),
     mode: "Car",
   });
 }
@@ -113,17 +176,19 @@ export async function buildClassifiedLocation(
   portal: ClassifiedPortalConfig,
   city: string,
   place: ClassifiedPlace,
-  geoFilter: GeoFilter
+  geoFilter: GeoFilter,
+  postalCode?: string
 ): Promise<string> {
   const log = createLogger(portal.id);
-  const origin = (await resolveBienIciTravelOrigin(city)) ?? {
+  const origin = (await resolveBienIciTravelOrigin(city, postalCode)) ?? {
     address: place.name,
     center: place.center,
   };
 
   const strtPlaceId =
     geoFilter.mode === "travel"
-      ? await resolveClassifiedStrtPlaceId(portal, origin.center)
+      ? ((await resolveClassifiedStrtPlaceId(portal, place.center)) ??
+        (await resolveClassifiedStrtPlaceId(portal, origin.center)))
       : null;
 
   if (geoFilter.mode === "travel" && !strtPlaceId) {
@@ -131,6 +196,15 @@ export async function buildClassifiedLocation(
     log.warn(
       `point STRT indisponible pour "${city}", repli sur rayon estimé (~${String(Math.round(radiusKm))} km)`
     );
+  }
+
+  if (geoFilter.mode === "travel" && strtPlaceId) {
+    const snapped = snapClassifiedTravelMinutes(geoFilter.maxTravelMinutes);
+    if (snapped !== geoFilter.maxTravelMinutes) {
+      log.info(
+        `${String(geoFilter.maxTravelMinutes)} min demandé(s) → ${String(snapped)} min (${portal.label} : ${CLASSIFIED_TRAVEL_MINUTE_OPTIONS.join(", ")})`
+      );
+    }
   }
 
   return resolveClassifiedLocation(place, geoFilter, {

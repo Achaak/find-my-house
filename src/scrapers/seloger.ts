@@ -16,7 +16,7 @@ export class SeLogerScraper implements Scraper {
   readonly supportsTravelTime = true;
 
   async scrape(options: ScraperOptions): Promise<Listing[]> {
-    const place = await resolveSeLogerPlace(options.city);
+    const place = await resolveSeLogerPlace(options.city, options.postalCode);
     if (!place) {
       throw new Error(
         `Impossible de géolocaliser "${options.city}" sur SeLoger`
@@ -24,10 +24,20 @@ export class SeLogerScraper implements Scraper {
     }
 
     const geoFilter = resolveGeoFilter(options, true);
-    const location = await buildSeLogerLocation(options.city, place, geoFilter);
+    const location = await buildSeLogerLocation(
+      options.city,
+      place,
+      geoFilter,
+      options.postalCode
+    );
     const searchUrl = buildSeLogerSearchUrl(options, location);
     const cards = (
-      await fetchSeLogerClassifieds(searchUrl, scrapeConfig.scrape.maxPages)
+      await fetchSeLogerClassifieds(
+        searchUrl,
+        scrapeConfig.scrape.maxPages,
+        place,
+        options.postalCode
+      )
     ).map(applySeLogerSearchMetadata);
     const scrapedAt = new Date().toISOString();
 

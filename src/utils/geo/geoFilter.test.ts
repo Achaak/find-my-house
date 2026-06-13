@@ -8,16 +8,17 @@ import {
 } from "./geoFilter.js";
 
 describe("resolveGeoFilter", () => {
-  it("prefers travel time when supported", () => {
-    expect(
-      resolveGeoFilter({ maxTravelMinutes: 30, radiusKm: 10 }, true)
-    ).toEqual({ mode: "travel", maxTravelMinutes: 30 });
+  it("uses travel time when set and supported", () => {
+    expect(resolveGeoFilter({ maxTravelMinutes: 30 }, true)).toEqual({
+      mode: "travel",
+      maxTravelMinutes: 30,
+    });
   });
 
-  it("falls back to radius when travel time is unsupported", () => {
-    expect(
-      resolveGeoFilter({ maxTravelMinutes: 30, radiusKm: 10 }, false)
-    ).toEqual({ mode: "radius", radiusKm: 10 });
+  it("returns city mode when travel time is unsupported", () => {
+    expect(resolveGeoFilter({ maxTravelMinutes: 30 }, false)).toEqual({
+      mode: "city",
+    });
   });
 
   it("returns city mode when no geo constraint is set", () => {

@@ -35,19 +35,28 @@ export const scrapeEnvSchema = z
   .object({
     SCRAPE_CRON: z.string().min(1).default("0 */2 * * *"),
     SCRAPE_CITY: z.string().min(1).default("Paris"),
+    SCRAPE_POSTAL_CODE: z.preprocess(
+      (value) => {
+        if (value === undefined || value === null) return undefined;
+        if (typeof value === "string" && value.trim() === "") return undefined;
+        return value;
+      },
+      z
+        .string()
+        .regex(/^\d{5}$/, "SCRAPE_POSTAL_CODE must be 5 digits")
+        .optional()
+    ),
     SCRAPE_MAX_PRICE: z.coerce.number().int().positive().default(500_000),
     SCRAPE_MIN_SURFACE: z.coerce.number().positive().default(30),
     SCRAPE_MIN_LAND_SURFACE: optionalPositiveNumber,
     SCRAPE_MIN_ROOMS: optionalPositiveInteger,
     SCRAPE_MIN_BEDROOMS: optionalPositiveInteger,
     SCRAPE_ANCIEN_ONLY: z.preprocess((value) => value === "true", z.boolean()),
-    SCRAPE_RADIUS_KM: optionalPositiveNumber,
     SCRAPE_MAX_TRAVEL_MINUTES: optionalPositiveInteger,
     SCRAPE_MAX_PAGES: z.coerce.number().int().positive().default(20),
     SCRAPE_SCRAPERS: z.string().optional(),
     DATABASE_URL: z.string().min(1).optional(),
     DATABASE_PATH: z.string().min(1).optional(),
-    LEBONCOIN_API_KEY: z.string().min(1).default("ba0c2dad52b3ec"),
   })
   .transform((env) => {
     const scrapers = env.SCRAPE_SCRAPERS
@@ -67,13 +76,13 @@ export const scrapeEnvSchema = z
       scrape: {
         cron: env.SCRAPE_CRON,
         city: env.SCRAPE_CITY,
+        postalCode: env.SCRAPE_POSTAL_CODE,
         maxPrice: env.SCRAPE_MAX_PRICE,
         minSurface: env.SCRAPE_MIN_SURFACE,
         minLandSurface: env.SCRAPE_MIN_LAND_SURFACE,
         minRooms: env.SCRAPE_MIN_ROOMS,
         minBedrooms: env.SCRAPE_MIN_BEDROOMS,
         ancienOnly: env.SCRAPE_ANCIEN_ONLY,
-        radiusKm: env.SCRAPE_RADIUS_KM,
         maxTravelMinutes: env.SCRAPE_MAX_TRAVEL_MINUTES,
         maxPages: env.SCRAPE_MAX_PAGES,
         scrapers,
@@ -83,19 +92,22 @@ export const scrapeEnvSchema = z
           env.DATABASE_URL ??
           `file:${env.DATABASE_PATH ?? "./data/listings.db"}`,
       },
-      leboncoin: {
-        apiKey: env.LEBONCOIN_API_KEY,
-      },
     };
   });
+
+const optionalNonEmptyString = z.preprocess((value) => {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === "string" && value.trim() === "") return undefined;
+  return value;
+}, z.string().min(1).optional());
 
 export const discordEnvSchema = z
   .object({
     DISCORD_TOKEN: z.string().min(1, "DISCORD_TOKEN est requis"),
     DISCORD_CLIENT_ID: z.string().min(1, "DISCORD_CLIENT_ID est requis"),
-    DISCORD_GUILD_ID: z.string().min(1).optional(),
-    DISCORD_CHANNEL_ID: z.string().min(1).optional(),
-    DISCORD_ADMIN_ROLE_ID: z.string().min(1).optional(),
+    DISCORD_GUILD_ID: optionalNonEmptyString,
+    DISCORD_CHANNEL_ID: optionalNonEmptyString,
+    DISCORD_ADMIN_ROLE_ID: optionalNonEmptyString,
     DISCORD_MAX_NOTIFICATIONS: z.coerce.number().int().positive().default(20),
   })
   .transform((env) => ({
@@ -112,6 +124,33 @@ export const discordEnvSchema = z
 export type ScrapeConfig = z.infer<typeof scrapeEnvSchema>;
 export type DiscordConfig = z.infer<typeof discordEnvSchema>;
 export type AppConfig = z.infer<typeof appEnvSchema>;
+
+export const browserEnvSchema = z
+  .object({
+    CLOAKBROWSER_PROFILE_DIR: optionalNonEmptyString,
+    CLOAKBROWSER_HEADLESS: optionalNonEmptyString,
+    CLOAKBROWSER_HUMANIZE: optionalNonEmptyString,
+    CLOAKBROWSER_FINGERPRINT: optionalNonEmptyString,
+    CLOAKBROWSER_STORAGE_QUOTA: optionalNonEmptyString,
+    CLOAKBROWSER_PROXY: optionalNonEmptyString,
+    CLOAKBROWSER_GEOIP: optionalNonEmptyString,
+    CLOAKBROWSER_RESET_PROFILE: optionalNonEmptyString,
+  })
+  .transform((env) => {
+    const proxy = env.CLOAKBROWSER_PROXY;
+    return {
+      browser: {
+        profileDir: env.CLOAKBROWSER_PROFILE_DIR,
+        headless: env.CLOAKBROWSER_HEADLESS !== "false",
+        humanize: env.CLOAKBROWSER_HUMANIZE !== "false",
+        fingerprint: env.CLOAKBROWSER_FINGERPRINT?.trim(),
+        storageQuota: env.CLOAKBROWSER_STORAGE_QUOTA?.trim(),
+        proxy,
+        geoip: proxy ? env.CLOAKBROWSER_GEOIP !== "false" : false,
+        resetProfile: env.CLOAKBROWSER_RESET_PROFILE === "true",
+      },
+    };
+  });
 
 export function formatConfigError(error: z.ZodError, section: string): string {
   const details = error.issues
@@ -132,12 +171,29 @@ export function parseScrapeConfig(env: NodeJS.ProcessEnv = process.env) {
   return result.data;
 }
 
+export type BrowserConfig = z.infer<typeof browserEnvSchema>;
+
+export function parseBrowserConfig(env: NodeJS.ProcessEnv = process.env) {
+  const result = browserEnvSchema.safeParse(env);
+  if (!result.success) {
+    throw new Error(formatConfigError(result.error, "browser"));
+  }
+  return result.data;
+}
+
 export function parseDiscordConfig(env: NodeJS.ProcessEnv = process.env) {
   const result = discordEnvSchema.safeParse(env);
   if (!result.success) {
     throw new Error(formatConfigError(result.error, "Discord"));
   }
   return result.data;
+}
+
+export function parseDiscordConfigOptional(
+  env: NodeJS.ProcessEnv = process.env
+) {
+  const result = discordEnvSchema.safeParse(env);
+  return result.success ? result.data : null;
 }
 
 export function parseAppConfig(env: NodeJS.ProcessEnv = process.env) {

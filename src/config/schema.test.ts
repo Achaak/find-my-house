@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   parseAppConfig,
+  parseBrowserConfig,
   parseDiscordConfig,
+  parseDiscordConfigOptional,
   parseScrapeConfig,
 } from "./schema.js";
 
@@ -19,19 +21,26 @@ describe("parseScrapeConfig", () => {
     expect(config.scrape.maxPages).toBe(20);
     expect(config.scrape.ancienOnly).toBe(false);
     expect(config.database.url).toBe("file:./data/listings.db");
-    expect(config.leboncoin.apiKey).toBe("ba0c2dad52b3ec");
   });
 
   it("parses optional numeric filters and scraper list", () => {
     const config = parseScrapeConfig({
       SCRAPE_MIN_LAND_SURFACE: "1000",
+      SCRAPE_POSTAL_CODE: "69001",
       SCRAPE_SCRAPERS: "bienici, leboncoin",
       DATABASE_URL: "file:./tmp/test.db",
     });
 
     expect(config.scrape.minLandSurface).toBe(1000);
+    expect(config.scrape.postalCode).toBe("69001");
     expect(config.scrape.scrapers).toEqual(["bienici", "leboncoin"]);
     expect(config.database.url).toBe("file:./tmp/test.db");
+  });
+
+  it("rejects invalid postal codes", () => {
+    expect(() => parseScrapeConfig({ SCRAPE_POSTAL_CODE: "7616" })).toThrow(
+      /Configuration scrape invalide/
+    );
   });
 
   it("rejects invalid scraper names", () => {
@@ -44,6 +53,56 @@ describe("parseScrapeConfig", () => {
     expect(() => parseScrapeConfig({ SCRAPE_MAX_PRICE: "0" })).toThrow(
       /Configuration scrape invalide/
     );
+  });
+
+  it("builds database url from DATABASE_PATH when DATABASE_URL is omitted", () => {
+    const config = parseScrapeConfig({
+      DATABASE_PATH: "./custom/listings.db",
+    });
+
+    expect(config.database.url).toBe("file:./custom/listings.db");
+  });
+});
+
+describe("parseBrowserConfig", () => {
+  it("applies CloakBrowser defaults", () => {
+    const config = parseBrowserConfig({});
+
+    expect(config.browser.headless).toBe(true);
+    expect(config.browser.humanize).toBe(true);
+    expect(config.browser.geoip).toBe(false);
+    expect(config.browser.resetProfile).toBe(false);
+  });
+
+  it("parses optional CloakBrowser overrides", () => {
+    const config = parseBrowserConfig({
+      CLOAKBROWSER_HEADLESS: "false",
+      CLOAKBROWSER_FINGERPRINT: "12345",
+      CLOAKBROWSER_PROXY: "http://proxy.example",
+      CLOAKBROWSER_GEOIP: "false",
+      CLOAKBROWSER_RESET_PROFILE: "true",
+    });
+
+    expect(config.browser.headless).toBe(false);
+    expect(config.browser.fingerprint).toBe("12345");
+    expect(config.browser.proxy).toBe("http://proxy.example");
+    expect(config.browser.geoip).toBe(false);
+    expect(config.browser.resetProfile).toBe(true);
+  });
+});
+
+describe("parseDiscordConfigOptional", () => {
+  it("returns null when Discord credentials are missing", () => {
+    expect(parseDiscordConfigOptional({})).toBeNull();
+  });
+
+  it("returns parsed config when Discord credentials are present", () => {
+    expect(
+      parseDiscordConfigOptional({
+        DISCORD_TOKEN: "token",
+        DISCORD_CLIENT_ID: "client",
+      })?.discord.token
+    ).toBe("token");
   });
 });
 

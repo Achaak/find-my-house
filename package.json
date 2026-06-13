@@ -39,11 +39,13 @@
     "@prisma/adapter-better-sqlite3": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "better-sqlite3": "^12.10.0",
+    "cloakbrowser": "^0.3.31",
     "discord-api-types": "^0.38.48",
     "discord.js": "^14.26.4",
     "dotenv": "^17.4.2",
     "got": "^15.0.5",
     "node-cron": "^4.2.1",
+    "playwright-core": "^1.60.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

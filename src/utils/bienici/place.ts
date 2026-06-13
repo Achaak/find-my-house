@@ -1,12 +1,16 @@
+import { browserPageFetch } from "../browser/client.js";
 import { bboxCenter, type GeoPoint } from "../geo/geo.js";
-import { httpClient } from "../http/client.js";
 import { fetchBienIciSuggest } from "./suggest.js";
+import { pickBienIciPlaceResult } from "./pickSuggestResult.js";
+
+const BIENICI_ORIGIN = "https://www.bienici.com/";
 
 export type BienIciPlace = {
   name: string;
   center: GeoPoint;
   cityZoneIds: string[];
   departmentZoneIds: string[];
+  postalCodes?: string[];
 };
 
 export type BienIciTravelOrigin = {
@@ -23,10 +27,11 @@ type BienIciGeocoderSuggestion = {
 };
 
 export async function resolveBienIciPlace(
-  city: string
+  city: string,
+  postalCode?: string
 ): Promise<BienIciPlace | null> {
   const results = await fetchBienIciSuggest(city);
-  const match = results.find((r) => r.boundingBox && r.zoneIds?.length);
+  const match = pickBienIciPlaceResult(results, city, postalCode);
   if (!match?.boundingBox || !match.zoneIds?.length) return null;
 
   const departmentCode = match.insee_code?.slice(0, 2);
@@ -45,26 +50,29 @@ export async function resolveBienIciPlace(
     center: bboxCenter(match.boundingBox),
     cityZoneIds: match.zoneIds,
     departmentZoneIds,
+    postalCodes: match.postalCodes,
   };
 }
 
 /** Origin point for travel time (Bien'ici geocoder, not the bbox center). */
 export async function resolveBienIciTravelOrigin(
-  city: string
+  city: string,
+  postalCode?: string
 ): Promise<BienIciTravelOrigin | null> {
-  const response = await httpClient(
-    "https://geocoder.carte-bienici.com/suggestions",
-    {
-      searchParams: {
-        q: city.trim(),
-        tags: "address,street,municipality,housenumber,locality",
-      },
-      headers: { Accept: "application/json" },
-      throwHttpErrors: false,
-    }
+  const query = postalCode ? `${city.trim()} ${postalCode}` : city.trim();
+  const url = new URL("https://geocoder.carte-bienici.com/suggestions");
+  url.searchParams.set("q", query);
+  url.searchParams.set(
+    "tags",
+    "address,street,municipality,housenumber,locality"
   );
 
-  if (response.statusCode !== 200) return null;
+  const response = await browserPageFetch(url.toString(), {
+    warmUpOrigin: BIENICI_ORIGIN,
+    headers: { Accept: "application/json" },
+  });
+
+  if (response.status !== 200) return null;
 
   const results = JSON.parse(response.body) as BienIciGeocoderSuggestion[];
   const cityLower = city.trim().toLowerCase();

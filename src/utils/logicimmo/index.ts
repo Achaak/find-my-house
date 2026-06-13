@@ -1,30 +1,14 @@
 import {
-  ClassifiedPortalAccessBlockedError,
   LOGIC_IMMO_PORTAL,
-  applyClassifiedSearchMetadata,
-  buildClassifiedImageUrl,
-  buildClassifiedListingUrl,
-  buildClassifiedLocation,
-  buildClassifiedRadiusLocation,
-  buildClassifiedSearchUrl,
-  buildClassifiedTravelLocation,
-  extractClassifiedCoordsFromData,
-  fetchClassifiedCards,
-  fetchClassifiedListingDetails,
-  mapClassifiedCardToListing,
-  parseClassifiedBedrooms,
-  parseClassifiedRooms,
-  parseClassifiedCoordinatesFromHtml,
-  parseClassifiedDetailEnergy,
-  parseClassifiedDetailPage,
-  parseClassifiedPrice,
-  parseClassifiedSearchHtml,
-  resolveClassifiedPlace,
-  resolveClassifiedStrtPlaceId,
-  DETAIL_FETCH_DELAY_MS,
-  SEARCH_PAGE_DELAY_MS,
+  ClassifiedPortalAccessBlockedError,
+  createClassifiedPortalFacade,
 } from "../classifiedPortal/index.js";
-import { describeClassifiedSearchHtmlFailure } from "../classifiedPortal/parsers/htmlDiagnostics.js";
+
+const facade = createClassifiedPortalFacade(LOGIC_IMMO_PORTAL);
+
+export const BASE_URL = facade.BASE_URL;
+export const IMAGE_BASE_URL = facade.IMAGE_BASE_URL;
+export const LOGIC_IMMO_PAGE_SIZE = facade.PAGE_SIZE;
 
 export class LogicImmoAccessBlockedError extends ClassifiedPortalAccessBlockedError {
   constructor(statusCode = 403) {
@@ -33,61 +17,32 @@ export class LogicImmoAccessBlockedError extends ClassifiedPortalAccessBlockedEr
   }
 }
 
-export { SEARCH_PAGE_DELAY_MS, DETAIL_FETCH_DELAY_MS };
+export const { SEARCH_PAGE_DELAY_MS, DETAIL_FETCH_DELAY_MS } = facade;
 
-export const fetchLogicImmoClassifieds = (
-  searchUrl: string,
-  maxPages?: number
-) => fetchClassifiedCards(LOGIC_IMMO_PORTAL, searchUrl, maxPages);
-
-export const fetchLogicImmoListingDetails = (url: string) =>
-  fetchClassifiedListingDetails(LOGIC_IMMO_PORTAL, url);
-
-export const parseLogicImmoPrice = parseClassifiedPrice;
-export const parseLogicImmoBedrooms = parseClassifiedBedrooms;
-export const parseLogicImmoRooms = parseClassifiedRooms;
-export const buildLogicImmoListingUrl = (
-  card: Parameters<typeof buildClassifiedListingUrl>[1]
-) => buildClassifiedListingUrl(LOGIC_IMMO_PORTAL, card);
-export const buildLogicImmoImageUrl = (photoPath?: string) =>
-  buildClassifiedImageUrl(LOGIC_IMMO_PORTAL, photoPath);
-
-export const resolveLogicImmoPlace = resolveClassifiedPlace;
-export const resolveLogicImmoStrtPlaceId = (
-  center: Parameters<typeof resolveClassifiedStrtPlaceId>[1]
-) => resolveClassifiedStrtPlaceId(LOGIC_IMMO_PORTAL, center);
-export const buildLogicImmoTravelLocation = buildClassifiedTravelLocation;
-export const buildLogicImmoRadiusLocation = buildClassifiedRadiusLocation;
-export const buildLogicImmoLocation = (
-  city: string,
-  place: NonNullable<Awaited<ReturnType<typeof resolveClassifiedPlace>>>,
-  geoFilter: Parameters<typeof buildClassifiedLocation>[3]
-) => buildClassifiedLocation(LOGIC_IMMO_PORTAL, city, place, geoFilter);
-export const buildLogicImmoSearchUrl = (
-  criteria: Parameters<typeof buildClassifiedSearchUrl>[1],
-  location: string,
-  page?: number
-) => buildClassifiedSearchUrl(LOGIC_IMMO_PORTAL, criteria, location, page);
-
-export const mapLogicImmoCardToListing = (
-  card: Parameters<typeof mapClassifiedCardToListing>[1],
-  scrapedAt: string,
-  fallbackCity: string
-) =>
-  mapClassifiedCardToListing(LOGIC_IMMO_PORTAL, card, scrapedAt, fallbackCity);
-
-export const applyLogicImmoSearchMetadata = applyClassifiedSearchMetadata;
-export const parseLogicImmoSearchHtml = (html: string) =>
-  parseClassifiedSearchHtml(LOGIC_IMMO_PORTAL, html);
-export const parseLogicImmoDetailEnergy = parseClassifiedDetailEnergy;
-export const parseLogicImmoDetailPage = parseClassifiedDetailPage;
+export const fetchLogicImmoClassifieds = facade.fetchClassifieds;
+export const fetchLogicImmoListingDetails = facade.fetchListingDetails;
+export const parseLogicImmoPrice = facade.parsePrice;
+export const parseLogicImmoBedrooms = facade.parseBedrooms;
+export const parseLogicImmoRooms = facade.parseRooms;
+export const buildLogicImmoListingUrl = facade.buildListingUrl;
+export const buildLogicImmoImageUrl = facade.buildImageUrl;
+export const resolveLogicImmoPlace = facade.resolvePlace;
+export const resolveLogicImmoStrtPlaceId = facade.resolveStrtPlaceId;
+export const buildLogicImmoTravelLocation = facade.buildTravelLocation;
+export const buildLogicImmoRadiusLocation = facade.buildRadiusLocation;
+export const buildLogicImmoLocation = facade.buildLocation;
+export const buildLogicImmoSearchUrl = facade.buildSearchUrl;
+export const mapLogicImmoCardToListing = facade.mapCardToListing;
+export const applyLogicImmoSearchMetadata = facade.applySearchMetadata;
+export const parseLogicImmoSearchHtml = facade.parseSearchHtml;
+export const parseLogicImmoDetailEnergy = facade.parseDetailEnergy;
+export const parseLogicImmoDetailPage = facade.parseDetailPage;
 export const extractLogicImmoCoordsFromClassifiedData =
-  extractClassifiedCoordsFromData;
+  facade.extractCoordsFromClassifiedData;
 export const parseLogicImmoCoordinatesFromHtml =
-  parseClassifiedCoordinatesFromHtml;
-
-export const describeLogicImmoSearchHtmlFailure = (html: string) =>
-  describeClassifiedSearchHtmlFailure(LOGIC_IMMO_PORTAL, html);
+  facade.parseCoordinatesFromHtml;
+export const describeLogicImmoSearchHtmlFailure =
+  facade.describeSearchHtmlFailure;
 
 export type {
   ClassifiedPlace as LogicImmoPlace,
@@ -99,5 +54,3 @@ export type {
   ClassifiedEnergyDetails as LogicImmoEnergyDetails,
   ClassifiedListingDetails as LogicImmoListingDetails,
 } from "../classifiedPortal/index.js";
-
-export { BASE_URL, IMAGE_BASE_URL, LOGIC_IMMO_PAGE_SIZE } from "./types.js";

@@ -5,4 +5,5 @@ data/
 pnpm-lock.yaml
 prisma.config.js
 prisma.config.d.ts
-src/utils/seloger/fixtures/
+src/utils/classifiedPortal/fixtures/
+**/fixtures/**/*.html

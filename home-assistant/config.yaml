@@ -25,7 +25,6 @@ options:
   scrape_min_bedrooms: ""
   scrape_ancien_only: false
   scrape_max_travel_minutes: ""
-  scrape_radius_km: 20
 schema:
   discord_token: password
   discord_client_id: str
@@ -41,4 +40,3 @@ schema:
   scrape_min_bedrooms: int?
   scrape_ancien_only: bool?
   scrape_max_travel_minutes: int?
-  scrape_radius_km: int?

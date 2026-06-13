@@ -1,6 +1,7 @@
-import { httpClient } from "../http/client.js";
+import { browserPageFetch } from "../browser/client.js";
 
 const SUGGEST_URL = "https://res.bienici.com/suggest.json";
+const BIENICI_ORIGIN = "https://www.bienici.com/";
 
 export type BienIciSuggestResult = {
   name: string;
@@ -19,12 +20,12 @@ export type BienIciSuggestResult = {
 export async function fetchBienIciSuggest(
   query: string
 ): Promise<BienIciSuggestResult[]> {
-  const response = await httpClient(SUGGEST_URL, {
-    searchParams: { q: query.trim() },
+  const url = `${SUGGEST_URL}?q=${encodeURIComponent(query.trim())}`;
+  const response = await browserPageFetch(url, {
+    warmUpOrigin: BIENICI_ORIGIN,
     headers: { Accept: "application/json" },
-    throwHttpErrors: false,
   });
 
-  if (response.statusCode !== 200) return [];
+  if (response.status !== 200) return [];
   return JSON.parse(response.body) as BienIciSuggestResult[];
 }

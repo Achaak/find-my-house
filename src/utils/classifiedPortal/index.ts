@@ -1,8 +1,8 @@
 export { SELOGER_PORTAL, LOGIC_IMMO_PORTAL } from "./config.js";
 export { ClassifiedPortalAccessBlockedError } from "./errors.js";
 export {
-  createClassifiedPortal,
-  type ClassifiedPortal,
+  createClassifiedPortalFacade,
+  type ClassifiedPortalFacade,
 } from "./createPortal.js";
 export {
   SEARCH_PAGE_DELAY_MS,

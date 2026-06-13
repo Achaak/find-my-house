@@ -2,7 +2,9 @@ services:
   find-my-house:
     build: .
     restart: unless-stopped
-    env_file: .env
+    env_file:
+      - .env
+      - .env.local
     environment:
       DATABASE_URL: file:/data/listings.db
     volumes:

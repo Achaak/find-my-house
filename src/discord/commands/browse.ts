@@ -20,7 +20,6 @@ function scrapeFiltersToSearch(filters: ScrapeFilters): ListingSearchFilters {
     minRooms: filters.minRooms,
     minBedrooms: filters.minBedrooms,
     ancienOnly: filters.ancienOnly,
-    radiusKm: filters.radiusKm,
     maxTravelMinutes: filters.maxTravelMinutes,
   };
 }

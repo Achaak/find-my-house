@@ -12,12 +12,14 @@ import { notifyScrapeResults } from "./services/notifyScrapeResults.js";
 import { ScraperService } from "./services/scraperService.js";
 import { formatVersionLine } from "./version.js";
 import { geoFilterLabel, resolveGeoFilter } from "./utils/geo/geoFilter.js";
+import { closeBrowserContext } from "./utils/browser/client.js";
 import { createLogger } from "./utils/logger.js";
 
 const log = createLogger("app");
 const cronLog = createLogger("cron");
 
 async function shutdown(): Promise<void> {
+  await closeBrowserContext();
   await disconnectPrisma();
 }
 
