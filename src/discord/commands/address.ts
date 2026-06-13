@@ -11,14 +11,9 @@ const log = createLogger("discord");
 export function buildAddressCommand() {
   return new SlashCommandBuilder()
     .setName("address")
-    .setDescription(
-      "Identifier l'adresse d'une annonce via les données DPE publiques ADEME"
-    )
+    .setDescription("Identify a listing address via ADEME public DPE data")
     .addIntegerOption((opt) =>
-      opt
-        .setName("id")
-        .setDescription("ID de l'annonce à localiser")
-        .setRequired(true)
+      opt.setName("id").setDescription("Listing ID to locate").setRequired(true)
     );
 }
 
@@ -32,7 +27,7 @@ export const handleAddress: CommandHandler = async (interaction, ctx) => {
     "address"
   );
   if (!property) {
-    await interaction.editReply(`Annonce #${String(id)} introuvable.`);
+    await interaction.editReply(`Listing #${String(id)} not found.`);
     return;
   }
 
@@ -54,9 +49,9 @@ export const handleAddress: CommandHandler = async (interaction, ctx) => {
       components: buildDpeCandidateComponents(property.id, candidates),
     });
   } catch (error) {
-    log.error("Erreur recherche DPE:", error);
+    log.error("DPE search error:", error);
     await interaction.editReply(
-      "Impossible de contacter l'API ADEME pour le moment. Réessayez plus tard."
+      "Unable to reach the ADEME API right now. Try again later."
     );
   }
 };

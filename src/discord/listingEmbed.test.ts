@@ -29,7 +29,7 @@ describe("listingEmbed", () => {
       "user-1"
     );
 
-    expect(embed.fields.some((field) => field.name === "Compatibilité")).toBe(
+    expect(embed.fields.some((field) => field.name === "Compatibility")).toBe(
       true
     );
   });
@@ -41,7 +41,7 @@ describe("listingEmbed", () => {
       "user-1"
     );
 
-    expect(embed.fields.some((field) => field.name === "Compatibilité")).toBe(
+    expect(embed.fields.some((field) => field.name === "Compatibility")).toBe(
       false
     );
   });

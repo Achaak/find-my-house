@@ -48,17 +48,17 @@ export function buildBrowseActionRow(propertyId: number) {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(`${LIKE_PREFIX}${String(propertyId)}`)
-      .setLabel("J'aime")
+      .setLabel("Like")
       .setEmoji("❤️")
       .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
       .setCustomId(`${DISLIKE_PREFIX}${String(propertyId)}`)
-      .setLabel("Pas j'aime")
+      .setLabel("Dislike")
       .setEmoji("👎")
       .setStyle(ButtonStyle.Danger),
     new ButtonBuilder()
       .setCustomId(STOP_PREFIX)
-      .setLabel("Arrêter")
+      .setLabel("Stop")
       .setEmoji("⏹️")
       .setStyle(ButtonStyle.Secondary)
   );
@@ -69,12 +69,12 @@ function browseHeader(options: {
   isExplore: boolean;
   hasPreferences: boolean;
 }): string {
-  const parts = [`📍 **Parcours** — ${String(options.shownCount)} vue(s)`];
+  const parts = [`📍 **Browse** — ${String(options.shownCount)} viewed`];
 
   if (options.isExplore) {
-    parts.push("_Hors zone de confort — pour élargir vos critères._");
+    parts.push("_Outside comfort zone — broaden your criteria._");
   } else if (!options.hasPreferences) {
-    parts.push("_Likez des annonces pour activer le score de compatibilité._");
+    parts.push("_Like listings to enable the compatibility score._");
   }
 
   return parts.join("\n");
@@ -156,8 +156,8 @@ export async function buildBrowseReply(
     clearBrowseSession(discordUserId);
     return {
       content:
-        "✅ Plus d'annonces à parcourir avec vos critères actuels.\n" +
-        "Utilisez `/listings` pour élargir la recherche ou attendez de nouvelles annonces.",
+        "✅ No more listings to browse with your current criteria.\n" +
+        "Use `/listings` to broaden your search or wait for new listings.",
       embeds: [],
       components: [],
     };
@@ -219,8 +219,7 @@ export async function handleBrowseButton(
   const session = getBrowseSession(interaction.user.id);
   if (!session) {
     await interaction.reply({
-      content:
-        "Cette session de parcours a expiré. Relancez `/browse` pour continuer.",
+      content: "This browse session expired. Run `/browse` again to continue.",
       flags: MessageFlagsBitField.Flags.Ephemeral,
     });
     return true;
@@ -232,7 +231,7 @@ export async function handleBrowseButton(
     const reviewed = session.shownCount;
     clearBrowseSession(interaction.user.id);
     await interaction.editReply({
-      content: `⏹️ Parcours arrêté — ${String(reviewed)} annonce(s) consultée(s).`,
+      content: `⏹️ Browse stopped — ${String(reviewed)} listing(s) reviewed.`,
       embeds: [],
       components: [],
     });
@@ -243,7 +242,7 @@ export async function handleBrowseButton(
   if (!listing) {
     clearBrowseSession(interaction.user.id);
     await interaction.editReply({
-      content: `Annonce #${String(parsed.propertyId)} introuvable. Relancez \`/browse\`.`,
+      content: `Listing #${String(parsed.propertyId)} not found. Run \`/browse\` again.`,
       embeds: [],
       components: [],
     });

@@ -6,31 +6,31 @@ import type { CommandHandler } from "./types.js";
 export function buildDislikeCommand() {
   return new SlashCommandBuilder()
     .setName("dislike")
-    .setDescription("Gérer les annonces que vous n'aimez pas")
+    .setDescription("Manage listings you dislike")
     .addSubcommand((sub) =>
       sub
         .setName("add")
-        .setDescription("Marquer une annonce comme non aimée")
+        .setDescription("Mark a listing as disliked")
         .addIntegerOption((opt) =>
-          opt.setName("id").setDescription("ID de l'annonce").setRequired(true)
+          opt.setName("id").setDescription("Listing ID").setRequired(true)
         )
     )
     .addSubcommand((sub) =>
       sub
         .setName("remove")
-        .setDescription("Retirer une annonce de vos non-favoris")
+        .setDescription("Remove a listing from your dislikes")
         .addIntegerOption((opt) =>
-          opt.setName("id").setDescription("ID de l'annonce").setRequired(true)
+          opt.setName("id").setDescription("Listing ID").setRequired(true)
         )
     )
     .addSubcommand((sub) =>
       sub
         .setName("list")
-        .setDescription("Afficher les annonces que vous n'aimez pas")
+        .setDescription("Show listings you have disliked")
         .addIntegerOption((opt) =>
           opt
             .setName("limit")
-            .setDescription("Nombre de résultats (max 10)")
+            .setDescription("Number of results (max 10)")
             .setMinValue(1)
             .setMaxValue(10)
             .setRequired(false)
@@ -50,7 +50,7 @@ export const handleDislike: CommandHandler = async (interaction, ctx) => {
       discordUserId,
       "dislike",
       limit,
-      "Vous n'avez marqué aucune annonce comme non aimée."
+      "You have not marked any listings as disliked."
     );
     await interaction.editReply(reply);
     return;
@@ -60,7 +60,7 @@ export const handleDislike: CommandHandler = async (interaction, ctx) => {
   const listing = await ctx.repository.findById(id);
 
   if (!listing) {
-    await interaction.editReply(`Annonce #${String(id)} introuvable.`);
+    await interaction.editReply(`Listing #${String(id)} not found.`);
     return;
   }
 
@@ -73,8 +73,8 @@ export const handleDislike: CommandHandler = async (interaction, ctx) => {
     resetListingCompatibilityCache();
     await interaction.editReply(
       result === "already_exists"
-        ? `L'annonce **#${String(id)}** est déjà dans vos non-favoris.`
-        : `👎 Annonce **#${String(id)}** ajoutée à vos non-favoris.`
+        ? `Listing **#${String(id)}** is already in your dislikes.`
+        : `👎 Listing **#${String(id)}** added to your dislikes.`
     );
     return;
   }
@@ -87,7 +87,7 @@ export const handleDislike: CommandHandler = async (interaction, ctx) => {
   resetListingCompatibilityCache();
   await interaction.editReply(
     removed
-      ? `Annonce **#${String(id)}** retirée de vos non-favoris.`
-      : `L'annonce **#${String(id)}** n'était pas dans vos non-favoris.`
+      ? `Listing **#${String(id)}** removed from your dislikes.`
+      : `Listing **#${String(id)}** was not in your dislikes.`
   );
 };

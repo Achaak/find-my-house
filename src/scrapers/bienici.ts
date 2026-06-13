@@ -54,7 +54,7 @@ async function resolveZoneIdsByTypes(
     } catch (error) {
       const radiusKm = travelTimeRadiusKm(geoFilter.maxTravelMinutes);
       log.warn(
-        `bienici — zone-by-time indisponible, repli sur rayon estimé (~${String(Math.round(radiusKm))} km):`,
+        `bienici — zone-by-time unavailable, falling back to estimated radius (~${String(Math.round(radiusKm))} km):`,
         error
       );
       const zoneIds =
@@ -81,9 +81,7 @@ export class BienIciScraper implements Scraper {
   async scrape(options: ScraperOptions): Promise<Listing[]> {
     const place = await resolveBienIciPlace(options.city, options.postalCode);
     if (!place) {
-      throw new Error(
-        `Impossible de géolocaliser "${options.city}" sur BienIci`
-      );
+      throw new Error(`Unable to geolocate "${options.city}" on BienIci`);
     }
 
     const { zoneIdsByTypes, travelRadiusFallback } =
@@ -93,7 +91,7 @@ export class BienIciScraper implements Scraper {
       !zoneIdsByTypes.zoneIds?.length &&
       !zoneIdsByTypes.travelTimeZone?.length
     ) {
-      throw new Error(`Aucune zone BienIci trouvée pour "${options.city}"`);
+      throw new Error(`No BienIci zone found for "${options.city}"`);
     }
 
     const filters = buildBienIciSearchFilters(options, zoneIdsByTypes);

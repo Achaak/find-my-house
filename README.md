@@ -23,11 +23,11 @@ Discord bot + French real-estate listing scraper, with SQLite storage and automa
 ```bash
 pnpm install
 cp .env.local.example .env.local
-# Renseigner Discord et tes critères dans .env.local
+# Fill in Discord and your search criteria in .env.local
 pnpm run db:migrate
 ```
 
-Les **défauts** sont dans `.env` (versionné). Les **secrets** et **overrides** (token Discord, ville, scrapers…) vont dans `.env.local` (ignoré par git, prioritaire sur `.env`).
+**Defaults** live in `.env` (versioned). **Secrets** and **overrides** (Discord token, city, scrapers…) go in `.env.local` (git-ignored, overrides `.env`).
 
 ## Configuration
 

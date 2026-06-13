@@ -7,9 +7,9 @@ import type { CommandHandler } from "./types.js";
 export function buildListingCommand() {
   return new SlashCommandBuilder()
     .setName("listing")
-    .setDescription("Afficher le détail d'une annonce")
+    .setDescription("Show listing details")
     .addIntegerOption((opt) =>
-      opt.setName("id").setDescription("ID de l'annonce").setRequired(true)
+      opt.setName("id").setDescription("Listing ID").setRequired(true)
     );
 }
 
@@ -24,7 +24,7 @@ export const handleListing: CommandHandler = async (interaction, ctx) => {
   );
 
   if (!listing) {
-    await interaction.editReply(`Annonce #${String(id)} introuvable.`);
+    await interaction.editReply(`Listing #${String(id)} not found.`);
     return;
   }
 

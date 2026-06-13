@@ -67,7 +67,7 @@ describe("sendNewListingNotifications", () => {
 
     expect(sent).toBe(3);
     expect(post).toHaveBeenCalledTimes(4);
-    expect(postBody(0)?.content).toContain("affichage des 3 premières");
-    expect(postBody(3)?.content).toContain("4 autres annonces");
+    expect(postBody(0)?.content).toContain("showing first 3");
+    expect(postBody(3)?.content).toContain("4 other listings");
   });
 });

@@ -13,29 +13,29 @@ import type { CommandHandler } from "./types.js";
 export function buildStatsCommand() {
   return new SlashCommandBuilder()
     .setName("stats")
-    .setDescription("Statistiques de la base d'annonces")
+    .setDescription("Listing database statistics")
     .addSubcommand((sub) =>
-      sub.setName("overview").setDescription("Vue d'ensemble de la base")
+      sub.setName("overview").setDescription("Database overview")
     )
     .addSubcommand((sub) =>
-      sub.setName("sources").setDescription("Répartition par portail")
+      sub.setName("sources").setDescription("Breakdown by portal")
     )
     .addSubcommand((sub) =>
-      sub.setName("prices").setDescription("Statistiques de prix et baisses")
+      sub.setName("prices").setDescription("Price and drop statistics")
     )
     .addSubcommand((sub) =>
-      sub.setName("mine").setDescription("Vos favoris et non-favoris")
+      sub.setName("mine").setDescription("Your favorites and dislikes")
     )
     .addSubcommand((sub) =>
       sub
         .setName("activity")
-        .setDescription("Activité récente et configuration")
+        .setDescription("Recent activity and configuration")
     );
 }
 
 function formatScrapersLabel(): string {
   const scrapers = scrapeConfig.scrape.scrapers;
-  if (!scrapers || scrapers.length === 0) return "tous";
+  if (!scrapers || scrapers.length === 0) return "all";
   return scrapers.join(", ");
 }
 

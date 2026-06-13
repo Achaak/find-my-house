@@ -31,7 +31,7 @@ function formatSourceLine(counts: SourcePublicationCounts): string {
       inactive > 0
         ? ` (${String(inactive)} inactive${inactive > 1 ? "s" : ""})`
         : "";
-    return `**${formatSourceLabel(source)}** : ${String(active)} active${active > 1 ? "s" : ""}${inactiveSuffix}`;
+    return `**${formatSourceLabel(source)}**: ${String(active)} active${active > 1 ? "s" : ""}${inactiveSuffix}`;
   })
     .filter((line): line is string => line !== null)
     .join("\n");
@@ -48,19 +48,19 @@ function formatSourceSummary(counts: SourcePublicationCounts): string {
 }
 
 function formatCitySummary(cities: CityCount[]): string {
-  if (cities.length === 0) return "_Aucune ville_";
+  if (cities.length === 0) return "_No cities_";
   return cities
     .map((entry) => `${entry.city} (${String(entry.count)})`)
     .join(" · ");
 }
 
 function formatPriceRange(stats: PriceStats | null): string {
-  if (!stats) return "_Aucun bien actif_";
-  return `${formatPrice(stats.min)} – ${formatPrice(stats.max)} (médiane ${formatPrice(stats.median)})`;
+  if (!stats) return "_No active properties_";
+  return `${formatPrice(stats.min)} – ${formatPrice(stats.max)} (median ${formatPrice(stats.median)})`;
 }
 
 function formatRecentListings(recent: PropertyRow[]): string {
-  if (recent.length === 0) return "_Aucune annonce pour le moment_";
+  if (recent.length === 0) return "_No listings yet_";
 
   return recent
     .map((listing) => {
@@ -86,7 +86,7 @@ function formatPriceDropLine(property: PropertyRow): string {
 }
 
 function formatScrapedAt(date: Date | null): string {
-  if (!date) return "_Jamais_";
+  if (!date) return "_Never_";
   return `<t:${String(Math.floor(date.getTime() / 1000))}:R>`;
 }
 
@@ -112,12 +112,12 @@ export function formatOverviewStatsEmbed(
 
   return {
     color: EMBED_COLOR,
-    title: "Statistiques — Vue d'ensemble",
+    title: "Statistics — Overview",
     description: [
-      `**${String(input.activeProperties)}** biens actifs / **${String(input.total)}** en base`,
-      `**${String(input.activePublications)}** publications actives · **${String(input.inactivePublications)}** inactives`,
+      `**${String(input.activeProperties)}** active properties / **${String(input.total)}** in database`,
+      `**${String(input.activePublications)}** active publications · **${String(input.inactivePublications)}** inactive`,
       input.priceDrops > 0
-        ? `**${String(input.priceDrops)}** baisse(s) de prix en cours`
+        ? `**${String(input.priceDrops)}** ongoing price drop(s)`
         : null,
     ]
       .filter((line): line is string => line !== null)
@@ -127,32 +127,32 @@ export function formatOverviewStatsEmbed(
         ? [{ name: "Sources", value: sourceSummary, inline: false }]
         : []),
       {
-        name: "Prix",
+        name: "Price",
         value: formatPriceRange(input.priceStats),
         inline: false,
       },
       {
-        name: "Top villes",
+        name: "Top cities",
         value: formatCitySummary(input.topCities),
         inline: false,
       },
       {
-        name: "Activité (7 jours)",
+        name: "Activity (7 days)",
         value: [
-          `Dernier scrape : ${formatScrapedAt(input.activity.lastScrapedAt)}`,
-          `**${String(input.activity.addedLast7Days)}** nouveau(x) bien(s)`,
-          `**${String(input.activity.deactivatedLast7Days)}** publication(s) désactivée(s)`,
-          `**${String(input.activity.multiSourceCount)}** bien(s) multi-sources`,
+          `Last scrape: ${formatScrapedAt(input.activity.lastScrapedAt)}`,
+          `**${String(input.activity.addedLast7Days)}** new propert${input.activity.addedLast7Days === 1 ? "y" : "ies"}`,
+          `**${String(input.activity.deactivatedLast7Days)}** publication(s) deactivated`,
+          `**${String(input.activity.multiSourceCount)}** multi-source propert${input.activity.multiSourceCount === 1 ? "y" : "ies"}`,
         ].join("\n"),
         inline: false,
       },
       {
-        name: "Vos réactions",
+        name: "Your reactions",
         value: `❤️ **${String(input.likes)}** · 👎 **${String(input.dislikes)}**`,
         inline: false,
       },
       {
-        name: "Derniers biens",
+        name: "Recent properties",
         value: formatRecentListings(input.recent),
         inline: false,
       },
@@ -176,17 +176,17 @@ export function formatSourcesStatsEmbed(
 
   return {
     color: EMBED_COLOR,
-    title: "Statistiques — Sources",
-    description: `**${String(totalActive)}** publications actives · **${String(totalInactive)}** inactives`,
+    title: "Statistics — Sources",
+    description: `**${String(totalActive)}** active publications · **${String(totalInactive)}** inactive`,
     fields: [
       {
-        name: "Par portail",
-        value: lines || "_Aucune publication_",
+        name: "By portal",
+        value: lines || "_No publications_",
         inline: false,
       },
       {
-        name: "Multi-sources",
-        value: `**${String(multiSourceCount)}** bien(s) référencé(s) sur plusieurs portails`,
+        name: "Multi-source",
+        value: `**${String(multiSourceCount)}** propert${multiSourceCount === 1 ? "y" : "ies"} listed on multiple portals`,
         inline: false,
       },
     ],
@@ -203,51 +203,51 @@ export function formatPricesStatsEmbed(
   if (stats) {
     fields.push(
       {
-        name: "Fourchette",
+        name: "Range",
         value: `${formatPrice(stats.min)} – ${formatPrice(stats.max)}`,
         inline: true,
       },
       {
-        name: "Médiane",
+        name: "Median",
         value: formatPrice(stats.median),
         inline: true,
       },
       {
-        name: "Moyenne",
+        name: "Average",
         value: formatPrice(stats.average),
         inline: true,
       },
       {
-        name: "Biens actifs",
+        name: "Active properties",
         value: String(stats.count),
         inline: true,
       },
       {
-        name: "Baisses en cours",
+        name: "Ongoing drops",
         value: String(priceDrops),
         inline: true,
       }
     );
   } else {
     fields.push({
-      name: "Prix",
-      value: "_Aucun bien actif_",
+      name: "Price",
+      value: "_No active properties_",
       inline: false,
     });
   }
 
   fields.push({
-    name: priceDrops > 0 ? "Plus fortes baisses" : "Baisses de prix",
+    name: priceDrops > 0 ? "Largest drops" : "Price drops",
     value:
       drops.length > 0
         ? drops.map(formatPriceDropLine).join("\n").slice(0, 1024)
-        : "_Aucune baisse en cours_",
+        : "_No ongoing price drops_",
     inline: false,
   });
 
   return {
     color: EMBED_COLOR,
-    title: "Statistiques — Prix",
+    title: "Statistics — Prices",
     fields,
   };
 }
@@ -277,17 +277,17 @@ function formatReactionList(
 export function formatMineStatsEmbed(input: MineStatsInput): StatsEmbed {
   return {
     color: EMBED_COLOR,
-    title: "Statistiques — Mes réactions",
-    description: `❤️ **${String(input.likes)}** favori${input.likes > 1 ? "s" : ""} · 👎 **${String(input.dislikes)}** non-favori${input.dislikes > 1 ? "s" : ""}`,
+    title: "Statistics — My reactions",
+    description: `❤️ **${String(input.likes)}** favorite${input.likes > 1 ? "s" : ""} · 👎 **${String(input.dislikes)}** dislike${input.dislikes > 1 ? "s" : ""}`,
     fields: [
       {
-        name: "Favoris récents",
-        value: formatReactionList(input.recentLikes, "_Aucun favori_"),
+        name: "Recent favorites",
+        value: formatReactionList(input.recentLikes, "_No favorites_"),
         inline: false,
       },
       {
-        name: "Non-favoris récents",
-        value: formatReactionList(input.recentDislikes, "_Aucun non-favori_"),
+        name: "Recent dislikes",
+        value: formatReactionList(input.recentDislikes, "_No dislikes_"),
         inline: false,
       },
     ],
@@ -307,29 +307,29 @@ export function formatActivityStatsEmbed(
 ): StatsEmbed {
   return {
     color: EMBED_COLOR,
-    title: "Statistiques — Activité",
-    description: `Zone : **${input.zoneLabel}**`,
+    title: "Statistics — Activity",
+    description: `Area: **${input.zoneLabel}**`,
     fields: [
       {
         name: "Scraping",
         value: [
-          `Dernier scrape : ${formatScrapedAt(input.activity.lastScrapedAt)}`,
-          `Planification : \`${input.cron}\``,
-          `Scrapers : ${input.scrapersLabel}`,
+          `Last scrape: ${formatScrapedAt(input.activity.lastScrapedAt)}`,
+          `Schedule: \`${input.cron}\``,
+          `Scrapers: ${input.scrapersLabel}`,
         ].join("\n"),
         inline: false,
       },
       {
-        name: "7 derniers jours",
+        name: "Last 7 days",
         value: [
-          `**${String(input.activity.addedLast7Days)}** nouveau(x) bien(s)`,
-          `**${String(input.activity.deactivatedLast7Days)}** publication(s) désactivée(s)`,
-          `**${String(input.activity.multiSourceCount)}** bien(s) multi-sources`,
+          `**${String(input.activity.addedLast7Days)}** new propert${input.activity.addedLast7Days === 1 ? "y" : "ies"}`,
+          `**${String(input.activity.deactivatedLast7Days)}** publication(s) deactivated`,
+          `**${String(input.activity.multiSourceCount)}** multi-source propert${input.activity.multiSourceCount === 1 ? "y" : "ies"}`,
         ].join("\n"),
         inline: false,
       },
       {
-        name: "Derniers ajouts",
+        name: "Recent additions",
         value: formatRecentListings(input.recent),
         inline: false,
       },

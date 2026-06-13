@@ -5,8 +5,8 @@ export class ClassifiedPortalAccessBlockedError extends Error {
 
   constructor(portal: ClassifiedPortalConfig, statusCode = 403) {
     super(
-      `${portal.label} bloque les requêtes automatisées (HTTP ${String(statusCode)}). ` +
-        `Retirez ${portal.id} de SCRAPE_SCRAPERS pour ignorer cette source.`
+      `${portal.label} blocks automated requests (HTTP ${String(statusCode)}). ` +
+        `Remove ${portal.id} from SCRAPE_SCRAPERS to skip this source.`
     );
     this.name = "ClassifiedPortalAccessBlockedError";
     this.portalId = portal.id;

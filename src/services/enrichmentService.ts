@@ -283,7 +283,7 @@ export async function enrichProperty(
         error instanceof LogicImmoAccessBlockedError
       ) {
         warnings.push(
-          `${formatSourceLabel(publication.source)} bloque l'enrichissement (${publication.url}). Réessayez plus tard.`
+          `${formatSourceLabel(publication.source)} is blocking enrichment (${publication.url}). Try again later.`
         );
         continue;
       }

@@ -23,14 +23,14 @@ function formatPropertyContext(property: PropertyRow): string {
     `💰 ${formatPrice(property.price)}`,
     [
       property.surface ? `${String(property.surface)} m²` : null,
-      property.rooms ? `${String(property.rooms)} pièces` : null,
+      property.rooms ? `${String(property.rooms)} rooms` : null,
       property.bedrooms ? `${String(property.bedrooms)} ch.` : null,
     ]
       .filter(Boolean)
       .join(" · ") || null,
     energyLabel ? `⚡ ${energyLabel}` : null,
     `📍 ${property.city}${property.postalCode ? ` (${property.postalCode})` : ""}`,
-    property.address ? `🏠 Adresse actuelle : **${property.address}**` : null,
+    property.address ? `🏠 Current address: **${property.address}**` : null,
   ]
     .filter(Boolean)
     .join("\n");
@@ -71,24 +71,24 @@ export function formatDpePropertySearchReply(
     return [
       formatPropertyContext(property),
       "",
-      `Aucune adresse candidate trouvée via l'ADEME pour **${query}**.`,
+      `No candidate address found via ADEME for **${query}**.`,
       "",
-      "Critères : département, DPE, GES, conso/émissions, surface ±10 %. Lieu en bonus de classement.",
-      `[Données DPE publiques ADEME](${OBSERVATOIRE_URL})`,
+      "Criteria: department, DPE, GES, consumption/emissions, surface ±10%. Location is a ranking bonus.",
+      `[ADEME public DPE data](${OBSERVATOIRE_URL})`,
     ].join("\n");
   }
 
   return [
     formatPropertyContext(property),
     "",
-    `Recherche ADEME : **${query}**`,
+    `ADEME search: **${query}**`,
     "",
-    "Vérifiez sur Google Maps (🗺️), puis confirmez l'adresse (✅) :",
+    "Check on Google Maps (🗺️), then confirm the address (✅):",
     "",
     candidates
       .map((candidate, index) => formatCandidate(index + 1, candidate))
       .join("\n\n"),
     "",
-    `[Données DPE publiques ADEME](${OBSERVATOIRE_URL})`,
+    `[ADEME public DPE data](${OBSERVATOIRE_URL})`,
   ].join("\n");
 }

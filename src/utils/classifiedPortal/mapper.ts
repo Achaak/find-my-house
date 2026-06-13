@@ -21,7 +21,7 @@ export function mapClassifiedCardToListing(
   return {
     externalId: String(card.id),
     source: portal.id,
-    title: card.title ?? card.estateType ?? "Maison",
+    title: card.title ?? card.estateType ?? "House",
     price: parseClassifiedPrice(card.pricing),
     surface: card.surface ?? null,
     landSurface: card.landSurface ?? null,

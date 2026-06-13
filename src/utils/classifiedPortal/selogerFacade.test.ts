@@ -98,7 +98,7 @@ describe("describeSeLogerSearchHtmlFailure", () => {
   it("describes shell pages with the generic SeLoger title", () => {
     expect(
       describeSeLogerSearchHtmlFailure("<html><title>SeLoger</title></html>")
-    ).toContain("page coquille");
+    ).toContain("empty shell page");
   });
 
   it("includes the page title when present", () => {
@@ -122,7 +122,7 @@ describe("parseSeLogerSearchHtml", () => {
         <script id="__UFRN_FETCHER__">window["__UFRN_FETCHER__"]=JSON.parse("{\\"data\\":{},\\"errors\\":{}}");</script>
         </html>
       `)
-    ).toThrowError(/page coquille/);
+    ).toThrowError(/empty shell page/);
   });
 
   it("parses listings from embedded initialData JSON", () => {

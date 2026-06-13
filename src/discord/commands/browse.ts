@@ -27,9 +27,7 @@ function scrapeFiltersToSearch(filters: ScrapeFilters): ListingSearchFilters {
 export function buildBrowseCommand() {
   return new SlashCommandBuilder()
     .setName("browse")
-    .setDescription(
-      "Parcourir les annonces une par une (❤️ / 👎) jusqu'à arrêter"
-    );
+    .setDescription("Browse listings one by one (❤️ / 👎) until you stop");
 }
 
 export const handleBrowse: CommandHandler = async (interaction, ctx) => {
@@ -44,7 +42,7 @@ export const handleBrowse: CommandHandler = async (interaction, ctx) => {
   startBrowseSession(discordUserId, filters);
   const session = getBrowseSession(discordUserId);
   if (!session) {
-    await interaction.editReply("Impossible de démarrer le parcours.");
+    await interaction.editReply("Unable to start browse session.");
     return;
   }
 

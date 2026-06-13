@@ -12,26 +12,26 @@ import type { CommandHandler } from "./types.js";
 export function buildListingsCommand() {
   return new SlashCommandBuilder()
     .setName("listings")
-    .setDescription("Rechercher des annonces enregistrées")
+    .setDescription("Search saved listings")
     .addStringOption((opt) =>
-      opt.setName("city").setDescription("Filtrer par ville").setRequired(false)
+      opt.setName("city").setDescription("Filter by city").setRequired(false)
     )
     .addStringOption((opt) =>
       opt
         .setName("postal_code")
-        .setDescription("Filtrer par code postal")
+        .setDescription("Filter by postal code")
         .setRequired(false)
     )
     .addStringOption((opt) =>
       opt
         .setName("text")
-        .setDescription("Rechercher dans le titre ou la description")
+        .setDescription("Search in title or description")
         .setRequired(false)
     )
     .addStringOption((opt) =>
       opt
         .setName("source")
-        .setDescription("Filtrer par portail")
+        .setDescription("Filter by portal")
         .setRequired(false)
         .addChoices(
           { name: "Bien'ici", value: "bienici" },
@@ -43,57 +43,55 @@ export function buildListingsCommand() {
     .addIntegerOption((opt) =>
       opt
         .setName("min_price")
-        .setDescription("Prix minimum en euros")
+        .setDescription("Minimum price in euros")
         .setRequired(false)
     )
     .addIntegerOption((opt) =>
       opt
         .setName("max_price")
-        .setDescription("Prix maximum en euros")
+        .setDescription("Maximum price in euros")
         .setRequired(false)
     )
     .addIntegerOption((opt) =>
       opt
         .setName("min_surface")
-        .setDescription("Surface minimum en m²")
+        .setDescription("Minimum surface area in m²")
         .setRequired(false)
     )
     .addIntegerOption((opt) =>
       opt
         .setName("min_land")
-        .setDescription("Terrain minimum en m²")
+        .setDescription("Minimum land area in m²")
         .setRequired(false)
     )
     .addIntegerOption((opt) =>
       opt
         .setName("min_rooms")
-        .setDescription("Nombre de pièces minimum")
+        .setDescription("Minimum number of rooms")
         .setRequired(false)
     )
     .addIntegerOption((opt) =>
       opt
         .setName("min_bedrooms")
-        .setDescription("Nombre de chambres minimum")
+        .setDescription("Minimum number of bedrooms")
         .setRequired(false)
     )
     .addBooleanOption((opt) =>
       opt
         .setName("old_only")
-        .setDescription("Uniquement les biens anciens (pas de neuf)")
+        .setDescription("Existing builds only (exclude new builds)")
         .setRequired(false)
     )
     .addBooleanOption((opt) =>
       opt
         .setName("new_only")
-        .setDescription("Uniquement les biens neufs")
+        .setDescription("New builds only")
         .setRequired(false)
     )
     .addIntegerOption((opt) =>
       opt
         .setName("travel_minutes")
-        .setDescription(
-          "Temps de trajet max en voiture, en minutes (nécessite une ville)"
-        )
+        .setDescription("Max driving time in minutes (requires a city)")
         .setMinValue(5)
         .setMaxValue(120)
         .setRequired(false)
@@ -101,15 +99,15 @@ export function buildListingsCommand() {
     .addStringOption((opt) =>
       opt
         .setName("sort")
-        .setDescription("Ordre des résultats")
+        .setDescription("Result sort order")
         .setRequired(false)
         .addChoices(
-          { name: "Prix croissant", value: "price_asc" },
-          { name: "Prix décroissant", value: "price_desc" },
-          { name: "Plus récentes", value: "date_desc" },
-          { name: "Surface décroissante", value: "surface_desc" },
+          { name: "Price ascending", value: "price_asc" },
+          { name: "Price descending", value: "price_desc" },
+          { name: "Most recent", value: "date_desc" },
+          { name: "Surface descending", value: "surface_desc" },
           {
-            name: "Compatibilité décroissante",
+            name: "Compatibility descending",
             value: "compat_desc",
           }
         )
@@ -117,7 +115,7 @@ export function buildListingsCommand() {
     .addIntegerOption((opt) =>
       opt
         .setName("limit")
-        .setDescription("Nombre de résultats (max 10)")
+        .setDescription("Number of results (max 10)")
         .setMinValue(1)
         .setMaxValue(10)
         .setRequired(false)
@@ -156,12 +154,14 @@ export const handleListings: CommandHandler = async (interaction, ctx) => {
   const geoFilter = resolveGeoFilter({ maxTravelMinutes }, true);
 
   if (ancienOnly && neufOnly) {
-    await interaction.reply("Les filtres ancien et neuf sont incompatibles.");
+    await interaction.reply(
+      "Old and new build filters are mutually exclusive."
+    );
     return;
   }
 
   if (geoFilter.mode !== "city" && !city) {
-    await interaction.reply("Pour un filtre géographique, précisez une ville.");
+    await interaction.reply("Specify a city for a geographic filter.");
     return;
   }
 
@@ -198,20 +198,20 @@ export const handleListings: CommandHandler = async (interaction, ctx) => {
   if (rankedListings.length === 0) {
     await interaction.editReply(
       geoFilter.mode !== "city"
-        ? `Aucune annonce trouvée dans cette zone (${geoFilterLabel(geoFilter)}).`
-        : "Aucune annonce trouvée avec ces critères."
+        ? `No listings found in this area (${geoFilterLabel(geoFilter)}).`
+        : "No listings found matching these criteria."
     );
     return;
   }
 
   const compatibilityHint =
     sort === "compat_desc" && !compatibilityPreferences
-      ? "\n_Likez des annonces pour activer le tri par compatibilité._"
+      ? "\n_Like listings to enable compatibility sorting._"
       : "";
   const resultHeader =
     (rankedListings.length === 1
-      ? "📋 **1 annonce** trouvée"
-      : `📋 **${String(rankedListings.length)} annonces** trouvées`) +
+      ? "📋 **1 listing** found"
+      : `📋 **${String(rankedListings.length)} listings** found`) +
     compatibilityHint;
 
   await interaction.editReply({

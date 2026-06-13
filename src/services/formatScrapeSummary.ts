@@ -13,7 +13,7 @@ export function formatScrapeErrors(
   if (errors.length === 0) return [];
 
   return [
-    `⚠️ **${String(errors.length)} scraper(s) en échec**`,
+    `⚠️ **${String(errors.length)} scraper(s) failed**`,
     ...errors.map((error) => `• **${error.scraper}** — ${error.message}`),
   ];
 }
@@ -24,14 +24,14 @@ export function formatScrapeSummary(
 ): string {
   const zoneLabel = options.zoneLabel ?? "";
   const lines = [
-    `Scraping terminé pour **${options.city}**${zoneLabel}`,
-    `📥 ${String(result.found)} trouvées`,
-    `✅ ${String(result.inserted)} nouveaux biens`,
-    `🔗 ${String(result.linked)} publications liées (doublon inter-sites)`,
-    `🔄 ${String(result.updated)} mises à jour`,
-    `📉 ${String(result.priceDropListings.length)} baisse(s) de prix`,
-    `⏭️ ${String(result.skipped)} inchangées`,
-    `🚫 ${String(result.deactivated)} publication(s) désactivée(s)`,
+    `Scrape complete for **${options.city}**${zoneLabel}`,
+    `📥 ${String(result.found)} found`,
+    `✅ ${String(result.inserted)} new properties`,
+    `🔗 ${String(result.linked)} publications linked (cross-site duplicate)`,
+    `🔄 ${String(result.updated)} updated`,
+    `📉 ${String(result.priceDropListings.length)} price drop(s)`,
+    `⏭️ ${String(result.skipped)} unchanged`,
+    `🚫 ${String(result.deactivated)} publication(s) deactivated`,
     ...formatScrapeErrors(result.errors),
   ];
 
@@ -40,7 +40,7 @@ export function formatScrapeSummary(
     options.totalPublications !== undefined
   ) {
     lines.push(
-      `📊 Total: **${String(options.totalProperties)}** biens, **${String(options.totalPublications)}** publications`
+      `📊 Total: **${String(options.totalProperties)}** properties, **${String(options.totalPublications)}** publications`
     );
   }
 

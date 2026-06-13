@@ -48,9 +48,9 @@ describe("handleReconcile", () => {
     expect(interaction.editReply).toHaveBeenCalledOnce();
 
     const reply = String(vi.mocked(interaction.editReply).mock.calls[0]?.[0]);
-    expect(reply).toContain("1 doublon(s) strict(s)");
-    expect(reply).toContain("2 doublon(s) fuzzy");
-    expect(reply).toContain("42 bien(s) unique(s)");
-    expect(reply).toContain("10 publication(s) agence");
+    expect(reply).toContain("1 strict duplicate(s)");
+    expect(reply).toContain("2 fuzzy duplicate(s)");
+    expect(reply).toContain("42 unique propert");
+    expect(reply).toContain("10 agency publication(s)");
   });
 });

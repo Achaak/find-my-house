@@ -48,7 +48,7 @@ export function resolveScraperGeoFilterLabel(
 ): string {
   if (options.maxTravelMinutes !== undefined && !supportsTravelTime) {
     const radiusKm = travelTimeRadiusKm(options.maxTravelMinutes);
-    return `${String(options.maxTravelMinutes)} min en voiture (~${String(Math.round(radiusKm))} km)`;
+    return `${String(options.maxTravelMinutes)} min drive (~${String(Math.round(radiusKm))} km)`;
   }
 
   return geoFilterLabel(resolveGeoFilter(options, supportsTravelTime));
@@ -86,10 +86,10 @@ export function travelTimeRadiusKm(travelMinutes: number): number {
 
 export function geoFilterLabel(filter: GeoFilter): string {
   if (filter.mode === "travel") {
-    return `${String(filter.maxTravelMinutes)} min en voiture`;
+    return `${String(filter.maxTravelMinutes)} min drive`;
   }
   if (filter.mode === "radius") {
-    return `rayon ${String(filter.radiusKm)} km`;
+    return `${String(filter.radiusKm)} km radius`;
   }
-  return "ville";
+  return "city";
 }

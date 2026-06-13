@@ -56,7 +56,7 @@ export async function notifyScrapeResults(
       limits
     );
     options.log?.info(
-      `Discord: ${String(summary.newListingsSent)} nouvelle(s) annonce(s)`
+      `Discord: ${String(summary.newListingsSent)} new listing(s)`
     );
   }
 
@@ -68,7 +68,7 @@ export async function notifyScrapeResults(
       limits
     );
     options.log?.info(
-      `Discord: ${String(summary.priceDropsSent)} baisse(s) de prix`
+      `Discord: ${String(summary.priceDropsSent)} price drop(s)`
     );
   }
 

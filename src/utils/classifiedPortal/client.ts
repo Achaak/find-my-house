@@ -57,9 +57,7 @@ function isClassifiedSearchParseError(
 ): boolean {
   return (
     error instanceof Error &&
-    error.message.startsWith(
-      `${portal.label}: données de recherche introuvables`
-    )
+    error.message.startsWith(`${portal.label}: search data not found`)
   );
 }
 
@@ -261,7 +259,7 @@ async function fetchAndParseClassifiedSearchPage(
     }
   }
 
-  throw lastError ?? new Error(`${portal.label}: échec de parsing recherche`);
+  throw lastError ?? new Error(`${portal.label}: search parse failed`);
 }
 
 async function fetchClassifiedDetailHtml(

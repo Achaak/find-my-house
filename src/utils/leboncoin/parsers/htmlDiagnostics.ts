@@ -15,17 +15,17 @@ export function isIncompleteLeboncoinSearchHtml(html: string): boolean {
 
 export function describeLeboncoinHtmlFailure(html: string): string {
   if (isLeboncoinAccessBlockedHtml(html)) {
-    return "page de protection anti-bot détectée";
+    return "anti-bot protection page detected";
   }
 
   const title = /<title>([^<]*)<\/title>/i.exec(html)?.[1]?.trim();
   if (title === "leboncoin.fr") {
-    return "page coquille sans données (timeout ou blocage)";
+    return "empty shell page with no data (timeout or block)";
   }
 
   if (!html.includes("__NEXT_DATA__")) {
-    return "balise __NEXT_DATA__ absente";
+    return "__NEXT_DATA__ tag missing";
   }
 
-  return "structure de page inattendue";
+  return "unexpected page structure";
 }

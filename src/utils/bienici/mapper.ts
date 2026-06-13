@@ -79,7 +79,7 @@ export function mapBienIciAdToListing(
   const title =
     trimmedTitle !== ""
       ? trimmedTitle
-      : (ad.propertyType?.trim() ?? "Annonce immobilière");
+      : (ad.propertyType?.trim() ?? "Property listing");
 
   return {
     externalId: ad.id,

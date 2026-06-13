@@ -45,10 +45,10 @@ describe("formatOverviewStatsEmbed", () => {
       ],
     });
 
-    expect(embed.title).toContain("Vue d'ensemble");
+    expect(embed.title).toContain("Overview");
     expect(embed.description).toContain("8");
-    expect(embed.description).toContain("baisse");
-    expect(embed.fields.some((field) => field.name === "Vos réactions")).toBe(
+    expect(embed.description).toContain("price drop");
+    expect(embed.fields.some((field) => field.name === "Your reactions")).toBe(
       true
     );
   });
@@ -93,7 +93,7 @@ describe("formatPricesStatsEmbed", () => {
       ]
     );
 
-    expect(embed.fields.some((field) => field.name === "Médiane")).toBe(true);
+    expect(embed.fields.some((field) => field.name === "Median")).toBe(true);
     expect(embed.fields.at(-1)?.value).toContain("#7");
     expect(embed.fields.at(-1)?.value).toContain("−");
   });

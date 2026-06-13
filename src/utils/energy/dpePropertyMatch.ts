@@ -52,7 +52,7 @@ export function formatDpeSearchCriteria(property: PropertyRow): string {
   const parts: string[] = [];
 
   const department = extractDepartmentCode(property.postalCode);
-  if (department) parts.push(`dép. ${department}`);
+  if (department) parts.push(`dept. ${department}`);
 
   if (property.dpeClass) parts.push(`DPE ${property.dpeClass}`);
   if (property.gesClass) parts.push(`GES ${property.gesClass}`);

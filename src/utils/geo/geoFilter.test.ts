@@ -58,10 +58,10 @@ describe("resolveRadiusSearchFilter", () => {
 describe("geoFilterLabel", () => {
   it("formats travel and radius labels", () => {
     expect(geoFilterLabel({ mode: "travel", maxTravelMinutes: 25 })).toBe(
-      "25 min en voiture"
+      "25 min drive"
     );
     expect(geoFilterLabel({ mode: "radius", radiusKm: 15 })).toBe(
-      "rayon 15 km"
+      "15 km radius"
     );
   });
 });

@@ -75,7 +75,7 @@ describe("handleStats", () => {
     const reply = vi.mocked(interaction.editReply).mock.calls[0]?.[0] as {
       embeds: { title: string }[];
     };
-    expect(reply.embeds[0]?.title).toContain("Vue d'ensemble");
+    expect(reply.embeds[0]?.title).toContain("Overview");
   });
 
   it("returns a prices embed", async () => {
@@ -94,6 +94,6 @@ describe("handleStats", () => {
     const reply = vi.mocked(interaction.editReply).mock.calls[0]?.[0] as {
       embeds: { title: string }[];
     };
-    expect(reply.embeds[0]?.title).toContain("Prix");
+    expect(reply.embeds[0]?.title).toContain("Prices");
   });
 });

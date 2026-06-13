@@ -61,10 +61,7 @@ async function fetchDatasetAll<T>(
       error instanceof HTTPError
         ? String(error.response.statusCode)
         : "network";
-    log.warn(
-      `Requête échouée (${status}) sur ${datasetId}:`,
-      initialUrl.search
-    );
+    log.warn(`Request failed (${status}) on ${datasetId}:`, initialUrl.search);
     return all.length > 0 ? all : null;
   }
 }
@@ -178,7 +175,7 @@ async function fetchDatasetPage<T>(
     return data.results ?? [];
   } catch (error) {
     log.warn(
-      `Échec requête dataset ${datasetId}:`,
+      `Dataset request failed ${datasetId}:`,
       error instanceof Error ? error.message : String(error)
     );
     return [];

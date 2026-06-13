@@ -27,8 +27,8 @@ export async function formatReactionList(
 
   const header =
     total > limit
-      ? `**${String(total)}** au total — ${String(listings.length)} affichées :`
-      : `**${String(total)}** annonce${total > 1 ? "s" : ""} :`;
+      ? `**${String(total)}** total — showing ${String(listings.length)}:`
+      : `**${String(total)}** listing${total > 1 ? "s" : ""}:`;
 
   return {
     content: header,

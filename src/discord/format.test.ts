@@ -15,7 +15,7 @@ describe("discord/format", () => {
     });
 
     const label = formatPriceDrop(property);
-    expect(label).toContain("Baisse de prix");
+    expect(label).toContain("Price drop");
     expect(label).toContain("280");
     expect(label).toContain("300");
   });
@@ -56,7 +56,7 @@ describe("discord/format", () => {
     );
 
     expect(embed.color).toBe(0x2ecc71);
-    expect(embed.description).toContain("Baisse de prix");
+    expect(embed.description).toContain("Price drop");
   });
 
   it("omits invalid image urls from embeds", () => {
@@ -86,7 +86,7 @@ describe("discord/format", () => {
       compatibilityScore: 87,
     });
 
-    const field = embed.fields.find((entry) => entry.name === "Compatibilité");
+    const field = embed.fields.find((entry) => entry.name === "Compatibility");
     expect(field?.value).toContain("87/100");
   });
 });

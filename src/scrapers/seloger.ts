@@ -18,9 +18,7 @@ export class SeLogerScraper implements Scraper {
   async scrape(options: ScraperOptions): Promise<Listing[]> {
     const place = await resolveSeLogerPlace(options.city, options.postalCode);
     if (!place) {
-      throw new Error(
-        `Impossible de géolocaliser "${options.city}" sur SeLoger`
-      );
+      throw new Error(`Unable to geolocate "${options.city}" on SeLoger`);
     }
 
     const geoFilter = resolveGeoFilter(options, true);

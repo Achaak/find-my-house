@@ -39,19 +39,19 @@ describe("parseScrapeConfig", () => {
 
   it("rejects invalid postal codes", () => {
     expect(() => parseScrapeConfig({ SCRAPE_POSTAL_CODE: "7616" })).toThrow(
-      /Configuration scrape invalide/
+      /Invalid scrape configuration/
     );
   });
 
   it("rejects invalid scraper names", () => {
     expect(() =>
       parseScrapeConfig({ SCRAPE_SCRAPERS: "bienici,unknown" })
-    ).toThrow(/Configuration scrape invalide/);
+    ).toThrow(/Invalid scrape configuration/);
   });
 
   it("rejects non-positive numbers", () => {
     expect(() => parseScrapeConfig({ SCRAPE_MAX_PRICE: "0" })).toThrow(
-      /Configuration scrape invalide/
+      /Invalid scrape configuration/
     );
   });
 
@@ -109,7 +109,7 @@ describe("parseDiscordConfigOptional", () => {
 describe("parseDiscordConfig", () => {
   it("requires Discord credentials", () => {
     expect(() => parseDiscordConfig({})).toThrow(
-      /Configuration Discord invalide/
+      /Invalid Discord configuration/
     );
   });
 

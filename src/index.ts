@@ -34,22 +34,20 @@ async function main(): Promise<void> {
   const geoFilter = resolveGeoFilter(scrapeOptions, true);
   const { discord } = discordConfig;
 
-  log.info(`Démarrage de Find My House ${formatVersionLine()}...`);
-  log.info(`Base: ${scrapeConfig.database.url}`);
+  log.info(`Starting Find My House ${formatVersionLine()}...`);
+  log.info(`Database: ${scrapeConfig.database.url}`);
   log.info(
-    `Scrapers actifs: ${scrapers.map((s) => s.name).join(", ") || "aucun"}`
+    `Active scrapers: ${scrapers.map((s) => s.name).join(", ") || "none"}`
   );
-  log.info(
-    `Zone de recherche: ${scrapeOptions.city} (${geoFilterLabel(geoFilter)})`
-  );
+  log.info(`Search area: ${scrapeOptions.city} (${geoFilterLabel(geoFilter)})`);
 
   if (cron.validate(scrapeConfig.scrape.cron)) {
     cron.schedule(scrapeConfig.scrape.cron, async () => {
-      cronLog.info("Scraping automatique...");
+      cronLog.info("Scheduled scrape...");
       try {
         const result = await scraperService.run(scrapeOptions);
         cronLog.info(
-          `Résultat: ${String(result.inserted)} nouveaux biens, ${String(result.linked)} liées, ${String(result.updated)} MAJ, ${String(result.skipped)} ignorées, ${String(result.deactivated)} désactivées`
+          `Result: ${String(result.inserted)} new properties, ${String(result.linked)} linked, ${String(result.updated)} updated, ${String(result.skipped)} skipped, ${String(result.deactivated)} deactivated`
         );
         for (const line of formatScrapeErrors(result.errors)) {
           cronLog.warn(line);
@@ -62,18 +60,18 @@ async function main(): Promise<void> {
           log: cronLog,
         });
       } catch (error) {
-        cronLog.error("Erreur scraping:", error);
+        cronLog.error("Scrape error:", error);
       }
     });
-    cronLog.info(`Planifié: ${scrapeConfig.scrape.cron}`);
+    cronLog.info(`Scheduled: ${scrapeConfig.scrape.cron}`);
   } else {
     cronLog.error(
-      `Expression cron invalide: "${scrapeConfig.scrape.cron}" — scraping automatique désactivé`
+      `Invalid cron expression: "${scrapeConfig.scrape.cron}" — automatic scraping disabled`
     );
   }
 
   const stop = async (signal: string) => {
-    log.info(`Arrêt (${signal})...`);
+    log.info(`Shutting down (${signal})...`);
     await shutdown();
     process.exit(0);
   };
@@ -93,6 +91,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  log.error("Erreur fatale:", error);
+  log.error("Fatal error:", error);
   process.exit(1);
 });

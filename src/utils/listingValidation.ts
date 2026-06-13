@@ -53,7 +53,7 @@ export function validateListing(listing: Listing): Listing | null {
   if (parsed.success) return listing;
 
   log.warn(
-    `Annonce invalide (${listing.source}:${listing.externalId}): ${parsed.error.issues.map((issue) => issue.message).join(", ")}`
+    `Invalid listing (${listing.source}:${listing.externalId}): ${parsed.error.issues.map((issue) => issue.message).join(", ")}`
   );
   return null;
 }

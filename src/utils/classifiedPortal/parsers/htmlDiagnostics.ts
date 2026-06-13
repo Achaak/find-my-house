@@ -65,7 +65,7 @@ export function describeClassifiedSearchHtmlFailure(
   html: string
 ): string {
   if (/504\s+Gateway\s+Time-?out/i.test(html)) {
-    return "timeout nginx (504) — réessayez plus tard";
+    return "nginx timeout (504) — try again later";
   }
 
   if (
@@ -73,22 +73,22 @@ export function describeClassifiedSearchHtmlFailure(
     /captcha/i.test(html) ||
     /access denied/i.test(html)
   ) {
-    return "page de protection anti-bot détectée";
+    return "anti-bot protection page detected";
   }
 
   const title = /<title>([^<]*)<\/title>/i.exec(html)?.[1]?.trim();
 
   if (title === portal.label || title === "SeLoger") {
-    return "page coquille sans résultats (timeout ou surcharge serveur) — réessayez";
+    return "empty shell page with no results (timeout or server overload) — try again";
   }
 
   if (isIncompleteClassifiedSearchHtml(html)) {
-    return "réponse HTML incomplète (connexion interrompue ou timeout)";
+    return "incomplete HTML response (connection interrupted or timeout)";
   }
 
   if (title) {
-    return `JSON embarqué absent (titre: « ${title} »)`;
+    return `embedded JSON missing (title: "${title}")`;
   }
 
-  return `HTML ${portal.label} sans données de recherche`;
+  return `${portal.label} HTML with no search data`;
 }

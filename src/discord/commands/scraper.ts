@@ -7,9 +7,7 @@ import type { CommandHandler } from "./types.js";
 export function buildScraperCommand() {
   return new SlashCommandBuilder()
     .setName("scraper")
-    .setDescription(
-      "Lancer un scraping avec les critères définis dans les variables d'environnement"
-    );
+    .setDescription("Run a scrape using criteria from environment variables");
 }
 
 export const handleScraper: CommandHandler = async (interaction, ctx) => {

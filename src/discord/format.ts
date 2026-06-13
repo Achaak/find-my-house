@@ -18,15 +18,15 @@ const SOURCE_COLORS: Record<ListingSource, number> = {
 };
 
 const PROPERTY_TYPE_LABELS: Record<string, string> = {
-  house: "Maison",
-  flat: "Appartement",
-  apartment: "Appartement",
+  house: "House",
+  flat: "Apartment",
+  apartment: "Apartment",
   loft: "Loft",
-  castle: "Château",
-  townhouse: "Maison de ville",
+  castle: "Castle",
+  townhouse: "Townhouse",
   villa: "Villa",
-  maison: "Maison",
-  appartement: "Appartement",
+  maison: "House",
+  appartement: "Apartment",
 };
 
 type EmbedField = {
@@ -78,7 +78,7 @@ export function formatPriceDrop(property: PropertyRow): string | null {
 
   const drop = property.firstPrice - property.price;
   const pct = Math.round((drop / property.firstPrice) * 100);
-  return `📉 **Baisse de prix** : ~~${formatPrice(property.firstPrice)}~~ → **${formatPrice(property.price)}** (−${formatPrice(drop)}, −${String(pct)} %)`;
+  return `📉 **Price drop**: ~~${formatPrice(property.firstPrice)}~~ → **${formatPrice(property.price)}** (−${formatPrice(drop)}, −${String(pct)} %)`;
 }
 
 export function formatSourceLabel(source: ListingSource): string {
@@ -106,8 +106,8 @@ function formatPricePerSqm(price: number, surface: number): string {
 }
 
 function formatNewPropertyLabel(isNewProperty: boolean | null): string | null {
-  if (isNewProperty === false) return "Ancien";
-  if (isNewProperty === true) return "Neuf";
+  if (isNewProperty === false) return "Resale";
+  if (isNewProperty === true) return "New build";
   return null;
 }
 
@@ -170,7 +170,7 @@ function buildListingFields(
 
   if (compatibilityScore !== undefined) {
     fields.push({
-      name: "Compatibilité",
+      name: "Compatibility",
       value: formatCompatibilityLabel(compatibilityScore),
       inline: true,
     });
@@ -186,7 +186,7 @@ function buildListingFields(
 
   if (property.landSurface) {
     fields.push({
-      name: "Terrain",
+      name: "Land",
       value: `${String(property.landSurface)} m²`,
       inline: true,
     });
@@ -194,7 +194,7 @@ function buildListingFields(
 
   if (property.rooms) {
     fields.push({
-      name: "Pièces",
+      name: "Rooms",
       value: String(property.rooms),
       inline: true,
     });
@@ -202,7 +202,7 @@ function buildListingFields(
 
   if (property.bedrooms) {
     fields.push({
-      name: "Chambres",
+      name: "Bedrooms",
       value: String(property.bedrooms),
       inline: true,
     });
@@ -210,7 +210,7 @@ function buildListingFields(
 
   if (property.bathrooms) {
     fields.push({
-      name: "Salles de bain",
+      name: "Bathrooms",
       value: String(property.bathrooms),
       inline: true,
     });
@@ -242,29 +242,31 @@ function buildListingFields(
 
   if (newPropertyLabel) {
     fields.push({
-      name: "État",
+      name: "Condition",
       value: newPropertyLabel,
       inline: true,
     });
   }
 
   fields.push({
-    name: "Localisation",
+    name: "Location",
     value: formatLocation(property),
     inline: false,
   });
 
   const comfortDetails = [
-    property.heating ? `Chauffage : ${property.heating}` : null,
-    property.orientation ? `Exposition : ${property.orientation}` : null,
-    property.propertyCondition ? `État : ${property.propertyCondition}` : null,
+    property.heating ? `Heating: ${property.heating}` : null,
+    property.orientation ? `Exposure: ${property.orientation}` : null,
+    property.propertyCondition
+      ? `Condition: ${property.propertyCondition}`
+      : null,
   ]
     .filter(Boolean)
     .join("\n");
 
   if (comfortDetails) {
     fields.push({
-      name: "Confort",
+      name: "Comfort",
       value: truncate(comfortDetails, 1024),
       inline: false,
     });
@@ -273,7 +275,7 @@ function buildListingFields(
   const energyDetails = formatEnergyDetails(property);
   if (energyDetails) {
     fields.push({
-      name: "Énergie",
+      name: "Energy",
       value: truncate(energyDetails, 1024),
       inline: false,
     });
@@ -281,14 +283,14 @@ function buildListingFields(
 
   if (property.highlights?.length) {
     fields.push({
-      name: "Atouts",
+      name: "Highlights",
       value: truncate(property.highlights.join(" · "), 1024),
       inline: false,
     });
   }
 
   fields.push({
-    name: "Liens",
+    name: "Links",
     value: formatPublicationLinks(property),
     inline: false,
   });
@@ -355,12 +357,12 @@ export function formatListing(property: PropertyRow): string {
     [
       property.surface ? `📐 ${String(property.surface)} m²` : null,
       property.landSurface
-        ? `🌳 ${String(property.landSurface)} m² terrain`
+        ? `🌳 ${String(property.landSurface)} m² land`
         : null,
-      property.rooms ? `🛏️ ${String(property.rooms)} pièces` : null,
-      property.bedrooms ? `🛌 ${String(property.bedrooms)} chambres` : null,
+      property.rooms ? `🛏️ ${String(property.rooms)} rooms` : null,
+      property.bedrooms ? `🛌 ${String(property.bedrooms)} bedrooms` : null,
       property.bathrooms
-        ? `🚿 ${String(property.bathrooms)} salle${property.bathrooms > 1 ? "s" : ""} de bain`
+        ? `🚿 ${String(property.bathrooms)} bathroom${property.bathrooms > 1 ? "s" : ""}`
         : null,
       property.constructionYear
         ? `📅 ${String(property.constructionYear)}`
@@ -373,9 +375,9 @@ export function formatListing(property: PropertyRow): string {
       : null,
     energyLabel ? `⚡ ${energyLabel}` : null,
     property.isNewProperty === false
-      ? "🏠 Ancien"
+      ? "🏠 Resale"
       : property.isNewProperty === true
-        ? "🏗️ Neuf"
+        ? "🏗️ New build"
         : null,
     propertyType ? `🏷️ ${propertyType}` : null,
     property.address

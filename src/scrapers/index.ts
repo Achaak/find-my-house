@@ -29,7 +29,7 @@ export function createScrapers(): Scraper[] {
   );
   if (unknown.length > 0) {
     log.warn(
-      `Noms inconnus dans SCRAPE_SCRAPERS (ignorés): ${unknown.join(", ")}`
+      `Unknown names in SCRAPE_SCRAPERS (ignored): ${unknown.join(", ")}`
     );
   }
 
@@ -37,7 +37,7 @@ export function createScrapers(): Scraper[] {
   const filtered = allScrapers.filter((s) => enabledSet.has(s.name));
 
   if (filtered.length === 0) {
-    log.warn("Aucun scraper activé — vérifiez SCRAPE_SCRAPERS");
+    log.warn("No scrapers enabled — check SCRAPE_SCRAPERS");
   }
 
   return filtered;

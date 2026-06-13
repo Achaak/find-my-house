@@ -5,14 +5,14 @@ import type { CommandHandler } from "./types.js";
 export function buildVersionCommand() {
   return new SlashCommandBuilder()
     .setName("version")
-    .setDescription("Afficher la version de l'application");
+    .setDescription("Show application version");
 }
 
 export const handleVersion: CommandHandler = async (interaction) => {
   const { version, commit } = getBuildInfo();
   const lines = [`**Find My House** v${version}`];
   if (commit) {
-    lines.push(`Commit : \`${commit.slice(0, 7)}\``);
+    lines.push(`Commit: \`${commit.slice(0, 7)}\``);
   }
   await interaction.reply(lines.join("\n"));
 };

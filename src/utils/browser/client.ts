@@ -27,8 +27,8 @@ export class BrowserHttpError extends Error {
 export class BrowserProfileInUseError extends Error {
   constructor(profileDir: string) {
     super(
-      `CloakBrowser: le profil est déjà utilisé (${profileDir}). ` +
-        "Fermez la fenêtre Chromium ouverte, ou lancez avec CLOAKBROWSER_HEADLESS=true."
+      `CloakBrowser: profile already in use (${profileDir}). ` +
+        "Close the open Chromium window, or run with CLOAKBROWSER_HEADLESS=true."
     );
     this.name = "BrowserProfileInUseError";
   }
@@ -65,7 +65,7 @@ async function launchBrowserContext(
   if (browserConfig.browser.resetProfile) {
     const backupDir = backupAndRecreateProfile(profileDir);
     if (backupDir) {
-      log.warn(`Profil CloakBrowser réinitialisé (sauvegarde: ${backupDir})`);
+      log.warn(`CloakBrowser profile reset (backup: ${backupDir})`);
     }
   } else {
     mkdirSync(profileDir, { recursive: true });
@@ -86,7 +86,7 @@ async function launchBrowserContext(
 async function recoverBrowserContext(error: unknown): Promise<BrowserContext> {
   if (!headless && isBrowserProfileInUseError(error)) {
     log.warn(
-      "Profil CloakBrowser indisponible en mode headed — nouvel essai en headless."
+      "CloakBrowser profile unavailable in headed mode — retrying headless."
     );
     try {
       return await launchBrowserContext(true);
@@ -99,8 +99,8 @@ async function recoverBrowserContext(error: unknown): Promise<BrowserContext> {
     const backupDir = backupAndRecreateProfile(profileDir);
     log.warn(
       backupDir
-        ? `Profil CloakBrowser corrompu ou verrouillé — recréé (sauvegarde: ${backupDir})`
-        : "Profil CloakBrowser recréé"
+        ? `CloakBrowser profile corrupted or locked — recreated (backup: ${backupDir})`
+        : "CloakBrowser profile recreated"
     );
     return launchBrowserContext(true);
   }
@@ -410,9 +410,7 @@ export async function resetBrowserProfile(): Promise<string | null> {
 
   const backupDir = backupAndRecreateProfile(profileDir);
   if (backupDir) {
-    log.warn(
-      `Profil CloakBrowser réinitialisé après blocage (sauvegarde: ${backupDir})`
-    );
+    log.warn(`CloakBrowser profile reset after block (backup: ${backupDir})`);
   }
 
   return backupDir;
@@ -552,7 +550,7 @@ export async function closeBrowserContext(): Promise<void> {
     await context.close();
   } catch (error) {
     log.warn(
-      "Fermeture CloakBrowser ignorée:",
+      "CloakBrowser shutdown ignored:",
       error instanceof Error ? error.message : error
     );
   }

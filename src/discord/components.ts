@@ -19,12 +19,12 @@ export function buildListingActionRow(listingId: number) {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(`${LIKE_PREFIX}${String(listingId)}`)
-      .setLabel("J'aime")
+      .setLabel("Like")
       .setEmoji("❤️")
       .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
       .setCustomId(`${DISLIKE_PREFIX}${String(listingId)}`)
-      .setLabel("Pas j'aime")
+      .setLabel("Dislike")
       .setEmoji("👎")
       .setStyle(ButtonStyle.Danger)
   );
@@ -59,12 +59,12 @@ const toggleMessages: Record<
   Record<"added" | "removed", string>
 > = {
   like: {
-    added: "❤️ Ajouté à vos favoris.",
-    removed: "Retiré de vos favoris.",
+    added: "❤️ Added to your favorites.",
+    removed: "Removed from your favorites.",
   },
   dislike: {
-    added: "👎 Ajouté à vos non-favoris.",
-    removed: "Retiré de vos non-favoris.",
+    added: "👎 Added to your dislikes.",
+    removed: "Removed from your dislikes.",
   },
 };
 
@@ -83,7 +83,7 @@ export async function handleListingButton(
   const listing = await repository.findById(parsed.listingId);
   if (!listing) {
     await interaction.editReply(
-      `Annonce #${String(parsed.listingId)} introuvable.`
+      `Listing #${String(parsed.listingId)} not found.`
     );
     return true;
   }

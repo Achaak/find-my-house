@@ -254,7 +254,7 @@ export async function fetchLeboncoinAdById(
     });
     return parseLeboncoinDetailHtml(html);
   } catch (error) {
-    if (error instanceof Error && error.message.includes("introuvable")) {
+    if (error instanceof Error && error.message.includes("not found")) {
       return null;
     }
     handleLeboncoinFetchError(error);

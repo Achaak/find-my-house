@@ -37,8 +37,8 @@ export async function denyPrivilegedCommand(
   adminRoleId: string | undefined
 ): Promise<void> {
   const content = adminRoleId
-    ? "Vous n'avez pas la permission d'exécuter cette commande."
-    : "Cette commande est désactivée : configurez `DISCORD_ADMIN_ROLE_ID`.";
+    ? "You do not have permission to run this command."
+    : "This command is disabled: set `DISCORD_ADMIN_ROLE_ID`.";
 
   if (interaction.deferred || interaction.replied) {
     await interaction.editReply({ content });

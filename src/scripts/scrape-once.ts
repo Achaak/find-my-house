@@ -21,15 +21,15 @@ async function main(): Promise<void> {
     const scrapeOptions = buildScrapeFilters();
     const result = await scraperService.run(scrapeOptions);
 
-    log.info("Résultat du scraping:");
-    log.info(`  Trouvées:   ${String(result.found)}`);
-    log.info(`  Nouveaux:   ${String(result.inserted)}`);
-    log.info(`  Liées:      ${String(result.linked)}`);
-    log.info(`  MAJ:        ${String(result.updated)}`);
-    log.info(`  Baisses:    ${String(result.priceDropListings.length)}`);
-    log.info(`  Ignorées:   ${String(result.skipped)}`);
-    log.info(`  Désactivées: ${String(result.deactivated)}`);
-    log.info(`  Total BDD:  ${String(await repository.count())} biens`);
+    log.info("Scrape result:");
+    log.info(`  Found:       ${String(result.found)}`);
+    log.info(`  New:         ${String(result.inserted)}`);
+    log.info(`  Linked:      ${String(result.linked)}`);
+    log.info(`  Updated:     ${String(result.updated)}`);
+    log.info(`  Price drops: ${String(result.priceDropListings.length)}`);
+    log.info(`  Skipped:     ${String(result.skipped)}`);
+    log.info(`  Deactivated: ${String(result.deactivated)}`);
+    log.info(`  DB total:    ${String(await repository.count())} properties`);
 
     const discord = parseDiscordConfigOptional();
     if (discord?.discord.channelId) {
@@ -41,9 +41,7 @@ async function main(): Promise<void> {
         log,
       });
     } else {
-      log.info(
-        "Notifications Discord ignorées (DISCORD_CHANNEL_ID non configuré)"
-      );
+      log.info("Discord notifications skipped (DISCORD_CHANNEL_ID not set)");
     }
   } finally {
     await closeBrowserContext();
@@ -52,6 +50,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  log.error("Erreur fatale:", error);
+  log.error("Fatal error:", error);
   process.exit(1);
 });

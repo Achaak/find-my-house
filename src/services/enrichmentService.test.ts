@@ -268,7 +268,7 @@ describe("enrichProperty", () => {
     const result = await enrichProperty(property);
 
     expect(result.warnings).toHaveLength(1);
-    expect(result.warnings[0]).toContain("SeLoger bloque l'enrichissement");
+    expect(result.warnings[0]).toContain("SeLoger is blocking enrichment");
     expect(result.patch.description).toBe("Description de secours");
     expect(result.patch.dpeClass).toBe("A");
   });

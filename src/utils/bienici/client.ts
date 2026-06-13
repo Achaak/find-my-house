@@ -144,7 +144,7 @@ async function getGuestSession(): Promise<GuestSession> {
     account?: { id: string; token: string };
   };
   if (!data.account?.id || !data.account.token) {
-    throw new Error("BienIci auth: réponse invalide");
+    throw new Error("BienIci auth: invalid response");
   }
 
   cachedSession = {
@@ -184,7 +184,7 @@ async function requestBienIciTravelZone(
   const zoneId = (response.data as ZoneByTimeResponse).zone?._id;
 
   if (!response.data.success || !zoneId) {
-    throw new Error("BienIci zone-by-time: zone introuvable");
+    throw new Error("BienIci zone-by-time: zone not found");
   }
 
   return zoneId;
@@ -317,6 +317,6 @@ export async function fetchBienIciAdById<T extends { id: string }>(
     const page = JSON.parse(response.body) as BienIciAdsPage<T>;
     return page.realEstateAds[0] ?? null;
   } catch (error) {
-    wrapHttpError(`BienIci annonce ${id}`, error);
+    wrapHttpError(`BienIci listing ${id}`, error);
   }
 }

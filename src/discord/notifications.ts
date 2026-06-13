@@ -62,7 +62,7 @@ async function sendListingNotifications(
       sent++;
     } catch (error) {
       log.error(
-        `Erreur envoi ${options.logLabel} (#${String(listing.id)}):`,
+        `Send error ${options.logLabel} (#${String(listing.id)}):`,
         error
       );
     }
@@ -76,7 +76,7 @@ async function sendListingNotifications(
         },
       });
     } catch (error) {
-      log.error(`Erreur envoi résumé ${options.logLabel}:`, error);
+      log.error(`Summary send error ${options.logLabel}:`, error);
     }
   }
 
@@ -96,16 +96,16 @@ export async function sendNewListingNotifications(
 ): Promise<number> {
   return sendListingNotifications(token, channelId, listings, {
     header: (total, shown) => {
-      if (total === 1) return "🏠 **1 nouvelle annonce**";
+      if (total === 1) return "🏠 **1 new listing**";
       if (total === shown) {
-        return `🏠 **${String(total)} nouvelles annonces**`;
+        return `🏠 **${String(total)} new listings**`;
       }
-      return `🏠 **${String(total)} nouvelles annonces** — affichage des ${String(shown)} premières`;
+      return `🏠 **${String(total)} new listings** — showing first ${String(shown)}`;
     },
     overflow: (hidden) =>
       hidden === 1
-        ? "⏭️ **1 autre annonce** non affichée — utilisez `/listings` pour la consulter."
-        : `⏭️ **${String(hidden)} autres annonces** non affichées — utilisez \`/listings\` pour les consulter.`,
+        ? "⏭️ **1 other listing** not shown — use `/listings` to view it."
+        : `⏭️ **${String(hidden)} other listings** not shown — use \`/listings\` to view them.`,
     logLabel: "notification",
     maxNotifications: limits.maxNotifications,
     compatibilityPreferences: limits.compatibilityPreferences,
@@ -120,18 +120,18 @@ export async function sendPriceDropNotifications(
 ): Promise<number> {
   return sendListingNotifications(token, channelId, listings, {
     header: (total, shown) => {
-      if (total === 1) return "📉 **1 baisse de prix**";
+      if (total === 1) return "📉 **1 price drop**";
       if (total === shown) {
-        return `📉 **${String(total)} baisses de prix**`;
+        return `📉 **${String(total)} price drops**`;
       }
-      return `📉 **${String(total)} baisses de prix** — affichage des ${String(shown)} premières`;
+      return `📉 **${String(total)} price drops** — showing first ${String(shown)}`;
     },
     overflow: (hidden) =>
       hidden === 1
-        ? "⏭️ **1 autre baisse de prix** non affichée — utilisez `/listings` pour la consulter."
-        : `⏭️ **${String(hidden)} autres baisses de prix** non affichées — utilisez \`/listings\` pour les consulter.`,
+        ? "⏭️ **1 other price drop** not shown — use `/listings` to view it."
+        : `⏭️ **${String(hidden)} other price drops** not shown — use \`/listings\` to view them.`,
     shouldNotify: (property) => property.price < property.firstPrice,
-    logLabel: "baisse de prix",
+    logLabel: "price drop",
     maxNotifications: limits.maxNotifications,
     compatibilityPreferences: limits.compatibilityPreferences,
   });

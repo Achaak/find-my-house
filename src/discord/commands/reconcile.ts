@@ -9,7 +9,7 @@ export function buildReconcileCommand() {
   return new SlashCommandBuilder()
     .setName("reconcile")
     .setDescription(
-      "Fusionner les doublons en base (admin) : clé stricte, matching fuzzy et agences Bienici"
+      "Merge duplicate properties in the database (admin): strict key, fuzzy matching, and Bienici agencies"
     );
 }
 
@@ -20,11 +20,11 @@ function formatReconcileSummary(result: {
   agencyFieldsUpdated: number;
 }): string {
   return [
-    "**Réconciliation terminée**",
-    `• ${String(result.merged)} doublon(s) strict(s) fusionné(s)`,
-    `• ${String(result.fuzzyMerged)} doublon(s) fuzzy fusionné(s)`,
-    `• ${String(result.unique)} bien(s) unique(s) en base`,
-    `• ${String(result.agencyFieldsUpdated)} publication(s) agence mises à jour`,
+    "**Reconciliation complete**",
+    `• ${String(result.merged)} strict duplicate(s) merged`,
+    `• ${String(result.fuzzyMerged)} fuzzy duplicate(s) merged`,
+    `• ${String(result.unique)} unique propert${result.unique === 1 ? "y" : "ies"} in database`,
+    `• ${String(result.agencyFieldsUpdated)} agency publication(s) updated`,
   ].join("\n");
 }
 

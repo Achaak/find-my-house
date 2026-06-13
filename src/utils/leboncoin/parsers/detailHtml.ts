@@ -10,6 +10,6 @@ export function parseLeboncoinDetailHtml(html: string): LeboncoinAd {
   if (ad) return ad;
 
   throw new Error(
-    `LeBonCoin: annonce introuvable — ${describeLeboncoinHtmlFailure(html)}`
+    `LeBonCoin: listing not found — ${describeLeboncoinHtmlFailure(html)}`
   );
 }

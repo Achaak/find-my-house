@@ -33,20 +33,20 @@ export class ScraperService {
           scraper.supportsTravelTime ?? false
         );
         log.info(
-          `${scraper.name} — recherche à ${options.city} (${zoneLabel})...`
+          `${scraper.name} — searching ${options.city} (${zoneLabel})...`
         );
 
         try {
           const listings = await scraper.scrape(options);
           log.info(
-            `${scraper.name} — ${String(listings.length)} annonces trouvées`
+            `${scraper.name} — ${String(listings.length)} listings found`
           );
           scrapedBySource.set(scraper.name, listings);
           allListings.push(...listings);
         } catch (error) {
           const message =
             error instanceof Error ? error.message : String(error);
-          log.error(`${scraper.name} — erreur: ${message}`);
+          log.error(`${scraper.name} — error: ${message}`);
           errors.push({ scraper: scraper.name, message });
         }
       })
@@ -72,7 +72,7 @@ export class ScraperService {
       );
       if (count > 0) {
         log.info(
-          `${source} — ${String(count)} publication(s) désactivée(s) (absentes du scrape)`
+          `${source} — ${String(count)} publication(s) deactivated (missing from scrape)`
         );
       }
       deactivated += count;

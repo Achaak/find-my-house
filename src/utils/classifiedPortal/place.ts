@@ -194,7 +194,7 @@ export async function buildClassifiedLocation(
   if (geoFilter.mode === "travel" && !strtPlaceId) {
     const radiusKm = travelTimeRadiusKm(geoFilter.maxTravelMinutes);
     log.warn(
-      `point STRT indisponible pour "${city}", repli sur rayon estimé (~${String(Math.round(radiusKm))} km)`
+      `STRT place unavailable for "${city}", falling back to estimated radius (~${String(Math.round(radiusKm))} km)`
     );
   }
 
@@ -202,7 +202,7 @@ export async function buildClassifiedLocation(
     const snapped = snapClassifiedTravelMinutes(geoFilter.maxTravelMinutes);
     if (snapped !== geoFilter.maxTravelMinutes) {
       log.info(
-        `${String(geoFilter.maxTravelMinutes)} min demandé(s) → ${String(snapped)} min (${portal.label} : ${CLASSIFIED_TRAVEL_MINUTE_OPTIONS.join(", ")})`
+        `${String(geoFilter.maxTravelMinutes)} min requested → ${String(snapped)} min (${portal.label}: ${CLASSIFIED_TRAVEL_MINUTE_OPTIONS.join(", ")})`
       );
     }
   }

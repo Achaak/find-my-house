@@ -147,6 +147,6 @@ export function parseClassifiedSearchHtml(
   if (ufrnPage) return ufrnPage;
 
   throw new Error(
-    `${portal.label}: données de recherche introuvables — ${describeClassifiedSearchHtmlFailure(portal, html)}`
+    `${portal.label}: search data not found — ${describeClassifiedSearchHtmlFailure(portal, html)}`
   );
 }

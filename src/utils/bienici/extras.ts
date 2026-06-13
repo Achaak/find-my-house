@@ -20,28 +20,28 @@ export function extractBienIciListingExtras(
 ): BienIciListingExtras {
   const highlights: string[] = [];
 
-  if (ad.hasGarden) highlights.push("Jardin");
-  if (ad.hasCellar) highlights.push("Cave");
-  if (ad.hasPool) highlights.push("Piscine");
-  if (ad.hasAirConditioning) highlights.push("Climatisation");
+  if (ad.hasGarden) highlights.push("Garden");
+  if (ad.hasCellar) highlights.push("Cellar");
+  if (ad.hasPool) highlights.push("Pool");
+  if (ad.hasAirConditioning) highlights.push("Air conditioning");
   if (ad.terracesQuantity && ad.terracesQuantity > 0) {
     highlights.push(
       ad.terracesQuantity === 1
-        ? "Terrasse"
-        : `${String(ad.terracesQuantity)} terrasses`
+        ? "Terrace"
+        : `${String(ad.terracesQuantity)} terraces`
     );
   }
   if (ad.showerRoomsQuantity && ad.showerRoomsQuantity > 0) {
     highlights.push(
       ad.showerRoomsQuantity === 1
-        ? "Salle d'eau"
-        : `${String(ad.showerRoomsQuantity)} salles d'eau`
+        ? "Shower room"
+        : `${String(ad.showerRoomsQuantity)} shower rooms`
     );
   }
 
   const propertyCondition =
     ad.workToDo === true
-      ? "Travaux à prévoir"
+      ? "Work required"
       : ad.workToDo === false
         ? null
         : null;

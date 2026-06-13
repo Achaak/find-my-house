@@ -103,8 +103,8 @@ const optionalNonEmptyString = z.preprocess((value) => {
 
 export const discordEnvSchema = z
   .object({
-    DISCORD_TOKEN: z.string().min(1, "DISCORD_TOKEN est requis"),
-    DISCORD_CLIENT_ID: z.string().min(1, "DISCORD_CLIENT_ID est requis"),
+    DISCORD_TOKEN: z.string().min(1, "DISCORD_TOKEN is required"),
+    DISCORD_CLIENT_ID: z.string().min(1, "DISCORD_CLIENT_ID is required"),
     DISCORD_GUILD_ID: optionalNonEmptyString,
     DISCORD_CHANNEL_ID: optionalNonEmptyString,
     DISCORD_ADMIN_ROLE_ID: optionalNonEmptyString,
@@ -160,7 +160,7 @@ export function formatConfigError(error: z.ZodError, section: string): string {
     })
     .join("; ");
 
-  return `Configuration ${section} invalide: ${details}`;
+  return `Invalid ${section} configuration: ${details}`;
 }
 
 export function parseScrapeConfig(env: NodeJS.ProcessEnv = process.env) {

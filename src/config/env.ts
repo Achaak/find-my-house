@@ -1,5 +1,5 @@
 import { config as loadDotenv } from "dotenv";
 
-/** Defaults (versionnés), puis overrides locaux dans .env.local */
+/** Defaults (versioned), then local overrides in .env.local */
 loadDotenv();
 loadDotenv({ path: ".env.local", override: true });

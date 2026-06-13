@@ -51,16 +51,16 @@ export async function startDiscordBot(options: BotOptions): Promise<Client> {
       Routes.applicationGuildCommands(options.clientId, options.guildId),
       { body: commands }
     );
-    log.info("Commandes enregistrées sur le serveur de dev");
+    log.info("Commands registered on dev server");
   } else {
     await rest.put(Routes.applicationCommands(options.clientId), {
       body: commands,
     });
-    log.info("Commandes enregistrées globalement");
+    log.info("Commands registered globally");
   }
 
   client.once(Events.ClientReady, (readyClient) => {
-    log.info(`Connecté en tant que ${readyClient.user.tag}`);
+    log.info(`Logged in as ${readyClient.user.tag}`);
   });
 
   client.on(Events.InteractionCreate, (interaction) => {
@@ -93,15 +93,15 @@ export async function startDiscordBot(options: BotOptions): Promise<Client> {
             )) ||
             (await handleDpeButton(interaction, options.repository));
           if (!handled) {
-            log.warn(`Bouton non géré : ${interaction.customId}`);
+            log.warn(`Unhandled button: ${interaction.customId}`);
           }
         }
       } catch (error) {
-        log.error("Erreur interaction:", error);
+        log.error("Interaction error:", error);
         if (!interaction.isRepliable()) return;
 
         const reply: InteractionReplyOptions = {
-          content: "Une erreur est survenue.",
+          content: "An error occurred.",
           flags: MessageFlagsBitField.Flags.Ephemeral,
         };
         try {
@@ -111,7 +111,7 @@ export async function startDiscordBot(options: BotOptions): Promise<Client> {
             await interaction.reply(reply);
           }
         } catch (replyError) {
-          log.error("Impossible de répondre à l'interaction:", replyError);
+          log.error("Unable to reply to interaction:", replyError);
         }
       }
     })();

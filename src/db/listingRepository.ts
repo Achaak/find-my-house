@@ -1138,7 +1138,7 @@ export class ListingRepository {
       return toPropertyRow(row);
     } catch (error) {
       log.warn(
-        `Mise à jour adresse property ${String(id)}: ${error instanceof Error ? error.message : String(error)}`
+        `Property address update ${String(id)}: ${error instanceof Error ? error.message : String(error)}`
       );
       return undefined;
     }

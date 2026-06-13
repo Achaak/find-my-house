@@ -49,7 +49,7 @@ export function buildDpeCandidateComponents(
   const rejectRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(`${REJECT_PREFIX}${String(propertyId)}`)
-      .setLabel("Aucune de ces adresses")
+      .setLabel("None of these addresses")
       .setStyle(ButtonStyle.Secondary)
   );
 
@@ -100,7 +100,7 @@ export async function handleDpeButton(
   const property = await repository.findById(parsed.propertyId);
   if (!property) {
     await interaction.editReply(
-      `Annonce #${String(parsed.propertyId)} introuvable.`
+      `Listing #${String(parsed.propertyId)} not found.`
     );
     return true;
   }
@@ -108,7 +108,7 @@ export async function handleDpeButton(
   if ("reject" in parsed) {
     await interaction.message.edit({ components: [] }).catch(() => undefined);
     await interaction.editReply(
-      `Aucune adresse enregistrée pour l'annonce **#${String(parsed.propertyId)}**.`
+      `No address saved for listing **#${String(parsed.propertyId)}**.`
     );
     return true;
   }
@@ -116,7 +116,7 @@ export async function handleDpeButton(
   const dpe = await fetchDpeByNumero(parsed.numeroDpe);
   if (!dpe) {
     await interaction.editReply(
-      `DPE **${parsed.numeroDpe}** introuvable. Relancez \`/adresse id:${String(parsed.propertyId)}\`.`
+      `DPE **${parsed.numeroDpe}** not found. Run \`/address id:${String(parsed.propertyId)}\` again.`
     );
     return true;
   }
@@ -125,7 +125,7 @@ export async function handleDpeButton(
   await interaction.message.edit({ components: [] }).catch(() => undefined);
   await interaction.editReply(
     [
-      `✅ Adresse enregistrée pour l'annonce **#${String(parsed.propertyId)}** :`,
+      `✅ Address saved for listing **#${String(parsed.propertyId)}**:`,
       `**${dpe.address}**`,
       `_DPE ${dpe.numeroDpe}_`,
     ].join("\n")

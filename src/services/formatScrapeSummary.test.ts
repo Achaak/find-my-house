@@ -26,6 +26,6 @@ describe("formatScrapeSummary", () => {
 
     expect(summary).toContain("seloger");
     expect(summary).toContain("Access blocked");
-    expect(summary).toContain("1 scraper(s) en échec");
+    expect(summary).toContain("1 scraper(s) failed");
   });
 });

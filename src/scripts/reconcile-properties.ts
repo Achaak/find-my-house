@@ -229,7 +229,7 @@ async function main(): Promise<void> {
     const { merged, fuzzyMerged, unique, agencyFieldsUpdated } =
       await reconcileProperties(prisma);
     log.info(
-      `Réconciliation terminée : ${String(merged)} doublon(s) strict(s), ${String(fuzzyMerged)} doublon(s) fuzzy, ${String(unique)} bien(s) unique(s), ${String(agencyFieldsUpdated)} publication(s) agence mises à jour.`
+      `Reconciliation complete: ${String(merged)} strict duplicate(s), ${String(fuzzyMerged)} fuzzy duplicate(s), ${String(unique)} unique propert${unique === 1 ? "y" : "ies"}, ${String(agencyFieldsUpdated)} agency publication(s) updated.`
     );
   } finally {
     await disconnectPrisma();

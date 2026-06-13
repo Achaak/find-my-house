@@ -18,9 +18,7 @@ export class LogicImmoScraper implements Scraper {
   async scrape(options: ScraperOptions): Promise<Listing[]> {
     const place = await resolveLogicImmoPlace(options.city, options.postalCode);
     if (!place) {
-      throw new Error(
-        `Impossible de géolocaliser "${options.city}" sur Logic-Immo`
-      );
+      throw new Error(`Unable to geolocate "${options.city}" on Logic-Immo`);
     }
 
     const geoFilter = resolveGeoFilter(options, true);
