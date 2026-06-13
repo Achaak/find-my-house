@@ -1,5 +1,8 @@
 node_modules/
 dist/
+packages/api-types/dist/
+web/dist/
+.turbo/
 src/generated/
 data/
 .env.local

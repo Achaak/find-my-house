@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createTestRepository } from "../test/db.js";
 import { computePropertyKey } from "../utils/propertyKey.js";
-import { reconcileProperties } from "./reconcile-properties.js";
+import { reconcileProperties } from "./reconcileService.js";
 
 describe("reconcile-properties grouping", () => {
   it("groups properties with the same dedup key", () => {

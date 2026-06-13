@@ -1,4 +1,14 @@
-export type ListingSource = "bienici" | "seloger" | "leboncoin" | "logicimmo";
+import type {
+  ListingSearchFilters as ApiListingSearchFilters,
+  ListingSearchSort,
+  ListingSource,
+} from "@find-my-house/api-types";
+
+export type { ListingSource, ListingSearchSort };
+
+export type ListingSearchFilters = ApiListingSearchFilters & {
+  excludeReactedByUser?: string;
+};
 
 export type Listing = {
   externalId: string;
@@ -78,32 +88,6 @@ export type PropertyRow = {
   scrapedAt: string;
   createdAt: string;
   updatedAt: string;
-};
-
-export type ListingSearchSort =
-  | "price_asc"
-  | "price_desc"
-  | "date_desc"
-  | "surface_desc"
-  | "compat_desc";
-
-export type ListingSearchFilters = {
-  city?: string;
-  postalCode?: string;
-  text?: string;
-  source?: ListingSource;
-  minPrice?: number;
-  maxPrice?: number;
-  minSurface?: number;
-  minLandSurface?: number;
-  minRooms?: number;
-  minBedrooms?: number;
-  ancienOnly?: boolean;
-  neufOnly?: boolean;
-  maxTravelMinutes?: number;
-  sort?: ListingSearchSort;
-  limit?: number;
-  excludeReactedByUser?: string;
 };
 
 /** Shared listing filters across portal APIs. */

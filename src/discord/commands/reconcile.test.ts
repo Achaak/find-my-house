@@ -6,7 +6,7 @@ vi.mock("../auth.js", () => ({
   denyPrivilegedCommand: vi.fn(),
 }));
 
-vi.mock("../../scripts/reconcile-properties.js", () => ({
+vi.mock("../../services/reconcileService.js", () => ({
   reconcileProperties: vi.fn(() =>
     Promise.resolve({
       merged: 1,

@@ -1,5 +1,5 @@
 name: Find My House
-description: Discord bot and French real-estate listing scraper
+description: Discord bot, web UI and French real-estate listing scraper
 version: "2.4.1"
 slug: find_my_house
 url: https://github.com/Achaak/find-my-house
@@ -10,6 +10,11 @@ startup: application
 boot: auto
 init: false
 image: ghcr.io/achaak/find-my-house-{arch}
+ingress: true
+ingress_port: 8099
+ingress_entry: /
+panel_icon: mdi:home-search
+panel_title: Find My House
 options:
   discord_token: ""
   discord_client_id: ""
@@ -29,6 +34,8 @@ options:
   scrape_max_travel_minutes: ""
   scrape_max_pages: 20
   log_level: info
+  web_enabled: true
+  web_admin_users: ""
 schema:
   discord_token: password
   discord_client_id: str
@@ -48,3 +55,5 @@ schema:
   scrape_max_travel_minutes: int?
   scrape_max_pages: int?
   log_level: str?
+  web_enabled: bool?
+  web_admin_users: str?

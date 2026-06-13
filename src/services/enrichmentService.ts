@@ -131,8 +131,7 @@ async function enrichFromBienIci(
     return pickDefined(patch);
   }
 
-  const listingUrl = ad.url ?? publication.url;
-  const html = await fetchBienIciListingHtml(listingUrl);
+  const html = await fetchBienIciListingHtml(publication.url);
 
   return pickDefined({
     ...patch,

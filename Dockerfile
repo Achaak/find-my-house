@@ -13,16 +13,21 @@ ENV GIT_COMMIT=$GIT_COMMIT
 ENV DATABASE_URL=file:/data/listings.db
 ENV HUSKY=0
 
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+COPY packages/api-types/package.json ./packages/api-types/
+COPY packages/api-types/tsconfig.json ./packages/api-types/
+COPY web/package.json ./web/
 COPY prisma ./prisma
 COPY prisma.config.ts prisma.config.js prisma.config.d.ts tsconfig.json ./
 
 RUN pnpm install --frozen-lockfile
 
 COPY src ./src
+COPY packages/api-types ./packages/api-types
+COPY web ./web
 COPY home-assistant/run.sh /run.sh
 
-RUN pnpm run build && chmod +x /run.sh
+RUN pnpm run build:all && chmod +x /run.sh
 
 ENV NODE_ENV=production
 

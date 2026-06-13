@@ -89,6 +89,23 @@ async function main(): Promise<void> {
     scraperService,
     scrapeDefaults: scrapeOptions,
   });
+
+  const { startWebServer } = await import("./api/server.js");
+  startWebServer({
+    repository,
+    reactionRepository,
+    scraperService,
+    scrapeDefaults: scrapeOptions,
+    notifyScrapeResults: (result) =>
+      notifyScrapeResults(result, {
+        token: discord.token,
+        channelId: discord.channelId,
+        maxNotifications: discord.maxNotifications,
+        repository,
+        reactionRepository,
+        log: cronLog,
+      }),
+  });
 }
 
 main().catch(async (error: unknown) => {

@@ -20,8 +20,12 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm lint
+      - run: pnpm lint:all
 
       - run: pnpm format:check
 
-      - run: pnpm test
+      - run: pnpm typecheck:all
+
+      - run: pnpm test:all
+
+      - run: pnpm build:all

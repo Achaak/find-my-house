@@ -189,6 +189,19 @@ export class ReactionRepository {
     return { likes, dislikes };
   }
 
+  async getReaction(
+    discordUserId: string,
+    propertyId: number
+  ): Promise<{ type: ReactionType; archivedAt: Date | null } | null> {
+    const reaction = await this.prisma.listingReaction.findUnique({
+      where: {
+        discordUserId_propertyId: { discordUserId, propertyId },
+      },
+      select: { type: true, archivedAt: true },
+    });
+    return reaction ?? null;
+  }
+
   async countByUser(
     discordUserId: string,
     type: ReactionType,

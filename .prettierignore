@@ -1,5 +1,7 @@
 node_modules/
 dist/
+web/dist/
+web/src/routeTree.gen.ts
 src/generated/
 data/
 pnpm-lock.yaml

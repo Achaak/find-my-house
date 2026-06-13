@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "discord.js";
 import { scrapeConfig } from "../../config/scrape.js";
 import { getPrisma } from "../../db/prisma.js";
-import { reconcileProperties } from "../../scripts/reconcile-properties.js";
+import { reconcileProperties } from "../../services/reconcileService.js";
 import { canRunPrivilegedCommand, denyPrivilegedCommand } from "../auth.js";
 import type { CommandHandler } from "./types.js";
 

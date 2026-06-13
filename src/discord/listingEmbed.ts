@@ -1,41 +1,16 @@
-import type { ReactionRepository } from "../db/reactionRepository.js";
-import type { CompatibilityPreferences } from "../types/compatibility.js";
 import type { PropertyRow } from "../types/listing.js";
-import { learnCompatibilityPreferences } from "../utils/compatibility/learn.js";
-import { scorePropertyCompatibility } from "../utils/compatibility/score.js";
 import { formatListingEmbed, type ListingEmbed } from "./format.js";
+import {
+  getListingCompatibilityScore,
+  resolveListingCompatibilityPreferences,
+} from "../services/compatibilityService.js";
+import type { ReactionRepository } from "../db/reactionRepository.js";
 
-let cachedScope: string | null = null;
-let cachedPreferences: CompatibilityPreferences | null | undefined;
-
-export function resetListingCompatibilityCache(): void {
-  cachedScope = null;
-  cachedPreferences = undefined;
-}
-
-export async function resolveListingCompatibilityPreferences(
-  reactionRepository: ReactionRepository,
-  discordUserId?: string
-): Promise<CompatibilityPreferences | null> {
-  const scope = discordUserId ?? "global";
-  if (cachedPreferences !== undefined && cachedScope === scope) {
-    return cachedPreferences;
-  }
-
-  const { likes, dislikes } =
-    await reactionRepository.loadCompatibilityTrainingData(discordUserId);
-  cachedPreferences = learnCompatibilityPreferences(likes, dislikes);
-  cachedScope = scope;
-  return cachedPreferences;
-}
-
-export function getListingCompatibilityScore(
-  property: PropertyRow,
-  preferences: CompatibilityPreferences | null
-): number | undefined {
-  if (!preferences) return undefined;
-  return scorePropertyCompatibility(property, preferences)?.score;
-}
+export {
+  getListingCompatibilityScore,
+  resetListingCompatibilityCache,
+  resolveListingCompatibilityPreferences,
+} from "../services/compatibilityService.js";
 
 export async function formatListingEmbedWithCompatibility(
   property: PropertyRow,

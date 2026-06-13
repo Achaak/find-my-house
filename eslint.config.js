@@ -7,6 +7,8 @@ export default tseslint.config(
   {
     ignores: [
       "dist/",
+      "web/",
+      "packages/",
       "ha-addon-bundle/",
       "node_modules/",
       "src/generated/",

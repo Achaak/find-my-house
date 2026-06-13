@@ -8,7 +8,8 @@ Discord bot + French real-estate listing scraper, with SQLite storage and automa
 - Advanced filters: land area, rooms, bedrooms, old/new builds, radius in km or driving travel time
 - SQLite storage via Prisma 7 with uniqueness constraints (no duplicates)
 - Discord bot with slash commands and rich embeds (photo, price, surface area, link…)
-- **Like** / **Dislike** buttons on each listing, with per-Discord-user persisted favorites
+- **Web UI** (React + Vite) with the same features as Discord, accessible via **Home Assistant Ingress**
+- **Like** / **Dislike** buttons on each listing, with per-user persisted favorites (Discord or HA user)
 - New listing notifications in a Discord channel
 - Scheduled automatic scraping via cron
 
@@ -54,20 +55,43 @@ pnpm run db:migrate
 | `CLOAKBROWSER_PROXY`        | (Optional) Residential proxy URL for CloakBrowser                                                                                  |
 | `CLOAKBROWSER_GEOIP`        | (Optional) Match timezone/locale to proxy IP (default `true` when proxy is set)                                                    |
 
+Local dev only (`.env.local`, never used in the Home Assistant add-on):
+
+| Variable            | Description                                                                             |
+| ------------------- | --------------------------------------------------------------------------------------- |
+| `WEB_AUTH_DISABLED` | (Optional) `true` to skip auth when developing outside HA — **never use in production** |
+
 > **Discord migration**: replace the legacy `DISCORD_WEBHOOK_URL` variable with `DISCORD_CHANNEL_ID`. Notifications now go through the bot (REST API) instead of a webhook.
 
 ## Running
 
+Monorepo managed with **pnpm workspaces** and **Turborepo** (`find-my-house` backend + `web` frontend).
+
 ```bash
-# Development (hot reload)
+# Backend only (Discord bot + cron + API on :8099)
 pnpm run dev
+
+# Frontend only (Vite dev server, proxies /api → :8099)
+pnpm run dev:web
+
+# Backend + frontend in parallel
+pnpm run dev:all
 
 # Manual scrape (uses .env criteria; notifies Discord if DISCORD_CHANNEL_ID is set)
 pnpm run scrape
 
-# Production
-pnpm run build && pnpm start
+# Production build (backend + web)
+pnpm run build:all && pnpm start
+
+# Quality checks (backend + web)
+pnpm run lint:all
+pnpm run typecheck:all
+pnpm run test:all
 ```
+
+For local web dev outside Home Assistant, copy `web/.env.example` to `web/.env.local` and set `VITE_HA_TOKEN` to a [long-lived access token](https://developers.home-assistant.io/docs/auth_api/#long-lived-access-token), or set `WEB_AUTH_DISABLED=true` in `.env.local`.
+
+Open the web UI at `http://localhost:8099` when the backend is running (Docker Compose exposes port `8099`).
 
 ## Versioning
 
@@ -92,12 +116,24 @@ The Docker image is **pre-built on GitHub Actions** (GHCR) — the Pi downloads 
 2. Make the package **public**: GitHub → **Packages** → `find-my-house-aarch64` → **Package settings** → **Change visibility**
 3. **Settings → Apps → ⋮ → Repositories** → `https://github.com/Achaak/find-my-house`
 4. **Apps → Find My House → Install**
-5. **Configuration** tab: Discord token, scrape criteria, etc.
+5. **Configuration** tab: Discord token, scrape criteria, optional `web_admin_users`, etc.
 6. **Start** + **Start on boot**
+7. Open the panel from the sidebar: **Find My House** (Ingress — no extra port to expose)
 
 Variables are set through the HA UI (no `.env`). SQLite: persistent volume `/data/listings.db`.
 
-Add-on options mirror `.env` / `.env.local`, including `discord_admin_role_id`, `scrape_postal_code`, `scrape_max_pages`, and `log_level` (`debug`, `info`, `warn`, `error`).
+The web UI authenticates via your Home Assistant session (Ingress). Admin actions (scrape, reconcile) are available to HA admins/owners, or to usernames listed in `web_admin_users`.
+
+**Web UI options (Home Assistant add-on only — set in the add-on UI or `home-assistant/config.yaml`, not in `.env`):**
+
+| Option            | Description                                                             |
+| ----------------- | ----------------------------------------------------------------------- |
+| `web_enabled`     | Enable web UI + REST API (default `true`)                               |
+| `web_admin_users` | Comma-separated HA usernames allowed to scrape/reconcile via the web UI |
+
+Ingress is configured in `home-assistant/config.yaml` (`ingress_port: 8099`). Runtime env vars (`HOME_ASSISTANT_URL`, `WEB_PORT`, …) are injected by `home-assistant/run.sh`.
+
+Add-on scrape/Discord options mirror `.env` / `.env.local`, plus `web_enabled`, `web_admin_users`, and `log_level` (`debug`, `info`, `warn`, `error`).
 
 **Updates**: run `pnpm release:patch` (or `minor` / `major`) — release-it bumps, syncs `config.yaml`, pushes, and creates the GitHub release. Wait for the Actions build, then **Apps → Update** (or Rebuild → Restart).
 
@@ -137,6 +173,21 @@ docker compose up -d --build
 
 The **❤️ Like** and **👎 Dislike** buttons under each listing let you add or remove a reaction in one click (ephemeral reply, visible only to you). Clicking an already active button removes the reaction.
 
+## Web UI
+
+Same features as Discord, available in the browser:
+
+| Page                       | Discord equivalent       |
+| -------------------------- | ------------------------ |
+| Listings                   | `/listings`, `/listing`  |
+| Browse                     | `/browse`                |
+| Favorites / Dislikes       | `/like`, `/dislike`      |
+| Stats                      | `/stats`                 |
+| Admin                      | `/scraper`, `/reconcile` |
+| Listing detail → ADEME DPE | `/address`               |
+
+Authentication uses your **Home Assistant** identity (Ingress or long-lived token). Reactions are stored per HA user (`ha:username`), separate from Discord reactions.
+
 ## Deduplication
 
 The model separates the **property** (`properties`) from its per-portal **publications** (`listing_publications`):
@@ -151,30 +202,36 @@ After migrating from the legacy schema, run `pnpm run db:reconcile` to merge exi
 ## Architecture
 
 ```
-src/
-├── config/                # Env loading, Zod schema, scrape + Discord config
-├── db/                    # Prisma client, listing + reaction repositories
-├── types/                 # Domain types (listings, enrichment)
-├── utils/
-│   ├── browser/           # CloakBrowser client (in-page fetch + HTML scraping)
-│   ├── classifiedPortal/  # Shared SeLoger / Logic-Immo stack
-│   ├── bienici/           # Bien'ici client, place resolution, mapper
-│   ├── leboncoin/         # Leboncoin JSON search API + HTML detail parsing
-│   ├── seloger/           # SeLoger facade over classifiedPortal
-│   ├── logicimmo/         # Logic-Immo facade over classifiedPortal
-│   ├── geo/               # Coordinates, radius, travel-time filters
-│   ├── energy/            # DPE/GES classes, ADEME API, matching
-│   ├── errors/            # HTTP and invariant error helpers
-│   ├── http/              # got client (ADEME public API only)
-│   └── …                  # Shared helpers (logger, validation, …)
-├── scrapers/              # Modular scrapers (bienici, leboncoin, seloger, logicimmo)
-├── services/              # Scraping orchestration + enrichment
-├── scripts/               # CLI utilities (scrape-once, reconcile)
-├── discord/               # Bot, slash commands, embeds, buttons, notifications
-└── index.ts               # Entry point (bot + cron)
-home-assistant/            # Home Assistant add-on (config.yaml, run.sh)
-prisma/
-└── schema.prisma          # Schema (properties + listing_publications + listing_reactions)
+find-my-house/               # pnpm + Turborepo monorepo
+├── packages/
+│   └── api-types/           # Shared REST API types (backend ↔ web)
+├── src/
+│   ├── api/                 # Hono REST API + static web assets
+│   ├── config/              # Env loading, Zod schema, scrape + Discord + web config
+│   ├── db/                    # Prisma client, listing + reaction repositories
+│   ├── types/                 # Domain types (listings, enrichment)
+│   ├── utils/
+│   │   ├── browser/           # CloakBrowser client (in-page fetch + HTML scraping)
+│   │   ├── classifiedPortal/  # Shared SeLoger / Logic-Immo stack
+│   │   ├── bienici/           # Bien'ici client, place resolution, mapper
+│   │   ├── leboncoin/         # Leboncoin JSON search API + HTML detail parsing
+│   │   ├── seloger/           # SeLoger facade over classifiedPortal
+│   │   ├── logicimmo/         # Logic-Immo facade over classifiedPortal
+│   │   ├── geo/               # Coordinates, radius, travel-time filters
+│   │   ├── energy/            # DPE/GES classes, ADEME API, matching
+│   │   ├── errors/            # HTTP and invariant error helpers
+│   │   ├── http/              # got client (ADEME public API only)
+│   │   └── …                  # Shared helpers (logger, validation, …)
+│   ├── scrapers/              # Modular scrapers (bienici, leboncoin, seloger, logicimmo)
+│   ├── services/              # Scraping, enrichment, browse, reconcile, compatibility
+│   ├── scripts/               # CLI utilities (scrape-once, reconcile)
+│   ├── discord/               # Bot, slash commands, embeds, buttons, notifications
+│   └── index.ts               # Entry point (bot + cron + web server)
+├── web/                     # React + Vite + TanStack Router/Query + Tailwind + shadcn (Base UI)
+├── home-assistant/          # Home Assistant add-on (config.yaml, run.sh, Ingress)
+├── turbo.json
+├── prisma/
+│   └── schema.prisma        # Schema (properties + listing_publications + listing_reactions)
 ```
 
 ## Adding a scraper
