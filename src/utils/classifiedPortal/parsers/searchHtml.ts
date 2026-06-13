@@ -6,7 +6,10 @@ import type {
   ClassifiedUfrnPageProps,
 } from "../types.js";
 import { CLASSIFIED_PAGE_SIZE } from "../types.js";
-import { mapClassifiedDataToCard } from "./classifiedCard.js";
+import {
+  extractClassifiedGalleryPhotos,
+  mapClassifiedDataToCard,
+} from "./classifiedCard.js";
 import { parseEmbeddedWindowJson } from "./embeddedJson.js";
 import { describeClassifiedSearchHtmlFailure } from "./htmlDiagnostics.js";
 
@@ -24,11 +27,37 @@ function decodeInitialDataJson(encoded: string): ClassifiedSearchResponse {
   return JSON.parse(decoded) as ClassifiedSearchResponse;
 }
 
+function extractPhotosFromSearchCard(
+  card: ClassifiedCard
+): string[] | undefined {
+  if (card.photos?.length) return card.photos;
+
+  const withGallery = card as ClassifiedCard & {
+    gallery?: { images?: { url?: string }[] };
+    pictureUrl?: string;
+    imageUrl?: string;
+  };
+
+  const fromGallery = extractClassifiedGalleryPhotos(withGallery.gallery);
+  if (fromGallery?.length) return fromGallery;
+
+  const fallback = withGallery.pictureUrl ?? withGallery.imageUrl;
+  return fallback ? [fallback] : undefined;
+}
+
+function normalizeSearchCard(card: ClassifiedCard): ClassifiedCard {
+  const photos = extractPhotosFromSearchCard(card);
+  if (!photos?.length || photos === card.photos) return card;
+  return { ...card, photos };
+}
+
 function extractClassifiedCards(
   data: ClassifiedSearchResponse
 ): ClassifiedCard[] {
   return (
-    data.cards?.list?.filter((card) => card.cardType === "classified") ?? []
+    data.cards?.list
+      ?.filter((card) => card.cardType === "classified")
+      .map(normalizeSearchCard) ?? []
   );
 }
 
@@ -52,12 +81,15 @@ function parseUfrnFetcherHtml(html: string): {
   resultsPerPage: number;
 } | null {
   const fetcher = parseEmbeddedWindowJson("__UFRN_FETCHER__", html) as {
-    data?: Record<string, { pageProps?: ClassifiedUfrnPageProps }>;
+    data?: {
+      "classified-serp-init-data"?: { pageProps?: ClassifiedUfrnPageProps };
+    };
+    errors?: Record<string, unknown>;
   } | null;
 
   if (!fetcher?.data) return null;
 
-  const pageProps = fetcher.data["classified-serp-init-data"].pageProps;
+  const pageProps = fetcher.data["classified-serp-init-data"]?.pageProps;
   if (!pageProps) return null;
 
   const classifiedsData = pageProps.classifiedsData ?? {};

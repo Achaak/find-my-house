@@ -67,6 +67,20 @@ describe("discord/format", () => {
     expect(embed.image).toBeUndefined();
   });
 
+  it("preserves signed mms image urls for Discord embeds", () => {
+    const embed = formatListingEmbed(
+      makePropertyRow({
+        source: "logicimmo",
+        imageUrl:
+          "https://mms.logic-immo.com/2/9/a/4/photo.jpg?ci_seal=signed-token",
+      })
+    );
+
+    expect(embed.image?.url).toBe(
+      "https://mms.logic-immo.com/2/9/a/4/photo.jpg?ci_seal=signed-token"
+    );
+  });
+
   it("includes compatibility score when provided", () => {
     const embed = formatListingEmbed(makePropertyRow(), {
       compatibilityScore: 87,

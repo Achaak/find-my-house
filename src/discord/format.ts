@@ -1,4 +1,5 @@
 import type { ListingSource, PropertyRow } from "../types/listing.js";
+import { normalizeAvivImageUrl } from "../utils/classifiedPortal/helpers.js";
 import { formatEnergyClasses } from "../utils/energy/energyClass.js";
 import { formatCompatibilityLabel } from "../utils/compatibility/score.js";
 
@@ -331,7 +332,7 @@ export function formatListingEmbed(
     description: buildListingDescription(property),
     fields: buildListingFields(property, options?.compatibilityScore),
     image: isValidEmbedImageUrl(property.imageUrl)
-      ? { url: property.imageUrl }
+      ? { url: normalizeAvivImageUrl(property.imageUrl) }
       : undefined,
     footer: {
       text: truncate(

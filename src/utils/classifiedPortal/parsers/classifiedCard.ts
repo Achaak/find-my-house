@@ -5,15 +5,22 @@ import { parseClassifiedEnergyClassesFromText } from "./energyText.js";
 import { parseClassifiedLandSurface } from "./landSurface.js";
 import { applyClassifiedSearchMetadata } from "./searchMetadata.js";
 
+export function extractClassifiedGalleryPhotos(
+  gallery?: ClassifiedData["gallery"]
+): string[] | undefined {
+  const source = gallery?.reorderedImages ?? gallery?.images;
+  return source
+    ?.map((image) => image.url)
+    .filter((url): url is string => Boolean(url));
+}
+
 export function mapClassifiedDataToCard(
   data: ClassifiedData
 ): ClassifiedCard | null {
   const id = data.metadata?.legacyId ?? data.id;
   if (!id) return null;
 
-  const photos = data.gallery?.images
-    ?.map((image) => image.url)
-    .filter((url): url is string => Boolean(url));
+  const photos = extractClassifiedGalleryPhotos(data.gallery);
 
   const description = data.mainDescription?.description;
   const keyfacts = data.hardFacts?.keyfacts;

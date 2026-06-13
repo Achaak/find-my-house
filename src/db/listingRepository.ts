@@ -562,32 +562,27 @@ export class ListingRepository {
           toPropertyComparableData(property),
           listing
         );
-        const scrapedAtChanged =
-          existingPublication.scrapedAt.getTime() !== scrapedAt.getTime();
+        const needsReactivation = !existingPublication.isActive;
 
-        if (!existingPublication.isActive) {
+        if (needsReactivation) {
           publicationReactivateById.add(existingPublication.id);
         }
 
-        if (!propertyChanged && !scrapedAtChanged) {
+        publicationScrapedAtById.set(existingPublication.id, scrapedAt);
+
+        if (!propertyChanged && !needsReactivation) {
           result.skipped++;
           continue;
         }
 
         if (propertyChanged) {
           propertyUpdatesById.set(property.id, listing);
-        }
-        if (scrapedAtChanged) {
-          publicationScrapedAtById.set(existingPublication.id, scrapedAt);
+          if (isPriceDrop(property.price, listing.price, property.firstPrice)) {
+            priceDropPropertyIds.add(property.id);
+          }
         }
 
         result.updated++;
-        if (
-          propertyChanged &&
-          isPriceDrop(property.price, listing.price, property.firstPrice)
-        ) {
-          priceDropPropertyIds.add(property.id);
-        }
         continue;
       }
 

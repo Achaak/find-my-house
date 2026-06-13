@@ -6,6 +6,7 @@ import type {
   PublicationRow,
 } from "../types/listing.js";
 import { formatSourceLabel } from "../discord/format.js";
+import { classifiedImageNeedsRefresh } from "../utils/classifiedPortal/helpers.js";
 import {
   fetchBienIciAdById,
   mapBienIciAdToEnrichmentPatch,
@@ -64,7 +65,8 @@ export function propertyNeedsEnrichment(
     missingEnergy ||
     property.landSurface === null ||
     property.description === null ||
-    (hasHtmlPortalPublication && missingCoords)
+    (hasHtmlPortalPublication && missingCoords) ||
+    (hasHtmlPortalPublication && classifiedImageNeedsRefresh(property.imageUrl))
   );
 }
 
@@ -104,6 +106,7 @@ async function enrichFromSeLoger(
     propertyCondition: details.propertyCondition,
     parkingSpaces: details.parkingSpaces,
     highlights: details.highlights,
+    imageUrl: details.imageUrl,
   });
 }
 
@@ -148,6 +151,7 @@ async function enrichFromLogicImmo(
     propertyCondition: details.propertyCondition,
     parkingSpaces: details.parkingSpaces,
     highlights: details.highlights,
+    imageUrl: details.imageUrl,
   });
 }
 

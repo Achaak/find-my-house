@@ -132,6 +132,21 @@ describe("ListingRepository.upsertMany", () => {
     expect(secondRun.inserted).toBe(0);
   });
 
+  it("skips unchanged listings even when scrapedAt differs", async () => {
+    const listing = makeListing({
+      externalId: "batch-scraped-at",
+      url: "https://www.bienici.com/annonce/batch-scraped-at",
+    });
+
+    await repository.upsertMany([listing]);
+    const secondRun = await repository.upsertMany([
+      { ...listing, scrapedAt: "2026-06-13T12:00:00.000Z" },
+    ]);
+
+    expect(secondRun.skipped).toBe(1);
+    expect(secondRun.updated).toBe(0);
+  });
+
   it("handles batches larger than SQLite bind-parameter limit", async () => {
     const listings = Array.from({ length: 400 }, (_, index) =>
       makeListing({
@@ -342,7 +357,7 @@ describe("ListingRepository.deactivateMissingPublications", () => {
 
     const second = await repository.upsert(listing);
 
-    expect(second.status).toBe("skipped");
+    expect(second.status).toBe("updated");
     expect(second.row?.publications).toEqual([
       expect.objectContaining({ externalId: "lbc-back", isActive: true }),
     ]);

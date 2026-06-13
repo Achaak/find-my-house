@@ -43,11 +43,41 @@ export function buildClassifiedListingUrl(
   return `${portal.baseUrl}${card.classifiedURL}`;
 }
 
+/** Fallback MMS host when only a relative photo path is available. */
+export const AVIV_MMS_BASE_URL = "https://mms.seloger.com";
+
+export function classifiedImageNeedsRefresh(
+  imageUrl: string | null | undefined
+): boolean {
+  if (!imageUrl) return true;
+  if (imageUrl.includes("v.seloger.com/s/width/")) return true;
+
+  try {
+    const { hostname, search } = new URL(imageUrl);
+    if (
+      (hostname === "mms.logic-immo.com" || hostname === "mms.seloger.com") &&
+      !search.includes("ci_seal=")
+    ) {
+      return true;
+    }
+  } catch {
+    return true;
+  }
+
+  return false;
+}
+
+export function normalizeAvivImageUrl(imageUrl: string): string {
+  return imageUrl;
+}
+
 export function buildClassifiedImageUrl(
   portal: ClassifiedPortalConfig,
   photoPath?: string
 ): string | null {
   if (!photoPath) return null;
   if (photoPath.startsWith("http")) return photoPath;
-  return `${portal.imageBaseUrl}${photoPath}`;
+
+  const path = photoPath.startsWith("/") ? photoPath : `/${photoPath}`;
+  return `${portal.imageBaseUrl}${path}`;
 }

@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   applySeLogerSearchMetadata,
+  describeSeLogerSearchHtmlFailure,
   extractSeLogerCoordsFromClassifiedData,
   parseSeLogerCoordinatesFromHtml,
   parseSeLogerDetailEnergy,
@@ -11,7 +12,6 @@ import {
   parseSeLogerSearchHtml,
   type SeLogerClassifiedCard,
 } from "./index.js";
-import { describeSeLogerSearchHtmlFailure } from "./parsers/htmlDiagnostics.js";
 
 const fixturesDir = join(dirname(fileURLToPath(import.meta.url)), "fixtures");
 
@@ -95,6 +95,12 @@ describe("describeSeLogerSearchHtmlFailure", () => {
     ).toContain("504");
   });
 
+  it("describes shell pages with the generic SeLoger title", () => {
+    expect(
+      describeSeLogerSearchHtmlFailure("<html><title>SeLoger</title></html>")
+    ).toContain("page coquille");
+  });
+
   it("includes the page title when present", () => {
     expect(
       describeSeLogerSearchHtmlFailure("<html><title>Just a moment</title>")
@@ -107,6 +113,16 @@ describe("parseSeLogerSearchHtml", () => {
     expect(() =>
       parseSeLogerSearchHtml("<html><title>Blocked</title></html>")
     ).toThrowError(/Blocked/);
+  });
+
+  it("throws a descriptive error when UFRN has no search payload", () => {
+    expect(() =>
+      parseSeLogerSearchHtml(`
+        <html><title>SeLoger</title>
+        <script id="__UFRN_FETCHER__">window["__UFRN_FETCHER__"]=JSON.parse("{\\"data\\":{},\\"errors\\":{}}");</script>
+        </html>
+      `)
+    ).toThrowError(/page coquille/);
   });
 
   it("parses listings from embedded initialData JSON", () => {

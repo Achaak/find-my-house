@@ -16,6 +16,8 @@ export {
   parseClassifiedRooms,
   buildClassifiedListingUrl,
   buildClassifiedImageUrl,
+  classifiedImageNeedsRefresh,
+  normalizeAvivImageUrl,
 } from "./helpers.js";
 export {
   resolveClassifiedPlace,
@@ -36,6 +38,7 @@ export {
   parseClassifiedCoordinatesFromHtml,
 } from "./parsers/coordinates.js";
 export { describeClassifiedSearchHtmlFailure } from "./parsers/htmlDiagnostics.js";
+export { isIncompleteClassifiedSearchHtml } from "./parsers/htmlDiagnostics.js";
 
 export type {
   ClassifiedPortalId,

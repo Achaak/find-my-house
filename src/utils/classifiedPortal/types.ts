@@ -84,7 +84,10 @@ export type ClassifiedData = {
     coordinates?: ClassifiedGeoCoordinates;
     geo?: ClassifiedGeoCoordinates;
   };
-  gallery?: { images?: { url?: string }[] };
+  gallery?: {
+    images?: { url?: string; classification?: { name?: string } }[];
+    reorderedImages?: { url?: string; classification?: { name?: string } }[];
+  };
   mainDescription?: { description?: string };
   rawData?: {
     price?: number;
@@ -120,6 +123,7 @@ export type ClassifiedListingDetails = ClassifiedEnergyDetails & {
   rooms: number | null;
   latitude: number | null;
   longitude: number | null;
+  imageUrl: string | null;
   bathrooms: number | null;
   constructionYear: number | null;
   heating: string | null;

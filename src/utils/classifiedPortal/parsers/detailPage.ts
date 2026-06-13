@@ -12,6 +12,7 @@ import {
 } from "./coordinates.js";
 import { parseEmbeddedWindowJson } from "./embeddedJson.js";
 import { parseClassifiedDetailEnergy } from "./detailEnergy.js";
+import { parseClassifiedOgImageFromHtml } from "./ogImage.js";
 
 function extractClassifiedDataFromDetailHtml(
   html: string
@@ -55,6 +56,7 @@ export function parseClassifiedDetailPage(
     landSurface: parseClassifiedLandSurface(text),
     latitude: coords?.lat ?? null,
     longitude: coords?.lng ?? null,
+    imageUrl: parseClassifiedOgImageFromHtml(html) ?? card?.photos?.[0] ?? null,
     bathrooms: extras?.bathrooms ?? null,
     constructionYear:
       extras?.constructionYear ?? parseConstructionYearFromText(text),
