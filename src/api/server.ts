@@ -41,6 +41,7 @@ export function startWebServer(ctx: ApiContext): void {
       const html = prepareIndexHtml(indexTemplate, getIngressPath(c.req.raw));
 
       c.header("Cache-Control", "no-store, no-cache, must-revalidate");
+      c.header("Referrer-Policy", "strict-origin-when-cross-origin");
       return c.html(html);
     });
   } else {
