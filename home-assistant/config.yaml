@@ -1,6 +1,6 @@
 name: Find My House
 description: Discord bot, web UI and French real-estate listing scraper
-version: "3.0.1"
+version: "3.0.2"
 slug: find_my_house
 url: https://github.com/Achaak/find-my-house
 arch:
