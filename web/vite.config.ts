@@ -5,6 +5,8 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  // Relative asset URLs so the build works behind Home Assistant Ingress.
+  base: "./",
   plugins: [
     tanstackRouter({ target: "react", autoCodeSplitting: true }),
     react(),

@@ -1,3 +1,5 @@
+import { withBasePath } from "./base-path";
+
 const TOKEN_STORAGE_KEY = "find-my-house.ha-token";
 
 export function getHaToken(): string | null {
@@ -38,7 +40,7 @@ export async function apiFetch<T>(
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const response = await fetch(path, { ...init, headers });
+  const response = await fetch(withBasePath(path), { ...init, headers });
 
   if (!response.ok) {
     let message = response.statusText;
