@@ -79,6 +79,9 @@ if [ -z "$(ls -A /data/cloakbrowser-cache 2>/dev/null)" ] \
 fi
 
 # Drop orphan Chromium processes and stale locks after an unclean shutdown.
+echo "[run] Stopping orphan CloakBrowser processes..."
+pkill -f "/data/cloakbrowser-profile" 2>/dev/null || true
+sleep 2
 if [ -d /data/cloakbrowser-profile ]; then
   for lock in SingletonLock SingletonSocket SingletonCookie; do
     fuser -k "/data/cloakbrowser-profile/${lock}" 2>/dev/null || true

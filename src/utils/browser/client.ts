@@ -8,6 +8,7 @@ import {
   backupAndRecreateProfile,
   clearStaleProfileLocks,
   isBrowserProfileInUseError,
+  killBrowsersUsingProfile,
   PROFILE_LOCK_MAX_ATTEMPTS,
   PROFILE_LOCK_RETRY_BASE_MS,
   sleep,
@@ -53,8 +54,19 @@ const humanize = browserConfig.browser.humanize;
 const proxy = browserConfig.browser.proxy;
 const geoip = browserConfig.browser.geoip;
 
+function isHomeAssistantRuntime(): boolean {
+  const dbUrl = process.env.DATABASE_URL;
+  return (
+    dbUrl?.startsWith("file:/data/") === true ||
+    dbUrl?.startsWith("file:///data/") === true
+  );
+}
+
 function buildLaunchArgs(): string[] {
   const args: string[] = [];
+  if (isHomeAssistantRuntime()) {
+    args.push("--no-sandbox", "--disable-dev-shm-usage");
+  }
   const fingerprint = browserConfig.browser.fingerprint;
   if (fingerprint && /^\d+$/.test(fingerprint)) {
     args.push(`--fingerprint=${fingerprint}`);
@@ -227,6 +239,7 @@ async function initBrowserContext(): Promise<BrowserContext> {
     try {
       return await launchBrowserContext();
     } catch (error) {
+      killBrowsersUsingProfile(profileDir);
       return recoverBrowserContext(error, generation);
     }
   });

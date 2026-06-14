@@ -20,6 +20,12 @@ export function sleep(ms: number): Promise<void> {
 export function killBrowsersUsingProfile(profileDir: string): void {
   if (process.platform !== "linux") return;
 
+  try {
+    execFileSync("pkill", ["-f", profileDir], { stdio: "ignore" });
+  } catch {
+    // pkill exits 1 when no process matches the profile path
+  }
+
   for (const name of PROFILE_LOCK_FILES) {
     const lockPath = join(profileDir, name);
     if (!existsSync(lockPath)) continue;
