@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   backupAndRecreateProfile,
   isBrowserProfileInUseError,
+  killBrowsersUsingProfile,
   PROFILE_LOCK_MAX_ATTEMPTS,
   PROFILE_LOCK_RETRY_BASE_MS,
 } from "./profileLock.js";
@@ -57,5 +58,14 @@ describe("backupAndRecreateProfile", () => {
     expect(existsSync(profileDir)).toBe(true);
     expect(backupDir).toBeNull();
     rmSync(root, { recursive: true, force: true });
+  });
+});
+
+describe("killBrowsersUsingProfile", () => {
+  it("is a no-op on non-linux platforms", () => {
+    if (process.platform === "linux") return;
+    expect(() => {
+      killBrowsersUsingProfile("/tmp/cloak-profile");
+    }).not.toThrow();
   });
 });

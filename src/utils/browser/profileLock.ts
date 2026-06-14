@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, renameSync, rmSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 
@@ -15,8 +16,25 @@ export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** Kill orphan Chromium processes still holding the profile (Linux containers only). */
+export function killBrowsersUsingProfile(profileDir: string): void {
+  if (process.platform !== "linux") return;
+
+  for (const name of PROFILE_LOCK_FILES) {
+    const lockPath = join(profileDir, name);
+    if (!existsSync(lockPath)) continue;
+    try {
+      execFileSync("fuser", ["-k", lockPath], { stdio: "ignore" });
+    } catch {
+      // fuser exits 1 when no process holds the lock
+    }
+  }
+}
+
 /** Remove stale Chromium profile locks (safe when no browser uses the profile). */
 export function clearStaleProfileLocks(profileDir: string): void {
+  killBrowsersUsingProfile(profileDir);
+
   for (const name of PROFILE_LOCK_FILES) {
     try {
       unlinkSync(join(profileDir, name));
@@ -28,6 +46,15 @@ export function clearStaleProfileLocks(profileDir: string): void {
 
 /** Move a broken profile aside and recreate an empty directory. */
 export function backupAndRecreateProfile(profileDir: string): string | null {
+  killBrowsersUsingProfile(profileDir);
+  for (const name of PROFILE_LOCK_FILES) {
+    try {
+      unlinkSync(join(profileDir, name));
+    } catch {
+      // ignore missing locks
+    }
+  }
+
   if (!existsSync(profileDir)) {
     mkdirSync(profileDir, { recursive: true });
     return null;

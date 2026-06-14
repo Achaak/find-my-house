@@ -78,9 +78,10 @@ if [ -z "$(ls -A /data/cloakbrowser-cache 2>/dev/null)" ] \
   cp -a /opt/cloakbrowser/. /data/cloakbrowser-cache/
 fi
 
-# Drop stale Chromium locks after an unclean shutdown (safe when no browser is running).
+# Drop orphan Chromium processes and stale locks after an unclean shutdown.
 if [ -d /data/cloakbrowser-profile ]; then
   for lock in SingletonLock SingletonSocket SingletonCookie; do
+    fuser -k "/data/cloakbrowser-profile/${lock}" 2>/dev/null || true
     rm -f "/data/cloakbrowser-profile/${lock}" 2>/dev/null || true
   done
 fi

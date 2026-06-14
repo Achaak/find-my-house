@@ -68,6 +68,7 @@ function buildLaunchArgs(): string[] {
 
 let contextPromise: Promise<BrowserContext> | null = null;
 let launchQueue: Promise<void> = Promise.resolve();
+let initGeneration = 0;
 const warmedUpOrigins = new Set<string>();
 
 export type BrowserReadinessStatus = "idle" | "starting" | "ready" | "error";
@@ -158,7 +159,10 @@ async function launchBrowserContext(
   });
 }
 
-async function recoverBrowserContext(error: unknown): Promise<BrowserContext> {
+async function recoverBrowserContext(
+  error: unknown,
+  generation: number
+): Promise<BrowserContext> {
   if (!headless && isBrowserProfileInUseError(error)) {
     log.warn(
       "CloakBrowser profile unavailable in headed mode — retrying headless."
@@ -175,8 +179,15 @@ async function recoverBrowserContext(error: unknown): Promise<BrowserContext> {
   }
 
   for (let attempt = 1; attempt <= PROFILE_LOCK_MAX_ATTEMPTS; attempt++) {
+    if (generation !== initGeneration) {
+      throw new Error("Browser initialization cancelled");
+    }
+
     if (attempt > 1) {
       await sleep(attempt * PROFILE_LOCK_RETRY_BASE_MS);
+      if (generation !== initGeneration) {
+        throw new Error("Browser initialization cancelled");
+      }
     }
 
     clearStaleProfileLocks(profileDir);
@@ -211,11 +222,12 @@ async function recoverBrowserContext(error: unknown): Promise<BrowserContext> {
 }
 
 async function initBrowserContext(): Promise<BrowserContext> {
+  const generation = initGeneration;
   return withLaunchLock(async () => {
     try {
       return await launchBrowserContext();
     } catch (error) {
-      return recoverBrowserContext(error);
+      return recoverBrowserContext(error, generation);
     }
   });
 }
@@ -658,21 +670,23 @@ export async function clearBrowserCookiesForHost(
 }
 
 export async function closeBrowserContext(): Promise<void> {
-  if (!contextPromise) return;
+  initGeneration++;
+  warmedUpOrigins.clear();
 
   const pending = contextPromise;
   contextPromise = null;
-  warmedUpOrigins.clear();
 
-  try {
-    const context = await pending;
-    await context.close();
-  } catch (error) {
-    log.warn(
-      "CloakBrowser shutdown ignored:",
-      error instanceof Error ? error.message : error
-    );
-  } finally {
-    clearStaleProfileLocks(profileDir);
+  if (pending) {
+    try {
+      const context = await pending;
+      await context.close();
+    } catch (error) {
+      log.warn(
+        "CloakBrowser shutdown ignored:",
+        error instanceof Error ? error.message : error
+      );
+    }
   }
+
+  clearStaleProfileLocks(profileDir);
 }
