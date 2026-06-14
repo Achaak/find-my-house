@@ -10,6 +10,7 @@ import type {
 import { createLogger } from "../utils/logger.js";
 import { validateListings } from "../utils/listingValidation.js";
 import { resolveScraperGeoFilterLabel } from "../utils/geo/geoFilter.js";
+import { ensureBrowserReady } from "../utils/browser/client.js";
 
 export type ScrapeOptions = ScrapeFilters;
 
@@ -45,6 +46,8 @@ export class ScraperService {
     const allListings: Listing[] = [];
     const scrapedBySource = new Map<ListingSource, Listing[]>();
     const errors: ScraperError[] = [];
+
+    await ensureBrowserReady();
 
     await Promise.all(
       this.scrapers.map(async (scraper) => {

@@ -4,6 +4,10 @@ import { makeListing } from "../test/listingFixtures.js";
 import type { Scraper } from "../scrapers/types.js";
 import { ScraperService } from "./scraperService.js";
 
+vi.mock("../utils/browser/client.js", () => ({
+  ensureBrowserReady: vi.fn().mockResolvedValue(undefined),
+}));
+
 function mockScraper(
   name: Scraper["name"],
   listings: ReturnType<typeof makeListing>[] | Error

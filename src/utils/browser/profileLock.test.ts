@@ -19,6 +19,13 @@ describe("isBrowserProfileInUseError", () => {
         new Error("Ouverture dans une session de navigateur existante.")
       )
     ).toBe(true);
+    expect(
+      isBrowserProfileInUseError(
+        new Error(
+          "CloakBrowser: profile already in use (/data/cloakbrowser-profile)."
+        )
+      )
+    ).toBe(true);
   });
 
   it("ignores unrelated errors", () => {

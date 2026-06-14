@@ -3,6 +3,10 @@ import { join } from "node:path";
 
 const LOCK_FILES = ["SingletonLock", "SingletonSocket", "SingletonCookie"];
 
+export function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /** Remove stale Chromium profile locks (safe when no browser uses the profile). */
 export function clearStaleProfileLocks(profileDir: string): void {
   for (const name of LOCK_FILES) {
@@ -40,6 +44,9 @@ export function isBrowserProfileInUseError(error: unknown): boolean {
     message.includes("browser has been closed") ||
     message.includes("session de navigateur existante") ||
     message.includes("existing browser session") ||
-    message.includes("process_singleton")
+    message.includes("process_singleton") ||
+    message.includes("profile already in use") ||
+    message.includes("user data directory") ||
+    message.includes("singleton")
   );
 }

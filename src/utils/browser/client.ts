@@ -8,9 +8,18 @@ import {
   backupAndRecreateProfile,
   clearStaleProfileLocks,
   isBrowserProfileInUseError,
+  sleep,
 } from "./profileLock.js";
 
 const log = createLogger("browser");
+
+function resolveDefaultProfileDir(): string {
+  const dbUrl = process.env.DATABASE_URL;
+  if (dbUrl?.startsWith("file:/data/") || dbUrl?.startsWith("file:///data/")) {
+    return "/data/cloakbrowser-profile";
+  }
+  return join(process.cwd(), "data", "cloakbrowser-profile");
+}
 
 export class BrowserHttpError extends Error {
   readonly statusCode: number;
@@ -35,8 +44,7 @@ export class BrowserProfileInUseError extends Error {
 }
 
 const profileDir =
-  browserConfig.browser.profileDir ??
-  join(process.cwd(), "data", "cloakbrowser-profile");
+  browserConfig.browser.profileDir ?? resolveDefaultProfileDir();
 
 const headless = browserConfig.browser.headless;
 const humanize = browserConfig.browser.humanize;
@@ -57,7 +65,25 @@ function buildLaunchArgs(): string[] {
 }
 
 let contextPromise: Promise<BrowserContext> | null = null;
+let launchQueue: Promise<void> = Promise.resolve();
 const warmedUpOrigins = new Set<string>();
+
+mkdirSync(profileDir, { recursive: true });
+clearStaleProfileLocks(profileDir);
+
+async function withLaunchLock<T>(operation: () => Promise<T>): Promise<T> {
+  let release!: () => void;
+  const previous = launchQueue;
+  launchQueue = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await previous;
+  try {
+    return await operation();
+  } finally {
+    release();
+  }
+}
 
 async function launchBrowserContext(
   useHeadless = headless
@@ -95,31 +121,69 @@ async function recoverBrowserContext(error: unknown): Promise<BrowserContext> {
     }
   }
 
-  if (isBrowserProfileInUseError(error)) {
-    const backupDir = backupAndRecreateProfile(profileDir);
-    log.warn(
-      backupDir
-        ? `CloakBrowser profile corrupted or locked — recreated (backup: ${backupDir})`
-        : "CloakBrowser profile recreated"
-    );
-    return launchBrowserContext(true);
+  if (!isBrowserProfileInUseError(error)) {
+    throw error;
+  }
+
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    if (attempt > 1) {
+      await sleep(attempt * 1_000);
+    }
+
+    clearStaleProfileLocks(profileDir);
+
+    if (attempt === maxAttempts) {
+      const backupDir = backupAndRecreateProfile(profileDir);
+      log.warn(
+        backupDir
+          ? `CloakBrowser profile corrupted or locked — recreated (backup: ${backupDir})`
+          : "CloakBrowser profile recreated"
+      );
+    }
+
+    try {
+      return await launchBrowserContext(true);
+    } catch (retryError) {
+      error = retryError;
+      if (attempt < maxAttempts && isBrowserProfileInUseError(retryError)) {
+        log.warn(
+          `CloakBrowser profile still locked (attempt ${String(attempt)}/${String(maxAttempts)}) — retrying...`
+        );
+        continue;
+      }
+      throw retryError;
+    }
   }
 
   throw error;
 }
 
+async function initBrowserContext(): Promise<BrowserContext> {
+  return withLaunchLock(async () => {
+    try {
+      return await launchBrowserContext();
+    } catch (error) {
+      return recoverBrowserContext(error);
+    }
+  });
+}
+
 async function getBrowserContext(): Promise<BrowserContext> {
-  contextPromise ??= launchBrowserContext()
-    .catch((error: unknown) => recoverBrowserContext(error))
-    .catch((error: unknown) => {
-      contextPromise = null;
-      if (isBrowserProfileInUseError(error)) {
-        throw new BrowserProfileInUseError(profileDir);
-      }
-      throw error;
-    });
+  contextPromise ??= initBrowserContext().catch((error: unknown) => {
+    contextPromise = null;
+    if (isBrowserProfileInUseError(error)) {
+      throw new BrowserProfileInUseError(profileDir);
+    }
+    throw error;
+  });
 
   return contextPromise;
+}
+
+/** Launch the shared browser before parallel scrapers start. */
+export async function ensureBrowserReady(): Promise<void> {
+  await getBrowserContext();
 }
 
 function buildUrl(url: string, searchParams?: Record<string, string>): string {
