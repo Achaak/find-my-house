@@ -58,12 +58,29 @@ function resolveAdmin(
   return false;
 }
 
-function userFromIngress(forwardedUser: string): ApiUser {
-  const username = forwardedUser.trim();
+/** HA Supervisor ingress user headers (supervisor/const.py). */
+export function getIngressUsername(request: Request): string | null {
+  const name = request.headers.get("X-Remote-User-Name")?.trim();
+  if (name) return name;
+
+  const displayName = request.headers.get("X-Remote-User-Display-Name")?.trim();
+  if (displayName) return displayName;
+
+  const legacy = request.headers.get("X-Forwarded-User")?.trim();
+  if (legacy) return legacy;
+
+  const userId = request.headers.get("X-Remote-User-Id")?.trim();
+  if (userId) return userId;
+
+  return null;
+}
+
+function userFromIngress(username: string): ApiUser {
+  const normalized = username.trim();
   return {
-    id: `ha:${username.toLowerCase()}`,
-    username,
-    isAdmin: resolveAdmin(username),
+    id: `ha:${normalized.toLowerCase()}`,
+    username: normalized,
+    isAdmin: resolveAdmin(normalized),
   };
 }
 
@@ -86,8 +103,8 @@ export async function resolveApiUser(
     };
   }
 
-  const forwardedUser = request.headers.get("X-Forwarded-User");
-  if (forwardedUser) {
+  const ingressUser = getIngressUsername(request);
+  if (ingressUser) {
     const bearer = request.headers
       .get("Authorization")
       ?.replace(/^Bearer\s+/i, "");
@@ -98,7 +115,7 @@ export async function resolveApiUser(
       }
     }
 
-    return userFromIngress(forwardedUser);
+    return userFromIngress(ingressUser);
   }
 
   const bearer = request.headers
