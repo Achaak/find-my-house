@@ -7,9 +7,13 @@ import {
 } from "discord.js";
 import type { ListingRepository } from "../db/listingRepository.js";
 import type { ReactionRepository } from "../db/reactionRepository.js";
-import type { CompatibilityPreferences } from "../types/compatibility.js";
-import type { ListingSearchFilters, PropertyRow } from "../types/listing.js";
-import { pickBrowseListing } from "../utils/compatibility/pickBrowseListing.js";
+import {
+  clearBrowseSession,
+  getBrowseSession,
+  pickNextBrowseListing,
+  startBrowseSession,
+  type BrowseSession,
+} from "../services/browseSession.js";
 import {
   formatListingEmbedWithCompatibility,
   resetListingCompatibilityCache,
@@ -19,30 +23,6 @@ import {
 const LIKE_PREFIX = "browse:like:";
 const DISLIKE_PREFIX = "browse:dislike:";
 const STOP_PREFIX = "browse:stop";
-
-export type BrowseSession = {
-  filters: ListingSearchFilters;
-  shownCount: number;
-};
-
-const sessions = new Map<string, BrowseSession>();
-
-export function startBrowseSession(
-  discordUserId: string,
-  filters: ListingSearchFilters
-): void {
-  sessions.set(discordUserId, { filters, shownCount: 0 });
-}
-
-export function clearBrowseSession(discordUserId: string): void {
-  sessions.delete(discordUserId);
-}
-
-export function getBrowseSession(
-  discordUserId: string
-): BrowseSession | undefined {
-  return sessions.get(discordUserId);
-}
 
 export function buildBrowseActionRow(propertyId: number) {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -78,53 +58,6 @@ function browseHeader(options: {
   }
 
   return parts.join("\n");
-}
-
-async function loadBrowseCandidates(
-  repository: ListingRepository,
-  discordUserId: string,
-  filters: ListingSearchFilters
-): Promise<PropertyRow[]> {
-  return repository.search({
-    ...filters,
-    excludeReactedByUser: discordUserId,
-    limit: 100,
-    sort: "date_desc",
-  });
-}
-
-export async function pickNextBrowseListing(
-  repository: ListingRepository,
-  reactionRepository: ReactionRepository,
-  discordUserId: string,
-  session: BrowseSession,
-  preferences?: CompatibilityPreferences | null
-): Promise<{
-  property: PropertyRow;
-  isExplore: boolean;
-} | null> {
-  const resolvedPreferences =
-    preferences ??
-    (await resolveListingCompatibilityPreferences(
-      reactionRepository,
-      discordUserId
-    ));
-
-  const candidates = await loadBrowseCandidates(
-    repository,
-    discordUserId,
-    session.filters
-  );
-  const pick = pickBrowseListing(
-    candidates,
-    resolvedPreferences,
-    session.shownCount
-  );
-
-  if (!pick) return null;
-
-  session.shownCount += 1;
-  return pick;
 }
 
 export async function buildBrowseReply(
@@ -265,3 +198,5 @@ export async function handleBrowseButton(
   await interaction.editReply(next);
   return true;
 }
+
+export { clearBrowseSession, getBrowseSession, startBrowseSession };

@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as StatsRouteImport } from './routes/stats'
+import { Route as HelpRouteImport } from './routes/help'
 import { Route as FavoritesRouteImport } from './routes/favorites'
 import { Route as DislikesRouteImport } from './routes/dislikes'
 import { Route as BrowseRouteImport } from './routes/browse'
@@ -21,6 +22,11 @@ import { Route as ListingsIdRouteImport } from './routes/listings/$id'
 const StatsRoute = StatsRouteImport.update({
   id: '/stats',
   path: '/stats',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HelpRoute = HelpRouteImport.update({
+  id: '/help',
+  path: '/help',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FavoritesRoute = FavoritesRouteImport.update({
@@ -65,6 +71,7 @@ export interface FileRoutesByFullPath {
   '/browse': typeof BrowseRoute
   '/dislikes': typeof DislikesRoute
   '/favorites': typeof FavoritesRoute
+  '/help': typeof HelpRoute
   '/stats': typeof StatsRoute
   '/listings/$id': typeof ListingsIdRoute
   '/listings/': typeof ListingsIndexRoute
@@ -75,6 +82,7 @@ export interface FileRoutesByTo {
   '/browse': typeof BrowseRoute
   '/dislikes': typeof DislikesRoute
   '/favorites': typeof FavoritesRoute
+  '/help': typeof HelpRoute
   '/stats': typeof StatsRoute
   '/listings/$id': typeof ListingsIdRoute
   '/listings': typeof ListingsIndexRoute
@@ -86,6 +94,7 @@ export interface FileRoutesById {
   '/browse': typeof BrowseRoute
   '/dislikes': typeof DislikesRoute
   '/favorites': typeof FavoritesRoute
+  '/help': typeof HelpRoute
   '/stats': typeof StatsRoute
   '/listings/$id': typeof ListingsIdRoute
   '/listings/': typeof ListingsIndexRoute
@@ -98,6 +107,7 @@ export interface FileRouteTypes {
     | '/browse'
     | '/dislikes'
     | '/favorites'
+    | '/help'
     | '/stats'
     | '/listings/$id'
     | '/listings/'
@@ -108,6 +118,7 @@ export interface FileRouteTypes {
     | '/browse'
     | '/dislikes'
     | '/favorites'
+    | '/help'
     | '/stats'
     | '/listings/$id'
     | '/listings'
@@ -118,6 +129,7 @@ export interface FileRouteTypes {
     | '/browse'
     | '/dislikes'
     | '/favorites'
+    | '/help'
     | '/stats'
     | '/listings/$id'
     | '/listings/'
@@ -129,6 +141,7 @@ export interface RootRouteChildren {
   BrowseRoute: typeof BrowseRoute
   DislikesRoute: typeof DislikesRoute
   FavoritesRoute: typeof FavoritesRoute
+  HelpRoute: typeof HelpRoute
   StatsRoute: typeof StatsRoute
   ListingsIdRoute: typeof ListingsIdRoute
   ListingsIndexRoute: typeof ListingsIndexRoute
@@ -141,6 +154,13 @@ declare module '@tanstack/react-router' {
       path: '/stats'
       fullPath: '/stats'
       preLoaderRoute: typeof StatsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/help': {
+      id: '/help'
+      path: '/help'
+      fullPath: '/help'
+      preLoaderRoute: typeof HelpRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/favorites': {
@@ -201,6 +221,7 @@ const rootRouteChildren: RootRouteChildren = {
   BrowseRoute: BrowseRoute,
   DislikesRoute: DislikesRoute,
   FavoritesRoute: FavoritesRoute,
+  HelpRoute: HelpRoute,
   StatsRoute: StatsRoute,
   ListingsIdRoute: ListingsIdRoute,
   ListingsIndexRoute: ListingsIndexRoute,

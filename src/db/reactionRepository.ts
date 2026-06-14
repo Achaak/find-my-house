@@ -145,12 +145,16 @@ export class ReactionRepository {
   async findListingsByUser(
     discordUserId: string,
     type: ReactionType,
-    limit = 10
+    limit = 10,
+    options: { excludeArchived?: boolean; archivedOnly?: boolean } = {}
   ): Promise<PropertyRow[]> {
     return this.findListingsByType(type, {
       discordUserId,
       limit,
-      excludeArchived: true,
+      excludeArchived: options.archivedOnly
+        ? false
+        : (options.excludeArchived ?? true),
+      archivedOnly: options.archivedOnly,
     });
   }
 
@@ -160,12 +164,17 @@ export class ReactionRepository {
       discordUserId?: string;
       limit?: number;
       excludeArchived?: boolean;
+      archivedOnly?: boolean;
     } = {}
   ): Promise<PropertyRow[]> {
     const reactions = await this.prisma.listingReaction.findMany({
       where: {
         type,
-        ...(options.excludeArchived ? { archivedAt: null } : {}),
+        ...(options.archivedOnly
+          ? { archivedAt: { not: null } }
+          : options.excludeArchived !== false
+            ? { archivedAt: null }
+            : {}),
         ...(options.discordUserId
           ? { discordUserId: options.discordUserId }
           : {}),
@@ -182,8 +191,14 @@ export class ReactionRepository {
     discordUserId?: string
   ): Promise<{ likes: PropertyRow[]; dislikes: PropertyRow[] }> {
     const [likes, dislikes] = await Promise.all([
-      this.findListingsByType("like", { discordUserId }),
-      this.findListingsByType("dislike", { discordUserId }),
+      this.findListingsByType("like", {
+        discordUserId,
+        excludeArchived: false,
+      }),
+      this.findListingsByType("dislike", {
+        discordUserId,
+        excludeArchived: false,
+      }),
     ]);
 
     return { likes, dislikes };

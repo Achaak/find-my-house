@@ -6,7 +6,11 @@ import {
   type AuthVariables,
 } from "./auth.js";
 import { parseListingSearchFilters } from "./searchFilters.js";
-import { serializeProperties, serializeProperty } from "./serialize.js";
+import {
+  serializeDpeCandidate,
+  serializeProperties,
+  serializeProperty,
+} from "./serialize.js";
 import type { ApiContext } from "./types.js";
 import { scrapeConfig } from "../config/scrape.js";
 import { getPrisma } from "../db/prisma.js";
@@ -22,7 +26,9 @@ import {
   getBrowseSession,
   getBrowseState,
   startBrowseSession,
+  type BrowseSession,
 } from "../services/browseSession.js";
+import type { BrowseState as InternalBrowseState } from "../services/browseSession.js";
 import { geoFilterLabel, resolveGeoFilter } from "../utils/geo/geoFilter.js";
 import { sortByCompatibility } from "../utils/compatibility/score.js";
 import {
@@ -47,6 +53,31 @@ function scrapeFiltersToSearch(filters: ScrapeFilters) {
     minBedrooms: filters.minBedrooms,
     ancienOnly: filters.ancienOnly,
     maxTravelMinutes: filters.maxTravelMinutes,
+  };
+}
+
+async function serializeBrowseResponse(
+  ctx: ApiContext,
+  userId: string,
+  session: BrowseSession,
+  state: InternalBrowseState
+) {
+  const geoFilter = resolveGeoFilter(
+    { maxTravelMinutes: session.filters.maxTravelMinutes },
+    true
+  );
+
+  return {
+    item: state.property
+      ? await serializeProperty(state.property, ctx.reactionRepository, userId)
+      : null,
+    shownCount: state.shownCount,
+    isExplore: state.isExplore,
+    hasPreferences: state.hasPreferences,
+    finished: state.finished,
+    criteria: session.filters,
+    zoneLabel:
+      geoFilter.mode !== "city" ? geoFilterLabel(geoFilter) : undefined,
   };
 }
 
@@ -82,10 +113,11 @@ export function createApiApp(ctx: ApiContext) {
     const sort = filters.sort;
     const limit = filters.limit ?? 20;
 
-    const listings = await ctx.repository.search({
+    const { items: listings, total } = await ctx.repository.search({
       ...filters,
       sort: sort === "compat_desc" ? undefined : sort,
       limit: sort === "compat_desc" ? Math.max(limit, 50) : limit,
+      offset: filters.offset,
     });
 
     const rankedListings =
@@ -107,7 +139,7 @@ export function createApiApp(ctx: ApiContext) {
 
     return c.json({
       items,
-      total: items.length,
+      total,
       zone: geoFilter.mode !== "city" ? geoFilterLabel(geoFilter) : undefined,
     });
   });
@@ -147,19 +179,7 @@ export function createApiApp(ctx: ApiContext) {
       session
     );
 
-    return c.json({
-      item: state.property
-        ? await serializeProperty(
-            state.property,
-            ctx.reactionRepository,
-            user.id
-          )
-        : null,
-      shownCount: state.shownCount,
-      isExplore: state.isExplore,
-      hasPreferences: state.hasPreferences,
-      finished: state.finished,
-    });
+    return c.json(await serializeBrowseResponse(ctx, user.id, session, state));
   });
 
   app.get("/api/browse", async (c) => {
@@ -176,19 +196,7 @@ export function createApiApp(ctx: ApiContext) {
       session
     );
 
-    return c.json({
-      item: state.property
-        ? await serializeProperty(
-            state.property,
-            ctx.reactionRepository,
-            user.id
-          )
-        : null,
-      shownCount: state.shownCount,
-      isExplore: state.isExplore,
-      hasPreferences: state.hasPreferences,
-      finished: state.finished,
-    });
+    return c.json(await serializeBrowseResponse(ctx, user.id, session, state));
   });
 
   app.post("/api/browse/stop", (c) => {
@@ -235,19 +243,7 @@ export function createApiApp(ctx: ApiContext) {
       session
     );
 
-    return c.json({
-      item: state.property
-        ? await serializeProperty(
-            state.property,
-            ctx.reactionRepository,
-            user.id
-          )
-        : null,
-      shownCount: state.shownCount,
-      isExplore: state.isExplore,
-      hasPreferences: state.hasPreferences,
-      finished: state.finished,
-    });
+    return c.json(await serializeBrowseResponse(ctx, user.id, session, state));
   });
 
   app.get("/api/reactions/:type", async (c) => {
@@ -261,10 +257,16 @@ export function createApiApp(ctx: ApiContext) {
       Number.parseInt(c.req.query("limit") ?? "20", 10),
       100
     );
+    const includeArchived = c.req.query("includeArchived") === "true";
+    const archivedOnly = c.req.query("archivedOnly") === "true";
     const listings = await ctx.reactionRepository.findListingsByUser(
       user.id,
       type,
-      limit
+      limit,
+      {
+        excludeArchived: !includeArchived && !archivedOnly,
+        archivedOnly,
+      }
     );
 
     return c.json({
@@ -332,6 +334,41 @@ export function createApiApp(ctx: ApiContext) {
     const user = getUser(c);
     const result = await ctx.reactionRepository.unarchive(user.id, propertyId);
     return c.json({ status: result });
+  });
+
+  app.get("/api/notifications/digest", async (c) => {
+    const user = getUser(c);
+    const sinceRaw = c.req.query("since");
+    const since = sinceRaw
+      ? new Date(sinceRaw)
+      : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    if (Number.isNaN(since.getTime())) {
+      return c.json({ error: "Invalid since timestamp" }, 400);
+    }
+
+    const [newListings, priceDrops, activity] = await Promise.all([
+      ctx.repository.findAddedSince(since, 20),
+      ctx.repository.findPriceDrops(10),
+      ctx.repository.getActivityStats(),
+    ]);
+
+    return c.json({
+      since: since.toISOString(),
+      newListings: await serializeProperties(
+        newListings,
+        ctx.reactionRepository,
+        user.id,
+        { includeCompatibility: false }
+      ),
+      priceDrops: await serializeProperties(
+        priceDrops,
+        ctx.reactionRepository,
+        user.id,
+        { includeCompatibility: false }
+      ),
+      lastScrapedAt: activity.lastScrapedAt?.toISOString() ?? null,
+    });
   });
 
   app.get("/api/stats/:section", async (c) => {
@@ -502,7 +539,7 @@ export function createApiApp(ctx: ApiContext) {
         readiness,
         query,
         warnings: [...enrichmentWarnings, ...searchWarnings],
-        candidates,
+        candidates: candidates.map(serializeDpeCandidate),
       });
     } catch (error) {
       log.error("DPE search error:", error);

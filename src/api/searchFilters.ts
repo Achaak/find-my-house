@@ -55,6 +55,10 @@ export function parseListingSearchFilters(
     : undefined;
 
   const limit = Math.min(parseOptionalInt(query.limit) ?? 20, 100);
+  const offset = Math.max(parseOptionalInt(query.offset) ?? 0, 0);
+  const priceDropOnly = parseOptionalBool(
+    query.priceDropOnly ?? query.price_drop_only
+  );
 
   return {
     filters: {
@@ -77,6 +81,8 @@ export function parseListingSearchFilters(
       ),
       sort,
       limit,
+      offset,
+      priceDropOnly,
     },
   };
 }

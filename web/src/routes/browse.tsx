@@ -3,6 +3,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PropertyCard } from "@/components/listings/property-card";
 import { Button } from "@/components/ui/button";
 import { api, queryKeys } from "@/lib/api";
+import { ApiError } from "@/lib/api-client";
+import { getErrorMessage } from "@/lib/error-message";
+import { formatBrowseCriteria } from "@/lib/listing-filters";
 
 export const Route = createFileRoute("/browse")({
   component: BrowsePage,
@@ -13,7 +16,16 @@ function BrowsePage() {
 
   const browseQuery = useQuery({
     queryKey: queryKeys.browse,
-    queryFn: api.browseCurrent,
+    queryFn: async () => {
+      try {
+        return await api.browseCurrent();
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) {
+          return null;
+        }
+        throw error;
+      }
+    },
     retry: false,
   });
 
@@ -27,7 +39,7 @@ function BrowsePage() {
   const stopMutation = useMutation({
     mutationFn: api.browseStop,
     onSuccess: () => {
-      queryClient.removeQueries({ queryKey: queryKeys.browse });
+      queryClient.setQueryData(queryKeys.browse, null);
     },
   });
 
@@ -51,6 +63,9 @@ function BrowsePage() {
   });
 
   const state = browseQuery.data ?? startMutation.data;
+  const mutationError =
+    startMutation.error ?? stopMutation.error ?? reactMutation.error ?? null;
+  const isReacting = reactMutation.isPending;
 
   return (
     <div className="space-y-6">
@@ -58,14 +73,14 @@ function BrowsePage() {
         <div>
           <h1 className="text-2xl font-semibold">Browse</h1>
           <p className="text-sm text-muted-foreground">
-            One listing at a time — like Discord <code>/browse</code>.
+            Review listings one at a time with like or dislike.
           </p>
         </div>
         <div className="flex gap-2">
           <Button
             type="button"
             onClick={() => startMutation.mutate()}
-            disabled={startMutation.isPending}
+            disabled={startMutation.isPending || stopMutation.isPending}
           >
             {state ? "Restart" : "Start"}
           </Button>
@@ -74,7 +89,7 @@ function BrowsePage() {
               type="button"
               variant="outline"
               onClick={() => stopMutation.mutate()}
-              disabled={stopMutation.isPending}
+              disabled={stopMutation.isPending || startMutation.isPending}
             >
               Stop
             </Button>
@@ -86,8 +101,25 @@ function BrowsePage() {
         <p>Loading…</p>
       ) : null}
 
+      {browseQuery.error ? (
+        <p className="text-sm text-destructive">
+          {getErrorMessage(browseQuery.error)}
+        </p>
+      ) : null}
+
+      {mutationError ? (
+        <p className="text-sm text-destructive">
+          {getErrorMessage(mutationError)}
+        </p>
+      ) : null}
+
       {state ? (
         <div className="space-y-4">
+          {state.criteria ? (
+            <p className="text-sm text-muted-foreground">
+              Criteria: {formatBrowseCriteria(state.criteria, state.zoneLabel)}
+            </p>
+          ) : null}
           <p className="text-sm text-muted-foreground">
             {state.shownCount} viewed
             {state.isExplore ? " · outside comfort zone" : ""}
@@ -103,6 +135,7 @@ function BrowsePage() {
               <div className="flex gap-2">
                 <Button
                   type="button"
+                  disabled={isReacting}
                   onClick={() =>
                     reactMutation.mutate({
                       action: "like",
@@ -110,11 +143,12 @@ function BrowsePage() {
                     })
                   }
                 >
-                  Like & next
+                  {isReacting ? "Saving…" : "Like & next"}
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
+                  disabled={isReacting}
                   onClick={() =>
                     reactMutation.mutate({
                       action: "dislike",
@@ -122,15 +156,15 @@ function BrowsePage() {
                     })
                   }
                 >
-                  Dislike & next
+                  {isReacting ? "Saving…" : "Dislike & next"}
                 </Button>
               </div>
             </>
           )}
         </div>
-      ) : (
+      ) : browseQuery.isSuccess || startMutation.isSuccess ? (
         <p className="text-muted-foreground">Press Start to begin browsing.</p>
-      )}
+      ) : null}
     </div>
   );
 }

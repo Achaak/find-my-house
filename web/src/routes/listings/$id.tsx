@@ -1,41 +1,50 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { MapPin } from "lucide-react";
 import { PropertyCard } from "@/components/listings/property-card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { api, queryKeys } from "@/lib/api";
-import { formatPrice, formatSource } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/error-message";
+import { googleMapsSearchUrl } from "@/lib/map-utils";
+import { cn, formatPrice, formatSource } from "@/lib/utils";
 
 export const Route = createFileRoute("/listings/$id")({
   component: ListingDetailPage,
 });
 
+function parseListingId(id: string): number | null {
+  const propertyId = Number(id);
+  if (!Number.isInteger(propertyId) || String(propertyId) !== id) {
+    return null;
+  }
+  return propertyId;
+}
+
 function ListingDetailPage() {
   const { id } = Route.useParams();
-  const propertyId = Number.parseInt(id, 10);
+  const propertyId = parseListingId(id);
 
   const listingQuery = useQuery({
-    queryKey: queryKeys.listing(propertyId),
-    queryFn: () => api.listing(propertyId),
-    enabled: Number.isInteger(propertyId),
+    queryKey: queryKeys.listing(propertyId ?? 0),
+    queryFn: () => api.listing(propertyId!),
+    enabled: propertyId !== null,
   });
 
   const addressQuery = useQuery({
-    queryKey: queryKeys.address(propertyId),
-    queryFn: () => api.addressSearch(propertyId),
-    enabled: Number.isInteger(propertyId),
+    queryKey: queryKeys.address(propertyId ?? 0),
+    queryFn: () => api.addressSearch(propertyId!),
+    enabled: propertyId !== null,
   });
 
-  if (!Number.isInteger(propertyId)) {
+  if (propertyId === null) {
     return <p>Invalid listing id.</p>;
   }
 
   if (listingQuery.isLoading) return <p>Loading…</p>;
   if (listingQuery.error) {
     return (
-      <p className="text-destructive">
-        {(listingQuery.error as Error).message}
-      </p>
+      <p className="text-destructive">{getErrorMessage(listingQuery.error)}</p>
     );
   }
 
@@ -52,11 +61,54 @@ function ListingDetailPage() {
         <h2 className="text-lg font-semibold">Details</h2>
         <dl className="mt-4 grid gap-3 text-sm md:grid-cols-2">
           <Detail label="Address" value={property.address ?? "Unknown"} />
+          <Detail label="Type" value={property.propertyType ?? "—"} />
+          <Detail
+            label="Price per m²"
+            value={
+              property.surface
+                ? formatPrice(Math.round(property.price / property.surface))
+                : "—"
+            }
+          />
           <Detail label="DPE" value={property.dpeClass ?? "—"} />
           <Detail label="GES" value={property.gesClass ?? "—"} />
+          <Detail
+            label="DPE consumption"
+            value={
+              property.dpeConsumptionKwhM2
+                ? `${String(property.dpeConsumptionKwhM2)} kWh/m²`
+                : "—"
+            }
+          />
+          <Detail
+            label="GES emissions"
+            value={
+              property.gesEmissionKgM2
+                ? `${String(property.gesEmissionKgM2)} kg CO₂/m²`
+                : "—"
+            }
+          />
+          <Detail
+            label="Bathrooms"
+            value={property.bathrooms ? String(property.bathrooms) : "—"}
+          />
+          <Detail
+            label="Construction year"
+            value={
+              property.constructionYear
+                ? String(property.constructionYear)
+                : "—"
+            }
+          />
           <Detail label="Heating" value={property.heating ?? "—"} />
           <Detail label="Orientation" value={property.orientation ?? "—"} />
           <Detail label="Condition" value={property.propertyCondition ?? "—"} />
+          <Detail
+            label="Parking"
+            value={
+              property.parkingSpaces ? String(property.parkingSpaces) : "—"
+            }
+          />
           <Detail
             label="First price"
             value={formatPrice(property.firstPrice)}
@@ -66,6 +118,13 @@ function ListingDetailPage() {
             value={new Date(property.firstSeenAt).toLocaleString("fr-FR")}
           />
         </dl>
+        {property.highlights?.length ? (
+          <ul className="mt-4 list-disc pl-5 text-sm text-muted-foreground">
+            {property.highlights.map((highlight) => (
+              <li key={highlight}>{highlight}</li>
+            ))}
+          </ul>
+        ) : null}
         {property.description ? (
           <p className="mt-4 whitespace-pre-wrap text-sm text-muted-foreground">
             {property.description}
@@ -73,9 +132,17 @@ function ListingDetailPage() {
         ) : null}
         <div className="mt-4 flex flex-wrap gap-2">
           {property.publications.map((publication) => (
-            <Badge key={publication.id} variant="outline">
-              {formatSource(publication.source)}
-            </Badge>
+            <a
+              key={publication.id}
+              href={publication.url}
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              <Badge variant={publication.isActive ? "outline" : "secondary"}>
+                {formatSource(publication.source)}
+                {!publication.isActive ? " (inactive)" : ""}
+              </Badge>
+            </a>
           ))}
         </div>
       </section>
@@ -83,10 +150,21 @@ function ListingDetailPage() {
       <section className="rounded-xl border bg-card p-6">
         <h2 className="text-lg font-semibold">Address via ADEME DPE</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Same workflow as <code>/address</code> on Discord.
+          Check each candidate on Google Maps, then confirm the property address
+          using ADEME DPE data.
         </p>
         {addressQuery.isLoading ? (
           <p className="mt-4">Searching ADEME…</p>
+        ) : null}
+        {addressQuery.error ? (
+          <p className="mt-4 text-sm text-destructive">
+            {getErrorMessage(addressQuery.error)}
+          </p>
+        ) : null}
+        {addressQuery.data?.error ? (
+          <p className="mt-4 text-sm text-destructive">
+            {addressQuery.data.error}
+          </p>
         ) : null}
         {addressQuery.data?.warnings.length ? (
           <ul className="mt-4 list-disc pl-5 text-sm text-muted-foreground">
@@ -106,13 +184,32 @@ function ListingDetailPage() {
                   <div className="font-medium">{candidate.address}</div>
                   <div className="text-xs text-muted-foreground">
                     DPE {candidate.numeroDpe} · score{" "}
-                    {Math.round(candidate.score)}
+                    {Number.isFinite(candidate.score)
+                      ? Math.round(candidate.score)
+                      : "—"}
                   </div>
                 </div>
-                <ConfirmAddressButton
-                  propertyId={propertyId}
-                  numeroDpe={candidate.numeroDpe}
-                />
+                <div className="flex flex-wrap items-start gap-2">
+                  <a
+                    href={googleMapsSearchUrl({
+                      address: candidate.address,
+                      latitude: candidate.latitude,
+                      longitude: candidate.longitude,
+                    })}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className={cn(
+                      buttonVariants({ variant: "outline", size: "sm" })
+                    )}
+                  >
+                    <MapPin className="size-4" />
+                    Google Maps
+                  </a>
+                  <ConfirmAddressButton
+                    propertyId={propertyId}
+                    numeroDpe={candidate.numeroDpe}
+                  />
+                </div>
               </div>
             ))}
           </div>
@@ -156,13 +253,25 @@ function ConfirmAddressButton({
   });
 
   return (
-    <Button
-      type="button"
-      size="sm"
-      disabled={mutation.isPending}
-      onClick={() => mutation.mutate()}
-    >
-      {mutation.isPending ? "Saving…" : "Confirm"}
-    </Button>
+    <div className="flex flex-col items-end gap-1">
+      <Button
+        type="button"
+        size="sm"
+        disabled={mutation.isPending}
+        onClick={() => mutation.mutate()}
+      >
+        {mutation.isPending ? "Saving…" : "Confirm"}
+      </Button>
+      {mutation.isSuccess ? (
+        <span className="text-xs text-muted-foreground">
+          Address saved for DPE {mutation.data.dpeNumero}
+        </span>
+      ) : null}
+      {mutation.error ? (
+        <span className="text-xs text-destructive">
+          {getErrorMessage(mutation.error)}
+        </span>
+      ) : null}
+    </div>
   );
 }

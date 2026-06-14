@@ -1,6 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   BarChart3,
+  CircleHelp,
   Compass,
   Heart,
   Home,
@@ -8,6 +9,7 @@ import {
   Settings,
   ThumbsDown,
 } from "lucide-react";
+import { NotificationWatcher } from "@/components/layout/notification-watcher";
 import type { ApiUser } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -17,20 +19,58 @@ const navItems = [
   { to: "/favorites", label: "Favorites", icon: Heart },
   { to: "/dislikes", label: "Dislikes", icon: ThumbsDown },
   { to: "/stats", label: "Stats", icon: BarChart3 },
+  { to: "/help", label: "Help", icon: CircleHelp },
 ] as const;
+
+function NavLink({
+  to,
+  label,
+  icon: Icon,
+  pathname,
+  compact = false,
+}: {
+  to: string;
+  label: string;
+  icon: typeof Home;
+  pathname: string;
+  compact?: boolean;
+}) {
+  return (
+    <Link
+      to={to}
+      className={cn(
+        "inline-flex items-center gap-2 rounded-md transition-colors hover:bg-accent",
+        compact ? "shrink-0 gap-1 px-2.5 py-1.5 text-xs" : "px-3 py-2 text-sm",
+        pathname.startsWith(to) &&
+          (compact ? "bg-accent" : "bg-accent text-accent-foreground")
+      )}
+    >
+      <Icon className={compact ? "size-3.5" : "size-4"} />
+      {label}
+    </Link>
+  );
+}
 
 export function AppShell({
   user,
   version,
+  commit,
   children,
 }: {
   user?: ApiUser;
   version?: string;
+  commit?: string;
   children: React.ReactNode;
 }) {
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   });
+
+  const versionLabel = version
+    ? commit
+      ? `v${version} (${commit.slice(0, 7)})`
+      : `v${version}`
+    : null;
 
   return (
     <div className="min-h-dvh bg-background">
@@ -40,53 +80,57 @@ export function AppShell({
             <Home className="size-5 text-primary" />
             <span>Find My House</span>
           </Link>
-          <nav className="hidden flex-1 items-center gap-1 md:flex">
-            {navItems.map(({ to, label, icon: Icon }) => (
-              <Link
+          <nav
+            className="hidden flex-1 items-center gap-1 md:flex"
+            aria-label="Main navigation"
+          >
+            {navItems.map(({ to, label, icon }) => (
+              <NavLink
                 key={to}
                 to={to}
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent",
-                  pathname.startsWith(to) && "bg-accent text-accent-foreground"
-                )}
-              >
-                <Icon className="size-4" />
-                {label}
-              </Link>
+                label={label}
+                icon={icon}
+                pathname={pathname}
+              />
             ))}
             {user?.isAdmin ? (
-              <Link
+              <NavLink
                 to="/admin"
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent",
-                  pathname.startsWith("/admin") &&
-                    "bg-accent text-accent-foreground"
-                )}
-              >
-                <Settings className="size-4" />
-                Admin
-              </Link>
+                label="Admin"
+                icon={Settings}
+                pathname={pathname}
+              />
             ) : null}
           </nav>
-          <div className="ml-auto text-xs text-muted-foreground">
+          <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+            <NotificationWatcher />
             {user ? user.username : "…"}
-            {version ? ` · v${version}` : null}
+            {versionLabel ? ` · ${versionLabel}` : null}
           </div>
         </div>
-        <nav className="flex gap-1 overflow-x-auto border-t px-4 py-2 md:hidden">
-          {navItems.map(({ to, label, icon: Icon }) => (
-            <Link
+        <nav
+          className="flex gap-1 overflow-x-auto border-t px-4 py-2 md:hidden"
+          aria-label="Main navigation"
+        >
+          {navItems.map(({ to, label, icon }) => (
+            <NavLink
               key={to}
               to={to}
-              className={cn(
-                "inline-flex shrink-0 items-center gap-1 rounded-md px-2.5 py-1.5 text-xs transition-colors hover:bg-accent",
-                pathname.startsWith(to) && "bg-accent"
-              )}
-            >
-              <Icon className="size-3.5" />
-              {label}
-            </Link>
+              label={label}
+              icon={icon}
+              pathname={pathname}
+              compact
+            />
           ))}
+          {user?.isAdmin ? (
+            <NavLink
+              to="/admin"
+              label="Admin"
+              icon={Settings}
+              pathname={pathname}
+              compact
+            />
+          ) : null}
         </nav>
       </header>
       <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>

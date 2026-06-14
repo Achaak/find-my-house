@@ -780,19 +780,21 @@ export class ListingRepository {
     return rows.map(toPropertyRow);
   }
 
-  async search(filters: ListingSearchFilters): Promise<PropertyRow[]> {
+  async search(
+    filters: ListingSearchFilters
+  ): Promise<{ items: PropertyRow[]; total: number }> {
     const geoFilter = resolveGeoFilter(filters, true);
     const useGeoFilter = geoFilter.mode !== "city";
 
     let radiusFilter: { center: GeoPoint; radiusKm: number } | null = null;
 
     if (useGeoFilter) {
-      if (!filters.city) return [];
+      if (!filters.city) return { items: [], total: 0 };
       const searchCenter = await resolveGeoSearchCenter(
         filters.city,
         filters.postalCode
       );
-      if (!searchCenter) return [];
+      if (!searchCenter) return { items: [], total: 0 };
       radiusFilter = resolveRadiusSearchFilter(geoFilter, searchCenter.center);
     }
 
@@ -815,9 +817,11 @@ export class ListingRepository {
           filters.city && !useGeoFilter
             ? { contains: filters.city }
             : undefined,
-        postalCode: filters.postalCode
-          ? { contains: filters.postalCode }
-          : undefined,
+        // Postal code pins the geo search center; radius/travel already bounds results.
+        postalCode:
+          filters.postalCode && !useGeoFilter
+            ? { contains: filters.postalCode }
+            : undefined,
         price: priceFilter,
         surface:
           filters.minSurface !== undefined
@@ -918,7 +922,33 @@ export class ListingRepository {
       });
     }
 
-    return results.slice(0, filters.limit ?? 10);
+    if (filters.priceDropOnly) {
+      results = results.filter(
+        (property) => property.price < property.firstPrice
+      );
+    }
+
+    const total = results.length;
+    const offset = filters.offset ?? 0;
+    const limit = filters.limit ?? 10;
+
+    return {
+      items: results.slice(offset, offset + limit),
+      total,
+    };
+  }
+
+  async findAddedSince(since: Date, limit = 20): Promise<PropertyRow[]> {
+    const rows = await this.prisma.property.findMany({
+      where: {
+        firstSeenAt: { gte: since },
+        publications: { some: { isActive: true } },
+      },
+      include: propertyInclude,
+      orderBy: { firstSeenAt: "desc" },
+      take: limit,
+    });
+    return rows.map(toPropertyRow);
   }
 
   async count(): Promise<number> {

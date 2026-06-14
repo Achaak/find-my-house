@@ -1,10 +1,20 @@
 import { useMutation } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { api } from "@/lib/api";
+import { api, queryKeys } from "@/lib/api";
+import { getErrorMessage } from "@/lib/error-message";
 
 export const Route = createFileRoute("/admin")({
+  beforeLoad: async ({ context }) => {
+    const user = await context.queryClient.ensureQueryData({
+      queryKey: queryKeys.me,
+      queryFn: api.me,
+    });
+    if (!user.isAdmin) {
+      throw redirect({ to: "/" });
+    }
+  },
   component: AdminPage,
 });
 
@@ -17,8 +27,7 @@ function AdminPage() {
       <div>
         <h1 className="text-2xl font-semibold">Admin</h1>
         <p className="text-sm text-muted-foreground">
-          Manual scrape and reconcile — same as <code>/scraper</code> and{" "}
-          <code>/reconcile</code> on Discord (admin only).
+          Manual scrape and reconcile operations (admin only).
         </p>
       </div>
 
@@ -42,7 +51,7 @@ function AdminPage() {
             ) : null}
             {scrapeMutation.error ? (
               <p className="text-sm text-destructive">
-                {(scrapeMutation.error as Error).message}
+                {getErrorMessage(scrapeMutation.error)}
               </p>
             ) : null}
           </CardContent>
@@ -68,7 +77,7 @@ function AdminPage() {
             ) : null}
             {reconcileMutation.error ? (
               <p className="text-sm text-destructive">
-                {(reconcileMutation.error as Error).message}
+                {getErrorMessage(reconcileMutation.error)}
               </p>
             ) : null}
           </CardContent>

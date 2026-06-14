@@ -25,7 +25,11 @@ function RootLayout() {
 
   return (
     <AuthGate error={meQuery.error} loading={meQuery.isLoading}>
-      <AppShell user={meQuery.data} version={versionQuery.data?.version}>
+      <AppShell
+        user={meQuery.data}
+        version={versionQuery.data?.version}
+        commit={versionQuery.data?.commit}
+      >
         <Outlet />
       </AppShell>
     </AuthGate>

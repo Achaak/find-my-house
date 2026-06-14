@@ -4,8 +4,11 @@ import type {
   BrowseState,
   DpeCandidate,
   ListingSearchFilters,
+  NotificationDigest,
   Property,
   ReconcileResult,
+  StatsResponseMap,
+  StatsSection,
 } from "./types";
 
 function searchParams(filters: ListingSearchFilters): string {
@@ -15,6 +18,36 @@ function searchParams(filters: ListingSearchFilters): string {
     params.set(key, String(value));
   }
   return params.toString();
+}
+
+async function fetchAllListings(filters: ListingSearchFilters = {}) {
+  const pageLimit = 100;
+  const query = searchParams({ ...filters, offset: 0, limit: pageLimit });
+  const first = await apiFetch<{
+    items: Property[];
+    total: number;
+    zone?: string;
+  }>(`/api/listings${query ? `?${query}` : ""}`);
+  const items = [...first.items];
+  let offset = items.length;
+
+  while (offset < first.total) {
+    const pageQuery = searchParams({
+      ...filters,
+      offset,
+      limit: pageLimit,
+    });
+    const page = await apiFetch<{
+      items: Property[];
+      total: number;
+      zone?: string;
+    }>(`/api/listings?${pageQuery}`);
+    if (page.items.length === 0) break;
+    items.push(...page.items);
+    offset += page.items.length;
+  }
+
+  return { items, total: first.total, zone: first.zone };
 }
 
 export const api = {
@@ -28,6 +61,8 @@ export const api = {
       `/api/listings${query ? `?${query}` : ""}`
     );
   },
+
+  listingsAll: fetchAllListings,
 
   listing: (id: number) =>
     apiFetch<{ item: Property }>(`/api/listings/${String(id)}`),
@@ -46,10 +81,23 @@ export const api = {
       body: JSON.stringify({ propertyId }),
     }),
 
-  reactions: (type: "like" | "dislike", limit = 20) =>
-    apiFetch<{ items: Property[] }>(
-      `/api/reactions/${type}?limit=${String(limit)}`
-    ),
+  reactions: (
+    type: "like" | "dislike",
+    options: {
+      limit?: number;
+      includeArchived?: boolean;
+      archivedOnly?: boolean;
+    } = {}
+  ) => {
+    const params = new URLSearchParams({
+      limit: String(options.limit ?? 100),
+    });
+    if (options.includeArchived) params.set("includeArchived", "true");
+    if (options.archivedOnly) params.set("archivedOnly", "true");
+    return apiFetch<{ items: Property[] }>(
+      `/api/reactions/${type}?${params.toString()}`
+    );
+  },
 
   addReaction: (type: "like" | "dislike", propertyId: number) =>
     apiFetch<{ status: string }>(`/api/reactions/${type}`, {
@@ -77,8 +125,13 @@ export const api = {
       { method: "POST" }
     ),
 
-  stats: <T extends string>(section: T) =>
-    apiFetch<unknown>(`/api/stats/${section}`),
+  stats: <T extends StatsSection>(section: T) =>
+    apiFetch<StatsResponseMap[T]>(`/api/stats/${section}`),
+
+  notificationsDigest: (since?: string) => {
+    const query = since ? `?since=${encodeURIComponent(since)}` : "";
+    return apiFetch<NotificationDigest>(`/api/notifications/digest${query}`);
+  },
 
   addressSearch: (propertyId: number) =>
     apiFetch<{
@@ -113,7 +166,12 @@ export const queryKeys = {
   listings: (filters: ListingSearchFilters) => ["listings", filters] as const,
   listing: (id: number) => ["listing", id] as const,
   browse: ["browse"] as const,
-  reactions: (type: "like" | "dislike") => ["reactions", type] as const,
-  stats: (section: string) => ["stats", section] as const,
+  reactions: (
+    type: "like" | "dislike",
+    options?: { includeArchived?: boolean; archivedOnly?: boolean }
+  ) => ["reactions", type, options ?? {}] as const,
+  stats: (section: StatsSection) => ["stats", section] as const,
   address: (id: number) => ["address", id] as const,
+  notifications: (since?: string) =>
+    ["notifications", since ?? "default"] as const,
 };

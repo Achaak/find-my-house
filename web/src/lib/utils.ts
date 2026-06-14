@@ -22,3 +22,9 @@ export function formatSource(source: string): string {
   };
   return labels[source] ?? source;
 }
+
+export function parseOptionalNumber(value: string): number | undefined {
+  if (value === "") return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}

@@ -1,7 +1,23 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { createTestRepository } from "../test/db.js";
 import { makeListing } from "../test/listingFixtures.js";
 import type { ListingRepository } from "./listingRepository.js";
+
+vi.mock("../utils/geo/geocode.js", () => ({
+  resolveGeoSearchCenter: vi.fn(),
+}));
+
+import { resolveGeoSearchCenter } from "../utils/geo/geocode.js";
+
+const mockedResolveGeoSearchCenter = vi.mocked(resolveGeoSearchCenter);
 
 describe("ListingRepository.upsert", () => {
   let repository: ListingRepository;
@@ -334,7 +350,7 @@ describe("ListingRepository.deactivateMissingPublications", () => {
     expect(deactivated).toBe(1);
     expect(await repository.countPublications()).toBe(1);
 
-    const leboncoinResults = await repository.search({
+    const { items: leboncoinResults } = await repository.search({
       source: "leboncoin",
       limit: 10,
     });
@@ -453,5 +469,90 @@ describe("ListingRepository.stats", () => {
     const activity = await repository.getActivityStats();
     expect(activity.lastScrapedAt).not.toBeNull();
     expect(activity.multiSourceCount).toBe(1);
+  });
+});
+
+describe("ListingRepository.search", () => {
+  let repository: ListingRepository;
+  let dispose: (() => Promise<void>) | undefined;
+
+  beforeAll(() => {
+    const testDb = createTestRepository();
+    repository = testDb.repository;
+    dispose = testDb.dispose;
+  });
+
+  afterAll(async () => {
+    await dispose?.();
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("does not filter by postal code when a travel-time geo filter is active", async () => {
+    mockedResolveGeoSearchCenter.mockResolvedValue({
+      center: { lat: 49.61, lng: 0.51 },
+      placeName: "Lanquetot (76160)",
+      zipcode: "76160",
+    });
+
+    await repository.upsertMany([
+      makeListing({
+        externalId: "geo-local",
+        url: "https://www.bienici.com/annonce/geo-local",
+        city: "Lanquetot",
+        postalCode: "76160",
+        latitude: 49.61,
+        longitude: 0.51,
+      }),
+      makeListing({
+        externalId: "geo-nearby",
+        url: "https://www.bienici.com/annonce/geo-nearby",
+        city: "Lillebonne",
+        postalCode: "76170",
+        latitude: 49.62,
+        longitude: 0.52,
+      }),
+    ]);
+
+    const { items, total } = await repository.search({
+      city: "Lanquetot",
+      postalCode: "76160",
+      maxTravelMinutes: 45,
+      limit: 10,
+    });
+
+    expect(total).toBe(2);
+    expect(items.map((item) => item.postalCode).sort()).toEqual([
+      "76160",
+      "76170",
+    ]);
+  });
+
+  it("still filters by postal code in city-only search mode", async () => {
+    await repository.upsertMany([
+      makeListing({
+        externalId: "city-local",
+        url: "https://www.bienici.com/annonce/city-local",
+        city: "Lanquetot",
+        postalCode: "76160",
+      }),
+      makeListing({
+        externalId: "city-other",
+        url: "https://www.bienici.com/annonce/city-other",
+        city: "Lanquetot",
+        postalCode: "76170",
+      }),
+    ]);
+
+    const { items, total } = await repository.search({
+      city: "Lanquetot",
+      postalCode: "76160",
+      limit: 10,
+    });
+
+    expect(total).toBe(1);
+    expect(items[0]?.postalCode).toBe("76160");
   });
 });

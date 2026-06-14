@@ -167,7 +167,7 @@ export const handleListings: CommandHandler = async (interaction, ctx) => {
 
   await interaction.deferReply();
 
-  const listings = await ctx.repository.search({
+  const { items: listings } = await ctx.repository.search({
     city,
     postalCode,
     text,

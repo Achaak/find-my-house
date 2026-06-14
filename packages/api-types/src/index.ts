@@ -76,8 +76,98 @@ export type ListingSearchFilters = {
   ancienOnly?: boolean;
   neufOnly?: boolean;
   maxTravelMinutes?: number;
+  priceDropOnly?: boolean;
   sort?: ListingSearchSort;
   limit?: number;
+  offset?: number;
+};
+
+export type SourcePublicationCounts = Record<
+  ListingSource,
+  { active: number; inactive: number }
+>;
+
+export type PriceStats = {
+  count: number;
+  min: number;
+  max: number;
+  median: number;
+  average: number;
+};
+
+export type CityCount = {
+  city: string;
+  count: number;
+};
+
+export type ActivityStats = {
+  lastScrapedAt: string | null;
+  addedLast7Days: number;
+  deactivatedLast7Days: number;
+  multiSourceCount: number;
+};
+
+export type StatsOverview = {
+  total: number;
+  activeProperties: number;
+  activePublications: number;
+  inactivePublications: number;
+  priceDrops: number;
+  sourceCounts: SourcePublicationCounts;
+  priceStats: PriceStats | null;
+  topCities: CityCount[];
+  activity: ActivityStats;
+  likes: number;
+  dislikes: number;
+  recent: Property[];
+};
+
+export type StatsSources = {
+  sourceCounts: SourcePublicationCounts;
+  multiSourceCount: number;
+};
+
+export type StatsPrices = {
+  priceStats: PriceStats | null;
+  priceDrops: number;
+  drops: Property[];
+};
+
+export type StatsMine = {
+  likes: number;
+  dislikes: number;
+  recentLikes: Property[];
+  recentDislikes: Property[];
+};
+
+export type StatsActivity = {
+  activity: ActivityStats;
+  zoneLabel: string;
+  cron: string;
+  scrapers: string[];
+  recent: Property[];
+};
+
+export type StatsSection =
+  | "overview"
+  | "sources"
+  | "prices"
+  | "mine"
+  | "activity";
+
+export type StatsResponseMap = {
+  overview: StatsOverview;
+  sources: StatsSources;
+  prices: StatsPrices;
+  mine: StatsMine;
+  activity: StatsActivity;
+};
+
+export type NotificationDigest = {
+  since: string;
+  newListings: Property[];
+  priceDrops: Property[];
+  lastScrapedAt: string | null;
 };
 
 export type ApiUser = {
@@ -92,6 +182,8 @@ export type BrowseState = {
   isExplore: boolean;
   hasPreferences: boolean;
   finished: boolean;
+  criteria?: ListingSearchFilters;
+  zoneLabel?: string;
 };
 
 export type DpeCandidate = {

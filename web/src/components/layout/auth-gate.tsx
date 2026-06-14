@@ -2,11 +2,14 @@ import {
   ApiError,
   clearHaToken,
   getHaToken,
+  hasEnvHaToken,
+  hasStoredHaToken,
   setHaToken,
 } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Label } from "@/components/ui/input";
+import { getErrorMessage } from "@/lib/error-message";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/api";
@@ -23,10 +26,15 @@ export function AuthGate({
   const queryClient = useQueryClient();
   const [token, setToken] = useState(getHaToken() ?? "");
   const unauthorized = error instanceof ApiError && error.status === 401;
+  const envTokenActive = hasEnvHaToken() && !hasStoredHaToken();
 
   if (loading && !unauthorized) {
     return (
-      <div className="flex min-h-dvh items-center justify-center text-sm text-muted-foreground">
+      <div
+        className="flex min-h-dvh items-center justify-center text-sm text-muted-foreground"
+        role="status"
+        aria-live="polite"
+      >
         Connecting…
       </div>
     );
@@ -44,6 +52,14 @@ export function AuthGate({
               Open this app from Home Assistant Ingress, or paste a long-lived
               access token for local development.
             </p>
+            {envTokenActive ? (
+              <p className="text-sm text-muted-foreground">
+                A token is configured via{" "}
+                <code className="text-xs">VITE_HA_TOKEN</code>. Save a new token
+                below to override it, or remove it from your{" "}
+                <code className="text-xs">.env</code> file.
+              </p>
+            ) : null}
             <div className="space-y-2">
               <Label htmlFor="ha-token">Long-lived access token</Label>
               <Input
@@ -57,6 +73,7 @@ export function AuthGate({
             <div className="flex gap-2">
               <Button
                 type="button"
+                disabled={!token.trim()}
                 onClick={() => {
                   setHaToken(token.trim());
                   void queryClient.invalidateQueries({
@@ -69,9 +86,13 @@ export function AuthGate({
               <Button
                 type="button"
                 variant="outline"
+                disabled={envTokenActive}
                 onClick={() => {
                   clearHaToken();
                   setToken("");
+                  void queryClient.invalidateQueries({
+                    queryKey: queryKeys.me,
+                  });
                 }}
               >
                 Clear
@@ -86,7 +107,7 @@ export function AuthGate({
   if (error && !unauthorized) {
     return (
       <div className="flex min-h-dvh items-center justify-center p-4 text-destructive">
-        {(error as Error).message}
+        {getErrorMessage(error)}
       </div>
     );
   }

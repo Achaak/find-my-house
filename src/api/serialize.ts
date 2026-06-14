@@ -4,7 +4,23 @@ import {
   getListingCompatibilityScore,
   resolveListingCompatibilityPreferences,
 } from "../services/compatibilityService.js";
-import type { Property, PropertyReactionState } from "./types.js";
+import type { RankedDpeSearchResult } from "../utils/energy/dpePropertyMatch.js";
+import type { DpeCandidate, Property, PropertyReactionState } from "./types.js";
+
+export function serializeDpeCandidate(
+  candidate: RankedDpeSearchResult
+): DpeCandidate {
+  return {
+    numeroDpe: candidate.numeroDpe,
+    address: candidate.address,
+    postalCode: candidate.postalCode,
+    latitude: candidate.latitude,
+    longitude: candidate.longitude,
+    score: candidate.matchScore,
+    dpeClass: candidate.dpeClass,
+    surface: candidate.surfaceM2,
+  };
+}
 
 export async function serializeProperty(
   property: PropertyRow,

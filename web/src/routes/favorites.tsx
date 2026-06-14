@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { PropertyCard } from "@/components/listings/property-card";
+import { useState } from "react";
+import { ReactionListPage } from "@/components/listings/reaction-list-page";
+import { Button } from "@/components/ui/button";
 import { api, queryKeys } from "@/lib/api";
 
 export const Route = createFileRoute("/favorites")({
@@ -8,50 +10,48 @@ export const Route = createFileRoute("/favorites")({
 });
 
 function FavoritesPage() {
+  const [showArchived, setShowArchived] = useState(false);
+
   const query = useQuery({
-    queryKey: queryKeys.reactions("like"),
-    queryFn: () => api.reactions("like"),
+    queryKey: queryKeys.reactions("like", {
+      archivedOnly: showArchived,
+    }),
+    queryFn: () =>
+      api.reactions("like", {
+        limit: 100,
+        archivedOnly: showArchived,
+      }),
   });
 
   return (
-    <ReactionListPage
-      title="Favorites"
-      description="Listings you liked — same as /like list on Discord."
-      query={query}
-    />
-  );
-}
-
-function ReactionListPage({
-  title,
-  description,
-  query,
-}: {
-  title: string;
-  description: string;
-  query: ReturnType<
-    typeof useQuery<{ items: import("@/lib/types").Property[] }>
-  >;
-}) {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">{title}</h1>
-        <p className="text-sm text-muted-foreground">{description}</p>
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant={!showArchived ? "default" : "outline"}
+          onClick={() => setShowArchived(false)}
+        >
+          Active
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={showArchived ? "default" : "outline"}
+          onClick={() => setShowArchived(true)}
+        >
+          Archived
+        </Button>
       </div>
-      {query.isLoading ? <p>Loading…</p> : null}
-      {query.error ? (
-        <p className="text-destructive">{(query.error as Error).message}</p>
-      ) : null}
-      {query.data?.items.length ? (
-        <div className="grid gap-4 md:grid-cols-2">
-          {query.data.items.map((property) => (
-            <PropertyCard key={property.id} property={property} />
-          ))}
-        </div>
-      ) : query.data ? (
-        <p className="text-muted-foreground">No listings yet.</p>
-      ) : null}
+      <ReactionListPage
+        title={showArchived ? "Archived favorites" : "Favorites"}
+        description={
+          showArchived
+            ? "Archived favorites still count toward compatibility scoring."
+            : "Listings you liked."
+        }
+        query={query}
+      />
     </div>
   );
 }

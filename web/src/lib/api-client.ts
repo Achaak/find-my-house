@@ -3,9 +3,17 @@ import { withBasePath } from "./base-path";
 const TOKEN_STORAGE_KEY = "find-my-house.ha-token";
 
 export function getHaToken(): string | null {
-  return (
-    import.meta.env.VITE_HA_TOKEN ?? localStorage.getItem(TOKEN_STORAGE_KEY)
-  );
+  const stored = localStorage.getItem(TOKEN_STORAGE_KEY);
+  if (stored) return stored;
+  return import.meta.env.VITE_HA_TOKEN ?? null;
+}
+
+export function hasEnvHaToken(): boolean {
+  return Boolean(import.meta.env.VITE_HA_TOKEN);
+}
+
+export function hasStoredHaToken(): boolean {
+  return localStorage.getItem(TOKEN_STORAGE_KEY) !== null;
 }
 
 export function setHaToken(token: string): void {
@@ -40,7 +48,18 @@ export async function apiFetch<T>(
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const response = await fetch(withBasePath(path), { ...init, headers });
+  const timeoutSignal = AbortSignal.timeout(30_000);
+  const userSignal = init.signal ?? undefined;
+  const signal =
+    userSignal !== undefined
+      ? AbortSignal.any([userSignal, timeoutSignal])
+      : timeoutSignal;
+
+  const response = await fetch(withBasePath(path), {
+    ...init,
+    headers,
+    signal,
+  });
 
   if (!response.ok) {
     let message = response.statusText;

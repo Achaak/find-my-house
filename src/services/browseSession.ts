@@ -34,12 +34,13 @@ async function loadBrowseCandidates(
   userId: string,
   filters: ListingSearchFilters
 ): Promise<PropertyRow[]> {
-  return repository.search({
+  const { items } = await repository.search({
     ...filters,
     excludeReactedByUser: userId,
     limit: 100,
     sort: "date_desc",
   });
+  return items;
 }
 
 export async function pickNextBrowseListing(
