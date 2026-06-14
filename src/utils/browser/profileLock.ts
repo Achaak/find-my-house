@@ -1,7 +1,15 @@
 import { existsSync, mkdirSync, renameSync, rmSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 
-const LOCK_FILES = ["SingletonLock", "SingletonSocket", "SingletonCookie"];
+export const PROFILE_LOCK_FILES = [
+  "SingletonLock",
+  "SingletonSocket",
+  "SingletonCookie",
+] as const;
+
+/** Retries while CloakBrowser downloads Chromium on first launch (~198 MB). */
+export const PROFILE_LOCK_MAX_ATTEMPTS = 15;
+export const PROFILE_LOCK_RETRY_BASE_MS = 5_000;
 
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -9,7 +17,7 @@ export function sleep(ms: number): Promise<void> {
 
 /** Remove stale Chromium profile locks (safe when no browser uses the profile). */
 export function clearStaleProfileLocks(profileDir: string): void {
-  for (const name of LOCK_FILES) {
+  for (const name of PROFILE_LOCK_FILES) {
     try {
       unlinkSync(join(profileDir, name));
     } catch {

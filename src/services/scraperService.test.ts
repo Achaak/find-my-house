@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createTestRepository } from "../test/db.js";
 import { makeListing } from "../test/listingFixtures.js";
 import type { Scraper } from "../scrapers/types.js";
-import { ScraperService } from "./scraperService.js";
+import { ScraperService, isScrapeInProgress } from "./scraperService.js";
 
 vi.mock("../utils/browser/client.js", () => ({
   ensureBrowserReady: vi.fn().mockResolvedValue(undefined),
@@ -180,6 +180,41 @@ describe("ScraperService", () => {
 
       expect(result.deactivated).toBe(0);
       expect(await repository.countPublications()).toBe(1);
+    } finally {
+      await dispose();
+    }
+  });
+
+  it("tracks scrape progress for readiness checks", async () => {
+    const { repository, dispose } = createTestRepository();
+    let resolveScrape!: () => void;
+    const scrapeGate = new Promise<void>((resolve) => {
+      resolveScrape = resolve;
+    });
+    const scrapers = [
+      {
+        name: "bienici" as const,
+        scrape: vi.fn(async () => {
+          await scrapeGate;
+          return [];
+        }),
+      },
+    ];
+
+    try {
+      const service = new ScraperService(scrapers, repository);
+      const runPromise = service.run({
+        city: "Paris",
+        maxPrice: 500_000,
+        minSurface: 30,
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(isScrapeInProgress()).toBe(true);
+
+      resolveScrape();
+      await runPromise;
+      expect(isScrapeInProgress()).toBe(false);
     } finally {
       await dispose();
     }

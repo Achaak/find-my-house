@@ -65,8 +65,32 @@ export WEB_HOST=0.0.0.0
 export HOME_ASSISTANT_URL=http://supervisor/core
 export DATABASE_URL="file:/data/listings.db"
 export CLOAKBROWSER_PROFILE_DIR=/data/cloakbrowser-profile
+export CLOAKBROWSER_CACHE_DIR=/data/cloakbrowser-cache
+export CLOAKBROWSER_HEADLESS=true
+export CLOAKBROWSER_AUTO_UPDATE=false
 
-mkdir -p /data
+mkdir -p /data /data/cloakbrowser-cache
+
+# Seed persisted cache from the image on first run (avoids a 198 MB download on HA).
+if [ -z "$(ls -A /data/cloakbrowser-cache 2>/dev/null)" ] \
+  && [ -n "$(ls -A /opt/cloakbrowser 2>/dev/null)" ]; then
+  echo "[run] Seeding CloakBrowser cache from image..."
+  cp -a /opt/cloakbrowser/. /data/cloakbrowser-cache/
+fi
+
+# Drop stale Chromium locks after an unclean shutdown (safe when no browser is running).
+if [ -d /data/cloakbrowser-profile ]; then
+  for lock in SingletonLock SingletonSocket SingletonCookie; do
+    rm -f "/data/cloakbrowser-profile/${lock}" 2>/dev/null || true
+  done
+fi
+
+# Prevent overlapping add-on instances during fast restarts.
+exec 200>/data/.find-my-house.lock
+if ! flock -n 200; then
+  echo "[run] Another instance is already running — exiting" >&2
+  exit 1
+fi
 
 cd /app
 echo "[run] Applying migrations..."

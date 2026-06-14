@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 import {
   backupAndRecreateProfile,
   isBrowserProfileInUseError,
+  PROFILE_LOCK_MAX_ATTEMPTS,
+  PROFILE_LOCK_RETRY_BASE_MS,
 } from "./profileLock.js";
 
 describe("isBrowserProfileInUseError", () => {
@@ -30,6 +32,18 @@ describe("isBrowserProfileInUseError", () => {
 
   it("ignores unrelated errors", () => {
     expect(isBrowserProfileInUseError(new Error("HTTP 403"))).toBe(false);
+  });
+});
+
+describe("profile lock retry tuning", () => {
+  it("allows enough time for first-time CloakBrowser download", () => {
+    const totalBackoffMs = Array.from(
+      { length: PROFILE_LOCK_MAX_ATTEMPTS - 1 },
+      (_, index) => (index + 2) * PROFILE_LOCK_RETRY_BASE_MS
+    ).reduce((sum, delay) => sum + delay, 0);
+
+    expect(PROFILE_LOCK_MAX_ATTEMPTS).toBeGreaterThanOrEqual(10);
+    expect(totalBackoffMs).toBeGreaterThanOrEqual(5 * 60_000);
   });
 });
 

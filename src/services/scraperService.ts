@@ -18,6 +18,11 @@ const log = createLogger("scraper");
 
 /** Serializes scrape runs so cron, Discord, and scripts do not overlap. */
 let scrapeRunLock: Promise<void> = Promise.resolve();
+let scrapeInProgress = false;
+
+export function isScrapeInProgress(): boolean {
+  return scrapeInProgress;
+}
 
 export class ScraperService {
   constructor(
@@ -33,9 +38,11 @@ export class ScraperService {
     });
     await waitForLock;
 
+    scrapeInProgress = true;
     try {
       return await this.runUnlocked(options);
     } finally {
+      scrapeInProgress = false;
       releaseLock();
     }
   }

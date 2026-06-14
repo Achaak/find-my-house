@@ -22,6 +22,10 @@ COPY prisma.config.ts prisma.config.js prisma.config.d.ts tsconfig.json ./
 
 RUN pnpm install --frozen-lockfile
 
+ENV CLOAKBROWSER_CACHE_DIR=/opt/cloakbrowser
+ENV CLOAKBROWSER_AUTO_UPDATE=false
+RUN mkdir -p /opt/cloakbrowser && pnpm exec cloakbrowser install
+
 COPY src ./src
 COPY packages/api-types ./packages/api-types
 COPY web ./web

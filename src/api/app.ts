@@ -38,6 +38,8 @@ import {
 import { getDpeAddressSearchReadiness } from "../utils/energy/dpePropertyMatch.js";
 import { getBuildInfo } from "../version.js";
 import { createLogger } from "../utils/logger.js";
+import { getBrowserReadiness } from "../utils/browser/client.js";
+import { isScrapeInProgress } from "../services/scraperService.js";
 import type { ScrapeFilters } from "../types/listing.js";
 
 const log = createLogger("api");
@@ -85,6 +87,22 @@ export function createApiApp(ctx: ApiContext) {
   const app = new Hono<{ Variables: AuthVariables }>();
 
   app.get("/api/health", (c) => c.json({ status: "ok" }));
+
+  app.get("/api/health/ready", (c) => {
+    const { browser, error } = getBrowserReadiness();
+    const scrapeInProgress = isScrapeInProgress();
+    const ready = browser === "ready";
+
+    return c.json(
+      {
+        status: ready ? "ok" : "not_ready",
+        browser,
+        scrapeInProgress,
+        ...(error ? { error } : {}),
+      },
+      ready ? 200 : 503
+    );
+  });
 
   app.get("/api/version", (c) => c.json(getBuildInfo()));
 

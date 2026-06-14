@@ -8,6 +8,8 @@ import {
   backupAndRecreateProfile,
   clearStaleProfileLocks,
   isBrowserProfileInUseError,
+  PROFILE_LOCK_MAX_ATTEMPTS,
+  PROFILE_LOCK_RETRY_BASE_MS,
   sleep,
 } from "./profileLock.js";
 
@@ -68,6 +70,53 @@ let contextPromise: Promise<BrowserContext> | null = null;
 let launchQueue: Promise<void> = Promise.resolve();
 const warmedUpOrigins = new Set<string>();
 
+export type BrowserReadinessStatus = "idle" | "starting" | "ready" | "error";
+
+let browserReadinessStatus: BrowserReadinessStatus = "idle";
+let browserReadinessError: string | undefined;
+let browserWarmUpPromise: Promise<void> | null = null;
+
+async function warmUpBrowser(): Promise<void> {
+  browserReadinessStatus = "starting";
+  browserReadinessError = undefined;
+  try {
+    await getBrowserContextInternal();
+    browserReadinessStatus = "ready";
+  } catch (error) {
+    browserReadinessStatus = "error";
+    browserReadinessError =
+      error instanceof Error ? error.message : String(error);
+    throw error;
+  }
+}
+
+function getBrowserWarmUpPromise(): Promise<void> {
+  browserWarmUpPromise ??= warmUpBrowser().catch((error: unknown) => {
+    browserWarmUpPromise = null;
+    throw error;
+  });
+  return browserWarmUpPromise;
+}
+
+/** Kick off browser launch at startup without blocking the rest of the app. */
+export function startBrowserWarmUp(): void {
+  void getBrowserWarmUpPromise().catch((error: unknown) => {
+    log.warn(
+      "Browser warm-up failed (will retry on next scrape):",
+      error instanceof Error ? error.message : error
+    );
+  });
+}
+
+export function getBrowserReadiness(): {
+  browser: BrowserReadinessStatus;
+  error?: string;
+} {
+  return browserReadinessError
+    ? { browser: browserReadinessStatus, error: browserReadinessError }
+    : { browser: browserReadinessStatus };
+}
+
 mkdirSync(profileDir, { recursive: true });
 clearStaleProfileLocks(profileDir);
 
@@ -125,15 +174,14 @@ async function recoverBrowserContext(error: unknown): Promise<BrowserContext> {
     throw error;
   }
 
-  const maxAttempts = 3;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+  for (let attempt = 1; attempt <= PROFILE_LOCK_MAX_ATTEMPTS; attempt++) {
     if (attempt > 1) {
-      await sleep(attempt * 1_000);
+      await sleep(attempt * PROFILE_LOCK_RETRY_BASE_MS);
     }
 
     clearStaleProfileLocks(profileDir);
 
-    if (attempt === maxAttempts) {
+    if (attempt === PROFILE_LOCK_MAX_ATTEMPTS) {
       const backupDir = backupAndRecreateProfile(profileDir);
       log.warn(
         backupDir
@@ -146,9 +194,12 @@ async function recoverBrowserContext(error: unknown): Promise<BrowserContext> {
       return await launchBrowserContext(true);
     } catch (retryError) {
       error = retryError;
-      if (attempt < maxAttempts && isBrowserProfileInUseError(retryError)) {
+      if (
+        attempt < PROFILE_LOCK_MAX_ATTEMPTS &&
+        isBrowserProfileInUseError(retryError)
+      ) {
         log.warn(
-          `CloakBrowser profile still locked (attempt ${String(attempt)}/${String(maxAttempts)}) — retrying...`
+          `CloakBrowser profile still locked (attempt ${String(attempt)}/${String(PROFILE_LOCK_MAX_ATTEMPTS)}) — retrying...`
         );
         continue;
       }
@@ -169,7 +220,7 @@ async function initBrowserContext(): Promise<BrowserContext> {
   });
 }
 
-async function getBrowserContext(): Promise<BrowserContext> {
+async function getBrowserContextInternal(): Promise<BrowserContext> {
   contextPromise ??= initBrowserContext().catch((error: unknown) => {
     contextPromise = null;
     if (isBrowserProfileInUseError(error)) {
@@ -181,9 +232,13 @@ async function getBrowserContext(): Promise<BrowserContext> {
   return contextPromise;
 }
 
+async function getBrowserContext(): Promise<BrowserContext> {
+  return getBrowserContextInternal();
+}
+
 /** Launch the shared browser before parallel scrapers start. */
 export async function ensureBrowserReady(): Promise<void> {
-  await getBrowserContext();
+  await getBrowserWarmUpPromise();
 }
 
 function buildUrl(url: string, searchParams?: Record<string, string>): string {
@@ -617,5 +672,7 @@ export async function closeBrowserContext(): Promise<void> {
       "CloakBrowser shutdown ignored:",
       error instanceof Error ? error.message : error
     );
+  } finally {
+    clearStaleProfileLocks(profileDir);
   }
 }
