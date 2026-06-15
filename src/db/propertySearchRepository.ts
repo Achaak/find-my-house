@@ -201,14 +201,16 @@ export class PropertySearchRepository {
 
     const { center, radiusKm } = radiusFilter;
     const rankedIds = leanRows
-      .filter((row) => {
-        if (row.latitude === null || row.longitude === null) return false;
-        return isWithinRadiusKm(
-          { lat: row.latitude, lng: row.longitude },
-          center,
-          radiusKm
-        );
-      })
+      .filter(
+        (row): row is typeof row & { latitude: number; longitude: number } => {
+          if (row.latitude === null || row.longitude === null) return false;
+          return isWithinRadiusKm(
+            { lat: row.latitude, lng: row.longitude },
+            center,
+            radiusKm
+          );
+        }
+      )
       .map((row) => ({
         id: row.id,
         distance: haversineDistanceKm(
