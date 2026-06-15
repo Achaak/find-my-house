@@ -19,7 +19,10 @@ import {
   resolveListingCompatibilityPreferences,
 } from "../services/compatibilityService.js";
 import { reconcileProperties } from "../services/reconcileService.js";
-import { ensurePropertyEnriched } from "../services/enrichmentService.js";
+import {
+  getEnrichmentStatus,
+  propertyNeedsEnrichment,
+} from "../services/enrichmentService.js";
 import { formatScrapeSummary } from "../services/formatScrapeSummary.js";
 import {
   clearBrowseSession,
@@ -169,17 +172,20 @@ export function createApiApp(ctx: ApiContext) {
     }
 
     const user = getUser(c);
-    const { property } = await ensurePropertyEnriched(
-      ctx.repository,
-      id,
-      "display"
-    );
+    const property = await ctx.repository.findById(id);
     if (!property) {
       return c.json({ error: "Listing not found" }, 404);
     }
 
+    if (propertyNeedsEnrichment(property, "display")) {
+      ctx.enrichmentQueue.schedule(id, "display", "high");
+    }
+
     return c.json({
       item: await serializeProperty(property, ctx.reactionRepository, user.id),
+      enrichment: {
+        status: getEnrichmentStatus(property, "display"),
+      },
     });
   });
 
@@ -531,18 +537,32 @@ export function createApiApp(ctx: ApiContext) {
 
   app.get("/api/properties/:id/address", async (c) => {
     const id = Number.parseInt(c.req.param("id"), 10);
-    const { property, warnings: enrichmentWarnings } =
-      await ensurePropertyEnriched(ctx.repository, id, "address");
+    const property = await ctx.repository.findById(id);
 
     if (!property) {
       return c.json({ error: "Listing not found" }, 404);
     }
 
+    if (propertyNeedsEnrichment(property, "address")) {
+      ctx.enrichmentQueue.schedule(id, "address", "high");
+    }
+
+    const enrichmentStatus = getEnrichmentStatus(property, "address");
     const readiness = getDpeAddressSearchReadiness(property);
     if (readiness === "unavailable") {
       return c.json({
         readiness,
-        warnings: enrichmentWarnings,
+        enrichment: { status: enrichmentStatus },
+        warnings: [],
+        candidates: [],
+      });
+    }
+
+    if (enrichmentStatus === "pending") {
+      return c.json({
+        readiness,
+        enrichment: { status: enrichmentStatus },
+        warnings: [],
         candidates: [],
       });
     }
@@ -555,8 +575,9 @@ export function createApiApp(ctx: ApiContext) {
       } = await searchDpeForProperty(property);
       return c.json({
         readiness,
+        enrichment: { status: enrichmentStatus },
         query,
-        warnings: [...enrichmentWarnings, ...searchWarnings],
+        warnings: searchWarnings,
         candidates: candidates.map(serializeDpeCandidate),
       });
     } catch (error) {

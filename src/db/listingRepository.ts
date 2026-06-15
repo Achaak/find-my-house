@@ -1134,6 +1134,15 @@ export class ListingRepository {
     return row ? toPropertyRow(row) : undefined;
   }
 
+  async findPropertiesForEnrichmentScan(limit: number): Promise<PropertyRow[]> {
+    const rows = await this.prisma.property.findMany({
+      take: limit,
+      orderBy: { firstSeenAt: "asc" },
+      include: propertyInclude,
+    });
+    return rows.map(toPropertyRow);
+  }
+
   async applyEnrichment(
     id: number,
     patch: PropertyEnrichmentPatch

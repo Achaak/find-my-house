@@ -62,6 +62,22 @@ export type Property = {
   archived?: boolean;
 };
 
+export type EnrichmentStatus = "pending" | "complete";
+
+export type ListingDetailResponse = {
+  item: Property;
+  enrichment: { status: EnrichmentStatus };
+};
+
+export type PropertyAddressSearchResponse = {
+  readiness: string;
+  enrichment: { status: EnrichmentStatus };
+  query?: unknown;
+  warnings: string[];
+  candidates: DpeCandidate[];
+  error?: string;
+};
+
 export type ListingSearchFilters = {
   city?: string;
   postalCode?: string;

@@ -40,6 +40,8 @@ export type EnrichmentResult = {
 
 export type EnrichmentPurpose = "display" | "address";
 
+export type EnrichmentStatus = "pending" | "complete";
+
 type EnrichPublicationOptions = {
   skipImage?: boolean;
 };
@@ -76,6 +78,13 @@ export function propertyNeedsEnrichment(
     (hasHtmlPortalPublication && missingCoords) ||
     (hasHtmlPortalPublication && classifiedImageNeedsRefresh(property.imageUrl))
   );
+}
+
+export function getEnrichmentStatus(
+  property: PropertyRow,
+  purpose: EnrichmentPurpose
+): EnrichmentStatus {
+  return propertyNeedsEnrichment(property, purpose) ? "pending" : "complete";
 }
 
 const SOURCE_PRIORITY: ListingSource[] = [

@@ -55,6 +55,11 @@ export_opt SCRAPE_MIN_BEDROOMS scrape_min_bedrooms
 export_bool_opt SCRAPE_ANCIEN_ONLY scrape_ancien_only
 export_opt SCRAPE_MAX_TRAVEL_MINUTES scrape_max_travel_minutes
 export_opt SCRAPE_MAX_PAGES scrape_max_pages
+export_opt ENRICHMENT_CRON enrichment_cron
+export_bool_opt ENRICHMENT_DISABLED enrichment_disabled
+export_opt ENRICHMENT_MIN_COMPAT_SCORE enrichment_min_compat_score
+export_opt ENRICHMENT_BATCH_LIMIT enrichment_batch_limit
+export_opt ENRICHMENT_SEARCH_LIMIT enrichment_search_limit
 export_opt LOG_LEVEL log_level
 
 # Web UI + Home Assistant (add-on only — see home-assistant/config.yaml)

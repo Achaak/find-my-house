@@ -10,6 +10,7 @@ import type { ExtendedScrapeResult } from "../types/listing.js";
 import { learnCompatibilityPreferences } from "../utils/compatibility/learn.js";
 import type { Logger } from "../utils/logger.js";
 import { ensurePropertyEnriched } from "./enrichmentService.js";
+import type { EnrichmentQueue } from "./enrichmentQueue.js";
 
 export type NotifyScrapeResultsOptions = {
   token: string;
@@ -17,6 +18,7 @@ export type NotifyScrapeResultsOptions = {
   maxNotifications?: number;
   repository?: ListingRepository;
   reactionRepository?: ReactionRepository;
+  enrichmentQueue?: EnrichmentQueue;
   compatibilityPreferences?: CompatibilityPreferences;
   log?: Pick<Logger, "info">;
 };
@@ -28,11 +30,19 @@ export type NotifyScrapeResultsSummary = {
 
 async function enrichListingsForDisplay(
   repository: ListingRepository,
-  listings: PropertyRow[]
+  listings: PropertyRow[],
+  enrichmentQueue?: EnrichmentQueue
 ): Promise<PropertyRow[]> {
   const enriched: PropertyRow[] = [];
 
   for (const listing of listings) {
+    if (enrichmentQueue) {
+      await enrichmentQueue.waitUntilEnriched(listing.id, "display", "high");
+      const property = await repository.findById(listing.id);
+      enriched.push(property ?? listing);
+      continue;
+    }
+
     const { property } = await ensurePropertyEnriched(
       repository,
       listing.id,
@@ -73,13 +83,15 @@ export async function notifyScrapeResults(
   const insertedListings = options.repository
     ? await enrichListingsForDisplay(
         options.repository,
-        result.insertedListings
+        result.insertedListings,
+        options.enrichmentQueue
       )
     : result.insertedListings;
   const priceDropListings = options.repository
     ? await enrichListingsForDisplay(
         options.repository,
-        result.priceDropListings
+        result.priceDropListings,
+        options.enrichmentQueue
       )
     : result.priceDropListings;
 

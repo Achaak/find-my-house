@@ -55,6 +55,11 @@ export const scrapeEnvSchema = z
     SCRAPE_MAX_TRAVEL_MINUTES: optionalPositiveInteger,
     SCRAPE_MAX_PAGES: z.coerce.number().int().positive().default(20),
     SCRAPE_SCRAPERS: z.string().optional(),
+    ENRICHMENT_CRON: z.string().min(1).default("0 * * * *"),
+    ENRICHMENT_DISABLED: z.preprocess((value) => value === "true", z.boolean()),
+    ENRICHMENT_MIN_COMPAT_SCORE: z.coerce.number().min(0).max(100).default(0),
+    ENRICHMENT_BATCH_LIMIT: z.coerce.number().int().positive().default(10),
+    ENRICHMENT_SEARCH_LIMIT: z.coerce.number().int().positive().default(1000),
     DATABASE_URL: z.string().min(1).optional(),
     DATABASE_PATH: z.string().min(1).optional(),
   })
@@ -86,6 +91,13 @@ export const scrapeEnvSchema = z
         maxTravelMinutes: env.SCRAPE_MAX_TRAVEL_MINUTES,
         maxPages: env.SCRAPE_MAX_PAGES,
         scrapers,
+      },
+      enrichment: {
+        cron: env.ENRICHMENT_CRON,
+        enabled: !env.ENRICHMENT_DISABLED,
+        minCompatScore: env.ENRICHMENT_MIN_COMPAT_SCORE,
+        batchLimit: env.ENRICHMENT_BATCH_LIMIT,
+        searchLimit: env.ENRICHMENT_SEARCH_LIMIT,
       },
       database: {
         url:

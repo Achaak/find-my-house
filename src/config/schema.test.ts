@@ -20,6 +20,11 @@ describe("parseScrapeConfig", () => {
     expect(config.scrape.minSurface).toBe(30);
     expect(config.scrape.maxPages).toBe(20);
     expect(config.scrape.ancienOnly).toBe(false);
+    expect(config.enrichment.cron).toBe("0 * * * *");
+    expect(config.enrichment.enabled).toBe(true);
+    expect(config.enrichment.minCompatScore).toBe(0);
+    expect(config.enrichment.batchLimit).toBe(10);
+    expect(config.enrichment.searchLimit).toBe(1000);
     expect(config.database.url).toBe("file:./data/listings.db");
   });
 
@@ -61,6 +66,12 @@ describe("parseScrapeConfig", () => {
     });
 
     expect(config.database.url).toBe("file:./custom/listings.db");
+  });
+
+  it("allows disabling enrichment backfill", () => {
+    const config = parseScrapeConfig({ ENRICHMENT_DISABLED: "true" });
+
+    expect(config.enrichment.enabled).toBe(false);
   });
 });
 

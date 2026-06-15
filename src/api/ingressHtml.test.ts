@@ -40,7 +40,11 @@ describe("prepareIndexHtml", () => {
     );
   });
 
-  it("returns the template unchanged outside ingress", () => {
-    expect(prepareIndexHtml(template, null)).toBe(template);
+  it("injects root base href outside ingress so deep reloads resolve assets", () => {
+    const html = prepareIndexHtml(template, null);
+
+    expect(html).toContain('<base href="/">');
+    expect(html).not.toContain("__INGRESS_PATH__");
+    expect(html).toContain('src="./assets/index.js"');
   });
 });

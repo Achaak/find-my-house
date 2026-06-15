@@ -9,7 +9,9 @@ import { startDiscordBot } from "./discord/bot.js";
 import { createScrapers } from "./scrapers/index.js";
 import { formatScrapeErrors } from "./services/formatScrapeSummary.js";
 import { notifyScrapeResults } from "./services/notifyScrapeResults.js";
+import { scheduleEnrichmentBackfill } from "./services/enrichmentBackfill.js";
 import { ScraperService } from "./services/scraperService.js";
+import { EnrichmentQueue } from "./services/enrichmentQueue.js";
 import { formatVersionLine } from "./version.js";
 import { geoFilterLabel, resolveGeoFilter } from "./utils/geo/geoFilter.js";
 import {
@@ -32,6 +34,7 @@ async function main(): Promise<void> {
   const repository = new ListingRepository(prisma);
   const reactionRepository = new ReactionRepository(prisma);
   const scraperService = new ScraperService(scrapers, repository);
+  const enrichmentQueue = new EnrichmentQueue(repository);
 
   const scrapeOptions = buildScrapeFilters();
   const geoFilter = resolveGeoFilter(scrapeOptions, true);
@@ -51,6 +54,7 @@ async function main(): Promise<void> {
       cronLog.info("Scheduled scrape...");
       try {
         const result = await scraperService.run(scrapeOptions);
+        enrichmentQueue.scheduleScrapeResults(result);
         cronLog.info(
           `Result: ${String(result.inserted)} new properties, ${String(result.linked)} linked, ${String(result.updated)} updated, ${String(result.skipped)} skipped, ${String(result.deactivated)} deactivated`
         );
@@ -63,6 +67,7 @@ async function main(): Promise<void> {
           maxNotifications: discord.maxNotifications,
           repository,
           reactionRepository,
+          enrichmentQueue,
           log: cronLog,
         });
       } catch (error) {
@@ -73,6 +78,37 @@ async function main(): Promise<void> {
   } else {
     cronLog.error(
       `Invalid cron expression: "${scrapeConfig.scrape.cron}" — automatic scraping disabled`
+    );
+  }
+
+  const { enrichment } = scrapeConfig;
+  if (enrichment.enabled && cron.validate(enrichment.cron)) {
+    cron.schedule(enrichment.cron, async () => {
+      cronLog.info("Scheduled enrichment backfill...");
+      try {
+        const scheduled = await scheduleEnrichmentBackfill(
+          repository,
+          reactionRepository,
+          enrichmentQueue,
+          {
+            minScore: enrichment.minCompatScore,
+            limit: enrichment.batchLimit,
+            searchLimit: enrichment.searchLimit,
+          }
+        );
+        cronLog.info(
+          `Enrichment backfill: ${String(scheduled)} listing(s) queued`
+        );
+      } catch (error) {
+        cronLog.error("Enrichment backfill error:", error);
+      }
+    });
+    cronLog.info(
+      `Scheduled enrichment backfill: ${enrichment.cron} (batch ${String(enrichment.batchLimit)}, scan ${String(enrichment.searchLimit)}, min compat ${String(enrichment.minCompatScore)})`
+    );
+  } else if (enrichment.enabled) {
+    cronLog.error(
+      `Invalid enrichment cron expression: "${enrichment.cron}" — automatic enrichment backfill disabled`
     );
   }
 
@@ -92,6 +128,7 @@ async function main(): Promise<void> {
     repository,
     reactionRepository,
     scraperService,
+    enrichmentQueue,
     scrapeDefaults: scrapeOptions,
   });
 
@@ -100,16 +137,20 @@ async function main(): Promise<void> {
     repository,
     reactionRepository,
     scraperService,
+    enrichmentQueue,
     scrapeDefaults: scrapeOptions,
-    notifyScrapeResults: (result) =>
-      notifyScrapeResults(result, {
+    notifyScrapeResults: (result) => {
+      enrichmentQueue.scheduleScrapeResults(result);
+      return notifyScrapeResults(result, {
         token: discord.token,
         channelId: discord.channelId,
         maxNotifications: discord.maxNotifications,
         repository,
         reactionRepository,
+        enrichmentQueue,
         log: cronLog,
-      }),
+      });
+    },
   });
 }
 

@@ -1,5 +1,4 @@
 import { SlashCommandBuilder } from "discord.js";
-import { ensurePropertyEnriched } from "../../services/enrichmentService.js";
 import { searchDpeForProperty } from "../../utils/energy/ademeDpeApi.js";
 import { getDpeAddressSearchReadiness } from "../../utils/energy/dpePropertyMatch.js";
 import { createLogger } from "../../utils/logger.js";
@@ -25,8 +24,9 @@ export const handleAddress: CommandHandler = async (interaction, ctx) => {
   const id = interaction.options.getInteger("id", true);
   await interaction.deferReply();
 
-  const { property, warnings: enrichmentWarnings } =
-    await ensurePropertyEnriched(ctx.repository, id, "address");
+  const { warnings: enrichmentWarnings } =
+    await ctx.enrichmentQueue.waitUntilEnriched(id, "address", "high");
+  const property = await ctx.repository.findById(id);
   if (!property) {
     await interaction.editReply(`Listing #${String(id)} not found.`);
     return;

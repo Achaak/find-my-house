@@ -9,6 +9,7 @@ import {
 import { Routes } from "discord-api-types/rest/v10";
 import type { ListingRepository } from "../db/listingRepository.js";
 import type { ReactionRepository } from "../db/reactionRepository.js";
+import type { EnrichmentQueue } from "../services/enrichmentQueue.js";
 import type { ScraperService } from "../services/scraperService.js";
 import { notifyScrapeResults } from "../services/notifyScrapeResults.js";
 import type { ExtendedScrapeResult, ScrapeFilters } from "../types/listing.js";
@@ -28,6 +29,7 @@ type BotOptions = {
   repository: ListingRepository;
   reactionRepository: ReactionRepository;
   scraperService: ScraperService;
+  enrichmentQueue: EnrichmentQueue;
   scrapeDefaults: ScrapeFilters;
 };
 
@@ -73,6 +75,7 @@ export async function startDiscordBot(options: BotOptions): Promise<Client> {
             options.repository,
             options.reactionRepository,
             options.scraperService,
+            options.enrichmentQueue,
             options.scrapeDefaults,
             options.discord,
             sendScrapeNotifications

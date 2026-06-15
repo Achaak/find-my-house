@@ -1,5 +1,4 @@
 import { SlashCommandBuilder } from "discord.js";
-import { ensurePropertyEnriched } from "../../services/enrichmentService.js";
 import { buildListingActionRow } from "../components.js";
 import { formatListingEmbedWithCompatibility } from "../listingEmbed.js";
 import type { CommandHandler } from "./types.js";
@@ -17,11 +16,8 @@ export const handleListing: CommandHandler = async (interaction, ctx) => {
   const id = interaction.options.getInteger("id", true);
   await interaction.deferReply();
 
-  const { property: listing } = await ensurePropertyEnriched(
-    ctx.repository,
-    id,
-    "display"
-  );
+  await ctx.enrichmentQueue.waitUntilEnriched(id, "display", "high");
+  const listing = await ctx.repository.findById(id);
 
   if (!listing) {
     await interaction.editReply(`Listing #${String(id)} not found.`);

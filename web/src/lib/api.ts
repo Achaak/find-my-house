@@ -2,10 +2,11 @@ import { apiFetch } from "./api-client";
 import type {
   ApiUser,
   BrowseState,
-  DpeCandidate,
+  ListingDetailResponse,
   ListingSearchFilters,
   NotificationDigest,
   Property,
+  PropertyAddressSearchResponse,
   ReconcileResult,
   StatsResponseMap,
   StatsSection,
@@ -65,7 +66,7 @@ export const api = {
   listingsAll: fetchAllListings,
 
   listing: (id: number) =>
-    apiFetch<{ item: Property }>(`/api/listings/${String(id)}`),
+    apiFetch<ListingDetailResponse>(`/api/listings/${String(id)}`),
 
   browseStart: () =>
     apiFetch<BrowseState>("/api/browse/start", { method: "POST" }),
@@ -134,13 +135,9 @@ export const api = {
   },
 
   addressSearch: (propertyId: number) =>
-    apiFetch<{
-      readiness: string;
-      query?: unknown;
-      warnings: string[];
-      candidates: DpeCandidate[];
-      error?: string;
-    }>(`/api/properties/${String(propertyId)}/address`),
+    apiFetch<PropertyAddressSearchResponse>(
+      `/api/properties/${String(propertyId)}/address`
+    ),
 
   addressConfirm: (propertyId: number, numeroDpe: string) =>
     apiFetch<{ address: string; dpeNumero: string }>(
