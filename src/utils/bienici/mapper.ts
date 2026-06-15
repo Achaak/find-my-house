@@ -55,6 +55,11 @@ export function extractBienIciAdCoords(ad: BienIciAd): GeoPoint | null {
   return { lat: position.lat, lng: position.lon };
 }
 
+function bienIciScrapeImageUrl(ad: BienIciAd): string | null {
+  const photo = ad.photos?.find((entry) => entry.url_photo.trim());
+  return photo?.url_photo.trim() ?? null;
+}
+
 function bienIciEnergyMetrics(ad: BienIciAd) {
   return mergeEnergyMetrics(
     {
@@ -99,7 +104,7 @@ export function mapBienIciAdToListing(
     postalCode: ad.postalCode ?? null,
     url,
     description: ad.description ?? null,
-    imageUrl: null,
+    imageUrl: bienIciScrapeImageUrl(ad),
     propertyType: ad.propertyType ?? null,
     dpeClass: normalizeEnergyClass(ad.energyClassification),
     gesClass: normalizeEnergyClass(ad.greenhouseGazClassification),

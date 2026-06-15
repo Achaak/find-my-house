@@ -1,6 +1,7 @@
 import type { Listing } from "../../types/listing.js";
 import { normalizeEnergyClass } from "../energy/energyClass.js";
 import {
+  buildClassifiedImageUrl,
   buildClassifiedListingUrl,
   parseClassifiedBedrooms,
   parseClassifiedPrice,
@@ -8,6 +9,15 @@ import {
 } from "./helpers.js";
 import { extractClassifiedListingExtras } from "./extras.js";
 import type { ClassifiedCard, ClassifiedPortalConfig } from "./types.js";
+
+function classifiedScrapeImageUrl(
+  portal: ClassifiedPortalConfig,
+  card: ClassifiedCard
+): string | null {
+  const photo = card.photos?.find((url) => url.trim());
+  if (!photo) return null;
+  return buildClassifiedImageUrl(portal, photo.trim());
+}
 
 export function mapClassifiedCardToListing(
   portal: ClassifiedPortalConfig,
@@ -34,7 +44,7 @@ export function mapClassifiedCardToListing(
     postalCode: card.zipCode ?? null,
     url: buildClassifiedListingUrl(portal, card),
     description: card.description ?? null,
-    imageUrl: null,
+    imageUrl: classifiedScrapeImageUrl(portal, card),
     propertyType: card.estateType ?? null,
     dpeClass: normalizeEnergyClass(card.energyClass),
     gesClass: normalizeEnergyClass(card.gesClass),

@@ -34,6 +34,21 @@ function leboncoinPropertyType(ad: LeboncoinAd): string | null {
   return propertyTypeAttr?.value_label ?? propertyTypeAttr?.value ?? null;
 }
 
+export function leboncoinScrapeImageUrl(ad: LeboncoinAd): string | null {
+  const images = ad.images;
+  if (!images) return null;
+
+  const fromLarge = images.urls_large?.find((url) => url.trim());
+  if (fromLarge) return fromLarge.trim();
+
+  const fromStandard = images.urls?.find((url) => url.trim());
+  if (fromStandard) return fromStandard.trim();
+
+  const thumb = images.thumb_url?.trim();
+  if (!thumb) return null;
+  return thumb;
+}
+
 function leboncoinDimensions(ad: LeboncoinAd) {
   return {
     surface: sanitizePositiveNumber(
@@ -75,7 +90,7 @@ export function mapLeboncoinAdToListing(
     postalCode: ad.location.zipcode ?? null,
     url: ad.url,
     description: ad.body,
-    imageUrl: null,
+    imageUrl: leboncoinScrapeImageUrl(ad),
     propertyType: leboncoinPropertyType(ad),
     dpeClass: normalizeEnergyClass(getLeboncoinAttribute(ad, "energy_rate")),
     gesClass: normalizeEnergyClass(getLeboncoinAttribute(ad, "ges")),
