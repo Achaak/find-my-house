@@ -26,6 +26,7 @@ import {
 } from "../services/enrichmentService.js";
 import { formatScrapeSummary } from "../services/formatScrapeSummary.js";
 import {
+  advanceBrowseSession,
   clearBrowseSession,
   getBrowseSession,
   getBrowseState,
@@ -44,23 +45,9 @@ import { getBuildInfo } from "../version.js";
 import { createLogger } from "../utils/logger.js";
 import { getBrowserReadiness } from "../utils/browser/client.js";
 import { isScrapeInProgress } from "../services/scraperService.js";
-import type { ScrapeFilters } from "../types/listing.js";
+import { scrapeFiltersToSearch } from "../utils/listing/scrapeFilters.js";
 
 const log = createLogger("api");
-
-function scrapeFiltersToSearch(filters: ScrapeFilters) {
-  return {
-    city: filters.city,
-    postalCode: filters.postalCode,
-    maxPrice: filters.maxPrice,
-    minSurface: filters.minSurface,
-    minLandSurface: filters.minLandSurface,
-    minRooms: filters.minRooms,
-    minBedrooms: filters.minBedrooms,
-    ancienOnly: filters.ancienOnly,
-    maxTravelMinutes: filters.maxTravelMinutes,
-  };
-}
 
 async function serializeBrowseResponse(
   ctx: ApiContext,
@@ -179,13 +166,14 @@ export function createApiApp(ctx: ApiContext) {
     }
 
     const user = getUser(c);
-    const property = await ctx.repository.findById(id);
+    let property = await ctx.repository.findById(id);
     if (!property) {
       return c.json({ error: "Listing not found" }, 404);
     }
 
     if (propertyNeedsEnrichment(property, "display")) {
-      ctx.enrichmentQueue.schedule(id, "display", "high");
+      await ctx.enrichmentQueue.waitUntilEnriched(id, "display", "high");
+      property = (await ctx.repository.findById(id)) ?? property;
     }
 
     return c.json({
@@ -267,7 +255,7 @@ export function createApiApp(ctx: ApiContext) {
     await ctx.reactionRepository.add(user.id, propertyId, action);
     resetListingCompatibilityCache();
 
-    const state = await getBrowseState(
+    const state = await advanceBrowseSession(
       ctx.repository,
       ctx.reactionRepository,
       user.id,
@@ -555,14 +543,15 @@ export function createApiApp(ctx: ApiContext) {
 
   app.get("/api/properties/:id/address", async (c) => {
     const id = Number.parseInt(c.req.param("id"), 10);
-    const property = await ctx.repository.findById(id);
+    let property = await ctx.repository.findById(id);
 
     if (!property) {
       return c.json({ error: "Listing not found" }, 404);
     }
 
     if (propertyNeedsEnrichment(property, "address")) {
-      ctx.enrichmentQueue.schedule(id, "address", "high");
+      await ctx.enrichmentQueue.waitUntilEnriched(id, "address", "high");
+      property = (await ctx.repository.findById(id)) ?? property;
     }
 
     const enrichmentStatus = getEnrichmentStatus(property, "address");

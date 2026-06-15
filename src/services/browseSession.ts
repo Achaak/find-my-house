@@ -8,6 +8,8 @@ import { resolveListingCompatibilityPreferences } from "../services/compatibilit
 export type BrowseSession = {
   filters: ListingSearchFilters;
   shownCount: number;
+  currentPropertyId: number | null;
+  currentIsExplore: boolean;
 };
 
 const sessions = new Map<string, BrowseSession>();
@@ -16,7 +18,12 @@ export function startBrowseSession(
   userId: string,
   filters: ListingSearchFilters
 ): BrowseSession {
-  const session = { filters, shownCount: 0 };
+  const session: BrowseSession = {
+    filters,
+    shownCount: 0,
+    currentPropertyId: null,
+    currentIsExplore: false,
+  };
   sessions.set(userId, session);
   return session;
 }
@@ -82,25 +89,14 @@ export type BrowseState = {
   finished: boolean;
 };
 
-export async function getBrowseState(
-  repository: ListingRepository,
-  reactionRepository: ReactionRepository,
+function buildBrowseState(
   userId: string,
-  session: BrowseSession
-): Promise<BrowseState> {
-  const preferences = await resolveListingCompatibilityPreferences(
-    reactionRepository,
-    userId
-  );
-  const pick = await pickNextBrowseListing(
-    repository,
-    reactionRepository,
-    userId,
-    session,
-    preferences
-  );
-
-  if (!pick) {
+  session: BrowseSession,
+  preferences: CompatibilityPreferences | null,
+  property: PropertyRow | null,
+  isExplore: boolean
+): BrowseState {
+  if (!property) {
     clearBrowseSession(userId);
     return {
       property: null,
@@ -112,10 +108,83 @@ export async function getBrowseState(
   }
 
   return {
-    property: pick.property,
+    property,
     shownCount: session.shownCount,
-    isExplore: pick.isExplore,
+    isExplore,
     hasPreferences: preferences !== null,
     finished: false,
   };
+}
+
+/** Return the current listing without advancing the session cursor. */
+export async function getBrowseState(
+  repository: ListingRepository,
+  reactionRepository: ReactionRepository,
+  userId: string,
+  session: BrowseSession
+): Promise<BrowseState> {
+  const preferences = await resolveListingCompatibilityPreferences(
+    reactionRepository,
+    userId
+  );
+
+  if (session.currentPropertyId !== null) {
+    const property = await repository.findById(session.currentPropertyId);
+    if (property) {
+      return buildBrowseState(
+        userId,
+        session,
+        preferences,
+        property,
+        session.currentIsExplore
+      );
+    }
+    session.currentPropertyId = null;
+  }
+
+  return advanceBrowseSession(
+    repository,
+    reactionRepository,
+    userId,
+    session,
+    preferences
+  );
+}
+
+/** Pick the next listing and store it as the session cursor. */
+export async function advanceBrowseSession(
+  repository: ListingRepository,
+  reactionRepository: ReactionRepository,
+  userId: string,
+  session: BrowseSession,
+  preferences?: CompatibilityPreferences | null
+): Promise<BrowseState> {
+  const resolvedPreferences =
+    preferences ??
+    (await resolveListingCompatibilityPreferences(reactionRepository, userId));
+
+  session.currentPropertyId = null;
+
+  const pick = await pickNextBrowseListing(
+    repository,
+    reactionRepository,
+    userId,
+    session,
+    resolvedPreferences
+  );
+
+  if (!pick) {
+    return buildBrowseState(userId, session, resolvedPreferences, null, false);
+  }
+
+  session.currentPropertyId = pick.property.id;
+  session.currentIsExplore = pick.isExplore;
+
+  return buildBrowseState(
+    userId,
+    session,
+    resolvedPreferences,
+    pick.property,
+    pick.isExplore
+  );
 }

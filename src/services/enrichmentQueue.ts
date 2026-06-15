@@ -3,10 +3,10 @@ import type { ExtendedScrapeResult } from "../types/listing.js";
 import { createLogger } from "../utils/logger.js";
 import { isScrapeInProgress } from "./scraperService.js";
 import {
-  ensurePropertyEnriched,
   propertyNeedsEnrichment,
   type EnrichmentPurpose,
-} from "./enrichmentService.js";
+} from "../domain/enrichmentCriteria.js";
+import { ensurePropertyEnriched } from "./enrichmentService.js";
 
 const log = createLogger("enrichment-queue");
 

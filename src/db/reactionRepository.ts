@@ -217,6 +217,30 @@ export class ReactionRepository {
     return reaction ?? null;
   }
 
+  async getReactionsForProperties(
+    discordUserId: string,
+    propertyIds: number[]
+  ): Promise<Map<number, { type: ReactionType; archivedAt: Date | null }>> {
+    if (propertyIds.length === 0) {
+      return new Map();
+    }
+
+    const reactions = await this.prisma.listingReaction.findMany({
+      where: {
+        discordUserId,
+        propertyId: { in: propertyIds },
+      },
+      select: { propertyId: true, type: true, archivedAt: true },
+    });
+
+    return new Map(
+      reactions.map((reaction) => [
+        reaction.propertyId,
+        { type: reaction.type, archivedAt: reaction.archivedAt },
+      ])
+    );
+  }
+
   async countByUser(
     discordUserId: string,
     type: ReactionType,

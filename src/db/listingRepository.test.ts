@@ -9,7 +9,7 @@ import {
 } from "vitest";
 import { createTestRepository } from "../test/db.js";
 import { makeListing } from "../test/listingFixtures.js";
-import { propertyNeedsEnrichment } from "../services/enrichmentService.js";
+import { propertyNeedsEnrichment } from "../domain/enrichmentCriteria.js";
 import type { ListingRepository } from "./listingRepository.js";
 
 vi.mock("../utils/geo/geocode.js", () => ({
@@ -656,5 +656,39 @@ describe("ListingRepository.search", () => {
 
     expect(total).toBe(1);
     expect(items[0]?.postalCode).toBe("76160");
+  });
+
+  it("paginates city searches at the database layer", async () => {
+    await repository.upsertMany([
+      makeListing({
+        externalId: "page-a",
+        url: "https://www.bienici.com/annonce/page-a",
+        city: "Pagetown",
+        price: 100_000,
+      }),
+      makeListing({
+        externalId: "page-b",
+        url: "https://www.bienici.com/annonce/page-b",
+        city: "Pagetown",
+        price: 200_000,
+      }),
+      makeListing({
+        externalId: "page-c",
+        url: "https://www.bienici.com/annonce/page-c",
+        city: "Pagetown",
+        price: 300_000,
+      }),
+    ]);
+
+    const page = await repository.search({
+      city: "Pagetown",
+      sort: "price_asc",
+      limit: 2,
+      offset: 1,
+    });
+
+    expect(page.total).toBe(3);
+    expect(page.items).toHaveLength(2);
+    expect(page.items.map((item) => item.price)).toEqual([200_000, 300_000]);
   });
 });

@@ -19,7 +19,7 @@ import type {
   PriceStats,
   SourcePublicationCounts,
 } from "../types/stats.js";
-import { displayEnrichmentPendingWhere } from "../services/enrichmentService.js";
+import { displayEnrichmentPendingWhere } from "../domain/enrichmentCriteria.js";
 import type { PropertyEnrichmentPatch } from "../types/enrichment.js";
 import { parseHighlights, toPropertyRow } from "./listingMapper.js";
 import {
@@ -160,6 +160,91 @@ function searchOrderBy(
     default:
       return { price: "asc" };
   }
+}
+
+function buildPropertySearchWhere(
+  filters: ListingSearchFilters,
+  useGeoFilter: boolean,
+  radiusFilter: { center: GeoPoint; radiusKm: number } | null
+): Prisma.PropertyWhereInput {
+  const textFilter = filters.text?.trim();
+  const priceFilter =
+    filters.minPrice !== undefined || filters.maxPrice !== undefined
+      ? {
+          ...(filters.minPrice !== undefined ? { gte: filters.minPrice } : {}),
+          ...(filters.maxPrice !== undefined ? { lte: filters.maxPrice } : {}),
+        }
+      : undefined;
+
+  return {
+    city:
+      filters.city && !useGeoFilter ? { contains: filters.city } : undefined,
+    postalCode:
+      filters.postalCode && !useGeoFilter
+        ? { contains: filters.postalCode }
+        : undefined,
+    price: priceFilter,
+    surface:
+      filters.minSurface !== undefined
+        ? { gte: filters.minSurface }
+        : undefined,
+    landSurface:
+      filters.minLandSurface !== undefined
+        ? { gte: filters.minLandSurface }
+        : undefined,
+    rooms:
+      filters.minRooms !== undefined ? { gte: filters.minRooms } : undefined,
+    bedrooms:
+      filters.minBedrooms !== undefined
+        ? { gte: filters.minBedrooms }
+        : undefined,
+    isNewProperty: filters.neufOnly
+      ? true
+      : filters.ancienOnly
+        ? { not: true }
+        : undefined,
+    publications: filters.source
+      ? { some: { source: filters.source, isActive: true } }
+      : { some: { isActive: true } },
+    reactions: filters.excludeReactedByUser
+      ? { none: { discordUserId: filters.excludeReactedByUser } }
+      : undefined,
+    ...(textFilter
+      ? {
+          OR: [
+            { title: { contains: textFilter } },
+            { description: { contains: textFilter } },
+          ],
+        }
+      : {}),
+    ...(radiusFilter
+      ? (() => {
+          const bounds = boundingBoxForRadiusKm(
+            radiusFilter.center,
+            radiusFilter.radiusKm
+          );
+          return {
+            latitude: {
+              not: null,
+              gte: bounds.minLat,
+              lte: bounds.maxLat,
+            },
+            longitude: {
+              not: null,
+              gte: bounds.minLng,
+              lte: bounds.maxLng,
+            },
+          };
+        })()
+      : {}),
+  };
+}
+
+function needsSearchPostProcessing(
+  radiusFilter: { center: GeoPoint; radiusKm: number } | null,
+  filters: ListingSearchFilters
+): boolean {
+  return radiusFilter !== null || filters.priceDropOnly === true;
 }
 
 type PropertyScalarData = {
@@ -817,89 +902,30 @@ export class ListingRepository {
       radiusFilter = resolveRadiusSearchFilter(geoFilter, searchCenter.center);
     }
 
-    const textFilter = filters.text?.trim();
-    const priceFilter =
-      filters.minPrice !== undefined || filters.maxPrice !== undefined
-        ? {
-            ...(filters.minPrice !== undefined
-              ? { gte: filters.minPrice }
-              : {}),
-            ...(filters.maxPrice !== undefined
-              ? { lte: filters.maxPrice }
-              : {}),
-          }
-        : undefined;
+    const where = buildPropertySearchWhere(filters, useGeoFilter, radiusFilter);
+    const orderBy = searchOrderBy(filters.sort);
+    const offset = filters.offset ?? 0;
+    const limit = filters.limit ?? 10;
+
+    if (!needsSearchPostProcessing(radiusFilter, filters)) {
+      const [total, rows] = await Promise.all([
+        this.prisma.property.count({ where }),
+        this.prisma.property.findMany({
+          where,
+          include: propertyInclude,
+          orderBy,
+          skip: offset,
+          take: limit,
+        }),
+      ]);
+
+      return { items: rows.map(toPropertyRow), total };
+    }
 
     const rows = await this.prisma.property.findMany({
-      where: {
-        city:
-          filters.city && !useGeoFilter
-            ? { contains: filters.city }
-            : undefined,
-        // Postal code pins the geo search center; radius/travel already bounds results.
-        postalCode:
-          filters.postalCode && !useGeoFilter
-            ? { contains: filters.postalCode }
-            : undefined,
-        price: priceFilter,
-        surface:
-          filters.minSurface !== undefined
-            ? { gte: filters.minSurface }
-            : undefined,
-        landSurface:
-          filters.minLandSurface !== undefined
-            ? { gte: filters.minLandSurface }
-            : undefined,
-        rooms:
-          filters.minRooms !== undefined
-            ? { gte: filters.minRooms }
-            : undefined,
-        bedrooms:
-          filters.minBedrooms !== undefined
-            ? { gte: filters.minBedrooms }
-            : undefined,
-        isNewProperty: filters.neufOnly
-          ? true
-          : filters.ancienOnly
-            ? { not: true }
-            : undefined,
-        publications: filters.source
-          ? { some: { source: filters.source, isActive: true } }
-          : { some: { isActive: true } },
-        reactions: filters.excludeReactedByUser
-          ? { none: { discordUserId: filters.excludeReactedByUser } }
-          : undefined,
-        ...(textFilter
-          ? {
-              OR: [
-                { title: { contains: textFilter } },
-                { description: { contains: textFilter } },
-              ],
-            }
-          : {}),
-        ...(radiusFilter
-          ? (() => {
-              const bounds = boundingBoxForRadiusKm(
-                radiusFilter.center,
-                radiusFilter.radiusKm
-              );
-              return {
-                latitude: {
-                  not: null,
-                  gte: bounds.minLat,
-                  lte: bounds.maxLat,
-                },
-                longitude: {
-                  not: null,
-                  gte: bounds.minLng,
-                  lte: bounds.maxLng,
-                },
-              };
-            })()
-          : {}),
-      },
+      where,
       include: propertyInclude,
-      orderBy: searchOrderBy(filters.sort),
+      orderBy,
     });
 
     let results = rows.map(toPropertyRow);
@@ -948,8 +974,6 @@ export class ListingRepository {
     }
 
     const total = results.length;
-    const offset = filters.offset ?? 0;
-    const limit = filters.limit ?? 10;
 
     return {
       items: results.slice(offset, offset + limit),
@@ -1161,6 +1185,7 @@ export class ListingRepository {
 
   async findPropertiesForEnrichmentScan(limit: number): Promise<PropertyRow[]> {
     const rows = await this.prisma.property.findMany({
+      where: displayEnrichmentPendingWhere(),
       take: limit,
       orderBy: { firstSeenAt: "asc" },
       include: propertyInclude,

@@ -9,16 +9,15 @@ import type { ListingRepository } from "../db/listingRepository.js";
 import type { ReactionRepository } from "../db/reactionRepository.js";
 import type { EnrichmentQueue } from "../services/enrichmentQueue.js";
 import {
+  advanceBrowseSession,
   clearBrowseSession,
   getBrowseSession,
-  pickNextBrowseListing,
   startBrowseSession,
   type BrowseSession,
 } from "../services/browseSession.js";
 import {
   formatListingEmbedWithCompatibility,
   resetListingCompatibilityCache,
-  resolveListingCompatibilityPreferences,
 } from "./listingEmbed.js";
 
 const LIKE_PREFIX = "browse:like:";
@@ -75,20 +74,14 @@ export async function buildBrowseReply(
     }
   | { content: string; embeds: []; components: [] }
 > {
-  const preferences = await resolveListingCompatibilityPreferences(
-    reactionRepository,
-    discordUserId
-  );
-  const pick = await pickNextBrowseListing(
+  const state = await advanceBrowseSession(
     repository,
     reactionRepository,
     discordUserId,
-    session,
-    preferences
+    session
   );
 
-  if (!pick) {
-    clearBrowseSession(discordUserId);
+  if (!state.property) {
     return {
       content:
         "✅ No more listings to browse with your current criteria.\n" +
@@ -98,9 +91,9 @@ export async function buildBrowseReply(
     };
   }
 
-  await enrichmentQueue.waitUntilEnriched(pick.property.id, "display", "high");
+  await enrichmentQueue.waitUntilEnriched(state.property.id, "display", "high");
   const property =
-    (await repository.findById(pick.property.id)) ?? pick.property;
+    (await repository.findById(state.property.id)) ?? state.property;
 
   const embed = await formatListingEmbedWithCompatibility(
     property,
@@ -110,9 +103,9 @@ export async function buildBrowseReply(
 
   return {
     content: browseHeader({
-      shownCount: session.shownCount,
-      isExplore: pick.isExplore,
-      hasPreferences: preferences !== null,
+      shownCount: state.shownCount,
+      isExplore: state.isExplore,
+      hasPreferences: state.hasPreferences,
     }),
     embeds: [embed],
     components: [buildBrowseActionRow(property.id)],

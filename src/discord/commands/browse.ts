@@ -1,8 +1,4 @@
 import { MessageFlagsBitField, SlashCommandBuilder } from "discord.js";
-import type {
-  ListingSearchFilters,
-  ScrapeFilters,
-} from "../../types/listing.js";
 import {
   buildBrowseReply,
   clearBrowseSession,
@@ -10,20 +6,7 @@ import {
   startBrowseSession,
 } from "../browseComponents.js";
 import type { CommandHandler } from "./types.js";
-
-function scrapeFiltersToSearch(filters: ScrapeFilters): ListingSearchFilters {
-  return {
-    city: filters.city,
-    postalCode: filters.postalCode,
-    maxPrice: filters.maxPrice,
-    minSurface: filters.minSurface,
-    minLandSurface: filters.minLandSurface,
-    minRooms: filters.minRooms,
-    minBedrooms: filters.minBedrooms,
-    ancienOnly: filters.ancienOnly,
-    maxTravelMinutes: filters.maxTravelMinutes,
-  };
-}
+import { scrapeFiltersToSearch } from "../../utils/listing/scrapeFilters.js";
 
 export function buildBrowseCommand() {
   return new SlashCommandBuilder()

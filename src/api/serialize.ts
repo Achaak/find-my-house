@@ -1,4 +1,8 @@
-import type { ReactionRepository } from "../db/reactionRepository.js";
+import type {
+  ReactionRepository,
+  ReactionType,
+} from "../db/reactionRepository.js";
+import type { CompatibilityPreferences } from "../types/compatibility.js";
 import type { PropertyRow } from "../types/listing.js";
 import {
   getListingCompatibilityScore,
@@ -6,6 +10,13 @@ import {
 } from "../services/compatibilityService.js";
 import type { RankedDpeSearchResult } from "../utils/energy/dpePropertyMatch.js";
 import type { DpeCandidate, Property, PropertyReactionState } from "./types.js";
+
+type ReactionSnapshot = { type: ReactionType; archivedAt: Date | null };
+
+export type SerializeBatchContext = {
+  preferences: CompatibilityPreferences | null;
+  reactions: Map<number, ReactionSnapshot>;
+};
 
 export function serializeDpeCandidate(
   candidate: RankedDpeSearchResult
@@ -22,29 +33,35 @@ export function serializeDpeCandidate(
   };
 }
 
-export async function serializeProperty(
+function serializePropertyRow(
   property: PropertyRow,
-  reactionRepository: ReactionRepository,
-  userId?: string,
-  options?: { includeCompatibility?: boolean }
-): Promise<Property> {
+  options?: {
+    includeCompatibility?: boolean;
+    userId?: string;
+    batch?: SerializeBatchContext;
+    preferences?: CompatibilityPreferences | null;
+    reaction?: ReactionSnapshot | null;
+  }
+): Property {
+  const includeCompatibility = options?.includeCompatibility !== false;
+  const userId = options?.userId;
+  const preferences =
+    options?.preferences ?? options?.batch?.preferences ?? null;
+  const existingReaction =
+    options?.reaction !== undefined
+      ? options.reaction
+      : (options?.batch?.reactions.get(property.id) ?? null);
+
   let compatibilityScore: number | undefined;
-  if (options?.includeCompatibility !== false && userId) {
-    const preferences = await resolveListingCompatibilityPreferences(
-      reactionRepository,
-      userId
-    );
+  if (includeCompatibility && userId) {
     compatibilityScore = getListingCompatibilityScore(property, preferences);
   }
 
   let reaction: PropertyReactionState = null;
   let archived = false;
-  if (userId) {
-    const existing = await reactionRepository.getReaction(userId, property.id);
-    if (existing) {
-      reaction = existing.type;
-      archived = existing.archivedAt !== null;
-    }
+  if (existingReaction) {
+    reaction = existingReaction.type;
+    archived = existingReaction.archivedAt !== null;
   }
 
   return {
@@ -90,15 +107,56 @@ export async function serializeProperty(
   };
 }
 
+export async function serializeProperty(
+  property: PropertyRow,
+  reactionRepository: ReactionRepository,
+  userId?: string,
+  options?: { includeCompatibility?: boolean }
+): Promise<Property> {
+  if (!userId) {
+    return serializePropertyRow(property, options);
+  }
+
+  const preferences =
+    options?.includeCompatibility !== false
+      ? await resolveListingCompatibilityPreferences(reactionRepository, userId)
+      : null;
+  const reaction = await reactionRepository.getReaction(userId, property.id);
+
+  return serializePropertyRow(property, {
+    ...options,
+    userId,
+    preferences,
+    reaction,
+  });
+}
+
 export async function serializeProperties(
   properties: PropertyRow[],
   reactionRepository: ReactionRepository,
   userId?: string,
   options?: { includeCompatibility?: boolean }
 ): Promise<Property[]> {
-  return Promise.all(
-    properties.map((property) =>
-      serializeProperty(property, reactionRepository, userId, options)
-    )
+  if (!userId || properties.length === 0) {
+    return properties.map((property) =>
+      serializePropertyRow(property, options)
+    );
+  }
+
+  const includeCompatibility = options?.includeCompatibility !== false;
+  const [preferences, reactions] = await Promise.all([
+    includeCompatibility
+      ? resolveListingCompatibilityPreferences(reactionRepository, userId)
+      : Promise.resolve(null),
+    reactionRepository.getReactionsForProperties(
+      userId,
+      properties.map((property) => property.id)
+    ),
+  ]);
+
+  const batch: SerializeBatchContext = { preferences, reactions };
+
+  return properties.map((property) =>
+    serializePropertyRow(property, { ...options, userId, batch })
   );
 }

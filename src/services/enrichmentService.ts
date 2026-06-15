@@ -1,5 +1,8 @@
-import type { Prisma } from "../generated/prisma/client.js";
 import type { ListingRepository } from "../db/listingRepository.js";
+import {
+  propertyNeedsEnrichment,
+  type EnrichmentPurpose,
+} from "../domain/enrichmentCriteria.js";
 import type { PropertyEnrichmentPatch } from "../types/enrichment.js";
 import type {
   ListingSource,
@@ -7,7 +10,6 @@ import type {
   PublicationRow,
 } from "../types/listing.js";
 import { formatSourceLabel } from "../discord/format.js";
-import { classifiedImageNeedsRefresh } from "../utils/classifiedPortal/helpers.js";
 import {
   fetchBienIciAdById,
   fetchBienIciListingHtml,
@@ -39,150 +41,18 @@ export type EnrichmentResult = {
   warnings: string[];
 };
 
-export type EnrichmentPurpose = "display" | "address";
-
-export type EnrichmentStatus = "pending" | "complete";
+export type {
+  EnrichmentPurpose,
+  EnrichmentStatus,
+} from "../domain/enrichmentCriteria.js";
+export {
+  getEnrichmentStatus,
+  propertyNeedsEnrichment,
+} from "../domain/enrichmentCriteria.js";
 
 type EnrichPublicationOptions = {
   skipImage?: boolean;
 };
-
-function enrichmentAttemptedAt(
-  property: PropertyRow,
-  purpose: EnrichmentPurpose
-): string | null {
-  return purpose === "display"
-    ? property.displayEnrichedAt
-    : property.addressEnrichedAt;
-}
-
-function needsPortalImageRefresh(property: PropertyRow): boolean {
-  const hasHtmlPortalPublication = property.publications.some(
-    (publication) =>
-      publication.source === "seloger" || publication.source === "logicimmo"
-  );
-  return (
-    hasHtmlPortalPublication && classifiedImageNeedsRefresh(property.imageUrl)
-  );
-}
-
-function missingEnergyFields(
-  property: PropertyRow,
-  purpose: EnrichmentPurpose
-): boolean {
-  const missingClasses =
-    property.dpeClass === null || property.gesClass === null;
-  if (purpose === "display") {
-    return missingClasses;
-  }
-
-  return (
-    missingClasses ||
-    property.dpeConsumptionKwhM2 === null ||
-    property.gesEmissionKgM2 === null
-  );
-}
-
-export function propertyHasMissingEnrichmentFields(
-  property: PropertyRow,
-  purpose: EnrichmentPurpose
-): boolean {
-  const missingEnergy = missingEnergyFields(property, purpose);
-  const missingCoords =
-    property.latitude === null || property.longitude === null;
-  const hasHtmlPortalPublication = property.publications.some(
-    (publication) =>
-      publication.source === "seloger" || publication.source === "logicimmo"
-  );
-
-  if (purpose === "address") {
-    return (
-      missingEnergy ||
-      property.surface === null ||
-      (hasHtmlPortalPublication && missingCoords)
-    );
-  }
-
-  return (
-    missingEnergy ||
-    property.landSurface === null ||
-    property.description === null ||
-    property.imageUrl === null ||
-    (hasHtmlPortalPublication && missingCoords) ||
-    needsPortalImageRefresh(property)
-  );
-}
-
-export function propertyNeedsEnrichment(
-  property: PropertyRow,
-  purpose: EnrichmentPurpose
-): boolean {
-  if (enrichmentAttemptedAt(property, purpose) !== null) {
-    if (purpose === "display" && needsPortalImageRefresh(property)) {
-      return true;
-    }
-    return false;
-  }
-
-  return propertyHasMissingEnrichmentFields(property, purpose);
-}
-
-export function getEnrichmentStatus(
-  property: PropertyRow,
-  purpose: EnrichmentPurpose
-): EnrichmentStatus {
-  return propertyNeedsEnrichment(property, purpose) ? "pending" : "complete";
-}
-
-const HTML_PORTAL_SOURCES = ["seloger", "logicimmo"] as const;
-
-/** Prisma filter matching `propertyNeedsEnrichment(property, "display")`. */
-export function displayEnrichmentPendingWhere(): Prisma.PropertyWhereInput {
-  const missingFields: Prisma.PropertyWhereInput = {
-    OR: [
-      { dpeClass: null },
-      { gesClass: null },
-      { landSurface: null },
-      { description: null },
-      { imageUrl: null },
-      {
-        publications: {
-          some: { source: { in: [...HTML_PORTAL_SOURCES] } },
-        },
-        OR: [{ latitude: null }, { longitude: null }],
-      },
-    ],
-  };
-
-  const stalePortalImage: Prisma.PropertyWhereInput = {
-    publications: {
-      some: { source: { in: [...HTML_PORTAL_SOURCES] } },
-    },
-    OR: [
-      { imageUrl: { contains: "v.seloger.com/s/width/" } },
-      {
-        AND: [
-          {
-            OR: [
-              { imageUrl: { contains: "mms.logic-immo.com" } },
-              { imageUrl: { contains: "mms.seloger.com" } },
-            ],
-          },
-          { NOT: { imageUrl: { contains: "ci_seal=" } } },
-        ],
-      },
-    ],
-  };
-
-  return {
-    OR: [
-      {
-        AND: [{ displayEnrichedAt: null }, missingFields],
-      },
-      stalePortalImage,
-    ],
-  };
-}
 
 const SOURCE_PRIORITY: ListingSource[] = [
   "seloger",
