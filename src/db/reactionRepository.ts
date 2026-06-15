@@ -10,22 +10,17 @@ export class ReactionRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   async add(
-    discordUserId: string,
     propertyId: number,
     type: ReactionType
   ): Promise<"added" | "already_exists"> {
     const existing = await this.prisma.listingReaction.findUnique({
-      where: {
-        discordUserId_propertyId: { discordUserId, propertyId },
-      },
+      where: { propertyId },
     });
 
     if (existing?.type === type) {
       if (type === "like" && existing.archivedAt) {
         await this.prisma.listingReaction.update({
-          where: {
-            discordUserId_propertyId: { discordUserId, propertyId },
-          },
+          where: { propertyId },
           data: { archivedAt: null },
         });
         return "added";
@@ -34,52 +29,39 @@ export class ReactionRepository {
     }
 
     await this.prisma.listingReaction.upsert({
-      where: {
-        discordUserId_propertyId: { discordUserId, propertyId },
-      },
-      create: { discordUserId, propertyId, type },
+      where: { propertyId },
+      create: { propertyId, type },
       update: { type, archivedAt: null },
     });
 
     return "added";
   }
 
-  async remove(
-    discordUserId: string,
-    propertyId: number,
-    type: ReactionType
-  ): Promise<boolean> {
+  async remove(propertyId: number, type: ReactionType): Promise<boolean> {
     const result = await this.prisma.listingReaction.deleteMany({
-      where: { discordUserId, propertyId, type },
+      where: { propertyId, type },
     });
     return result.count > 0;
   }
 
   async toggle(
-    discordUserId: string,
     propertyId: number,
     type: ReactionType
   ): Promise<"added" | "removed"> {
     const existing = await this.prisma.listingReaction.findUnique({
-      where: {
-        discordUserId_propertyId: { discordUserId, propertyId },
-      },
+      where: { propertyId },
     });
 
     if (existing?.type === type) {
       await this.prisma.listingReaction.delete({
-        where: {
-          discordUserId_propertyId: { discordUserId, propertyId },
-        },
+        where: { propertyId },
       });
       return "removed";
     }
 
     await this.prisma.listingReaction.upsert({
-      where: {
-        discordUserId_propertyId: { discordUserId, propertyId },
-      },
-      create: { discordUserId, propertyId, type },
+      where: { propertyId },
+      create: { propertyId, type },
       update: { type, archivedAt: null },
     });
 
@@ -87,13 +69,10 @@ export class ReactionRepository {
   }
 
   async archive(
-    discordUserId: string,
     propertyId: number
   ): Promise<"archived" | "not_found" | "already_archived"> {
     const existing = await this.prisma.listingReaction.findUnique({
-      where: {
-        discordUserId_propertyId: { discordUserId, propertyId },
-      },
+      where: { propertyId },
     });
 
     if (existing?.type !== "like") {
@@ -105,9 +84,7 @@ export class ReactionRepository {
     }
 
     await this.prisma.listingReaction.update({
-      where: {
-        discordUserId_propertyId: { discordUserId, propertyId },
-      },
+      where: { propertyId },
       data: { archivedAt: new Date() },
     });
 
@@ -115,13 +92,10 @@ export class ReactionRepository {
   }
 
   async unarchive(
-    discordUserId: string,
     propertyId: number
   ): Promise<"unarchived" | "not_found" | "not_archived"> {
     const existing = await this.prisma.listingReaction.findUnique({
-      where: {
-        discordUserId_propertyId: { discordUserId, propertyId },
-      },
+      where: { propertyId },
     });
 
     if (existing?.type !== "like") {
@@ -133,35 +107,16 @@ export class ReactionRepository {
     }
 
     await this.prisma.listingReaction.update({
-      where: {
-        discordUserId_propertyId: { discordUserId, propertyId },
-      },
+      where: { propertyId },
       data: { archivedAt: null },
     });
 
     return "unarchived";
   }
 
-  async findListingsByUser(
-    discordUserId: string,
-    type: ReactionType,
-    limit = 10,
-    options: { excludeArchived?: boolean; archivedOnly?: boolean } = {}
-  ): Promise<PropertyRow[]> {
-    return this.findListingsByType(type, {
-      discordUserId,
-      limit,
-      excludeArchived: options.archivedOnly
-        ? false
-        : (options.excludeArchived ?? true),
-      archivedOnly: options.archivedOnly,
-    });
-  }
-
   async findListingsByType(
     type: ReactionType,
     options: {
-      discordUserId?: string;
       limit?: number;
       excludeArchived?: boolean;
       archivedOnly?: boolean;
@@ -175,9 +130,6 @@ export class ReactionRepository {
           : options.excludeArchived !== false
             ? { archivedAt: null }
             : {}),
-        ...(options.discordUserId
-          ? { discordUserId: options.discordUserId }
-          : {}),
       },
       include: { property: { include: propertyInclude } },
       orderBy: { createdAt: "desc" },
@@ -187,38 +139,29 @@ export class ReactionRepository {
     return reactions.map((reaction) => toPropertyRow(reaction.property));
   }
 
-  async loadCompatibilityTrainingData(
-    discordUserId?: string
-  ): Promise<{ likes: PropertyRow[]; dislikes: PropertyRow[] }> {
+  async loadCompatibilityTrainingData(): Promise<{
+    likes: PropertyRow[];
+    dislikes: PropertyRow[];
+  }> {
     const [likes, dislikes] = await Promise.all([
-      this.findListingsByType("like", {
-        discordUserId,
-        excludeArchived: false,
-      }),
-      this.findListingsByType("dislike", {
-        discordUserId,
-        excludeArchived: false,
-      }),
+      this.findListingsByType("like", { excludeArchived: false }),
+      this.findListingsByType("dislike", { excludeArchived: false }),
     ]);
 
     return { likes, dislikes };
   }
 
   async getReaction(
-    discordUserId: string,
     propertyId: number
   ): Promise<{ type: ReactionType; archivedAt: Date | null } | null> {
     const reaction = await this.prisma.listingReaction.findUnique({
-      where: {
-        discordUserId_propertyId: { discordUserId, propertyId },
-      },
+      where: { propertyId },
       select: { type: true, archivedAt: true },
     });
     return reaction ?? null;
   }
 
   async getReactionsForProperties(
-    discordUserId: string,
     propertyIds: number[]
   ): Promise<Map<number, { type: ReactionType; archivedAt: Date | null }>> {
     if (propertyIds.length === 0) {
@@ -226,10 +169,7 @@ export class ReactionRepository {
     }
 
     const reactions = await this.prisma.listingReaction.findMany({
-      where: {
-        discordUserId,
-        propertyId: { in: propertyIds },
-      },
+      where: { propertyId: { in: propertyIds } },
       select: { propertyId: true, type: true, archivedAt: true },
     });
 
@@ -241,15 +181,13 @@ export class ReactionRepository {
     );
   }
 
-  async countByUser(
-    discordUserId: string,
+  async countByType(
     type: ReactionType,
     options: { excludeArchived?: boolean } = {}
   ): Promise<number> {
     const excludeArchived = options.excludeArchived ?? true;
     return this.prisma.listingReaction.count({
       where: {
-        discordUserId,
         type,
         ...(excludeArchived ? { archivedAt: null } : {}),
       },

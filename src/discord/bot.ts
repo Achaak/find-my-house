@@ -40,12 +40,14 @@ export async function startDiscordBot(options: BotOptions): Promise<Client> {
   const sendScrapeNotifications = async (
     result: ExtendedScrapeResult
   ): Promise<void> => {
+    options.enrichmentQueue.scheduleScrapeResults(result);
     await notifyScrapeResults(result, {
       token: options.discord.token,
       channelId: options.discord.channelId,
       maxNotifications: options.discord.maxNotifications,
       repository: options.repository,
       reactionRepository: options.reactionRepository,
+      enrichmentQueue: options.enrichmentQueue,
     });
   };
 

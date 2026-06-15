@@ -68,7 +68,7 @@ async function serializeBrowseResponse(
 
   return {
     item: property
-      ? await serializeProperty(property, ctx.reactionRepository, userId)
+      ? await serializeProperty(property, ctx.reactionRepository)
       : null,
     shownCount: state.shownCount,
     isExplore: state.isExplore,
@@ -124,7 +124,6 @@ export function createApiApp(ctx: ApiContext) {
       return c.json({ error: "Specify a city for a geographic filter." }, 400);
     }
 
-    const user = getUser(c);
     const sort = filters.sort;
     const limit = filters.limit ?? 20;
 
@@ -139,17 +138,13 @@ export function createApiApp(ctx: ApiContext) {
       sort === "compat_desc"
         ? sortByCompatibility(
             listings,
-            await resolveListingCompatibilityPreferences(
-              ctx.reactionRepository,
-              user.id
-            )
+            await resolveListingCompatibilityPreferences(ctx.reactionRepository)
           ).slice(0, limit)
         : listings;
 
     const items = await serializeProperties(
       rankedListings,
-      ctx.reactionRepository,
-      user.id
+      ctx.reactionRepository
     );
 
     return c.json({
@@ -165,7 +160,6 @@ export function createApiApp(ctx: ApiContext) {
       return c.json({ error: "Invalid listing id" }, 400);
     }
 
-    const user = getUser(c);
     let property = await ctx.repository.findById(id);
     if (!property) {
       return c.json({ error: "Listing not found" }, 404);
@@ -177,7 +171,7 @@ export function createApiApp(ctx: ApiContext) {
     }
 
     return c.json({
-      item: await serializeProperty(property, ctx.reactionRepository, user.id),
+      item: await serializeProperty(property, ctx.reactionRepository),
       enrichment: {
         status: getEnrichmentStatus(property, "display"),
       },
@@ -252,7 +246,7 @@ export function createApiApp(ctx: ApiContext) {
       return c.json({ error: "Listing not found" }, 404);
     }
 
-    await ctx.reactionRepository.add(user.id, propertyId, action);
+    await ctx.reactionRepository.add(propertyId, action);
     resetListingCompatibilityCache();
 
     const state = await advanceBrowseSession(
@@ -271,29 +265,20 @@ export function createApiApp(ctx: ApiContext) {
       return c.json({ error: "Invalid reaction type" }, 400);
     }
 
-    const user = getUser(c);
     const limit = Math.min(
       Number.parseInt(c.req.query("limit") ?? "20", 10),
       100
     );
     const includeArchived = c.req.query("includeArchived") === "true";
     const archivedOnly = c.req.query("archivedOnly") === "true";
-    const listings = await ctx.reactionRepository.findListingsByUser(
-      user.id,
-      type,
+    const listings = await ctx.reactionRepository.findListingsByType(type, {
       limit,
-      {
-        excludeArchived: !includeArchived && !archivedOnly,
-        archivedOnly,
-      }
-    );
+      excludeArchived: !includeArchived && !archivedOnly,
+      archivedOnly,
+    });
 
     return c.json({
-      items: await serializeProperties(
-        listings,
-        ctx.reactionRepository,
-        user.id
-      ),
+      items: await serializeProperties(listings, ctx.reactionRepository),
     });
   });
 
@@ -303,7 +288,6 @@ export function createApiApp(ctx: ApiContext) {
       return c.json({ error: "Invalid reaction type" }, 400);
     }
 
-    const user = getUser(c);
     const body = await c.req.json<{ propertyId?: number }>();
     const propertyId = body.propertyId;
     if (!propertyId || !Number.isInteger(propertyId)) {
@@ -315,7 +299,7 @@ export function createApiApp(ctx: ApiContext) {
       return c.json({ error: "Listing not found" }, 404);
     }
 
-    const result = await ctx.reactionRepository.add(user.id, propertyId, type);
+    const result = await ctx.reactionRepository.add(propertyId, type);
     resetListingCompatibilityCache();
     return c.json({ status: result });
   });
@@ -331,32 +315,25 @@ export function createApiApp(ctx: ApiContext) {
       return c.json({ error: "Invalid property id" }, 400);
     }
 
-    const user = getUser(c);
-    const removed = await ctx.reactionRepository.remove(
-      user.id,
-      propertyId,
-      type
-    );
+    const removed = await ctx.reactionRepository.remove(propertyId, type);
     resetListingCompatibilityCache();
     return c.json({ removed });
   });
 
   app.post("/api/reactions/like/:propertyId/archive", async (c) => {
     const propertyId = Number.parseInt(c.req.param("propertyId"), 10);
-    const user = getUser(c);
-    const result = await ctx.reactionRepository.archive(user.id, propertyId);
+    const result = await ctx.reactionRepository.archive(propertyId);
     return c.json({ status: result });
   });
 
   app.post("/api/reactions/like/:propertyId/unarchive", async (c) => {
     const propertyId = Number.parseInt(c.req.param("propertyId"), 10);
-    const user = getUser(c);
-    const result = await ctx.reactionRepository.unarchive(user.id, propertyId);
+    const result = await ctx.reactionRepository.unarchive(propertyId);
     return c.json({ status: result });
   });
 
   app.get("/api/notifications/digest", async (c) => {
-    const user = getUser(c);
+    getUser(c);
     const sinceRaw = c.req.query("since");
     const since = sinceRaw
       ? new Date(sinceRaw)
@@ -377,14 +354,16 @@ export function createApiApp(ctx: ApiContext) {
       newListings: await serializeProperties(
         newListings,
         ctx.reactionRepository,
-        user.id,
-        { includeCompatibility: false }
+        {
+          includeCompatibility: false,
+        }
       ),
       priceDrops: await serializeProperties(
         priceDrops,
         ctx.reactionRepository,
-        user.id,
-        { includeCompatibility: false }
+        {
+          includeCompatibility: false,
+        }
       ),
       lastScrapedAt: activity.lastScrapedAt?.toISOString() ?? null,
     });
@@ -392,7 +371,6 @@ export function createApiApp(ctx: ApiContext) {
 
   app.get("/api/stats/:section", async (c) => {
     const section = c.req.param("section");
-    const user = getUser(c);
 
     switch (section) {
       case "overview": {
@@ -421,8 +399,8 @@ export function createApiApp(ctx: ApiContext) {
           ctx.repository.getTopCities(3),
           ctx.repository.getActivityStats(),
           ctx.repository.findRecent(3),
-          ctx.reactionRepository.countByUser(user.id, "like"),
-          ctx.reactionRepository.countByUser(user.id, "dislike"),
+          ctx.reactionRepository.countByType("like"),
+          ctx.reactionRepository.countByType("dislike"),
           ctx.repository.countPendingDisplayEnrichment(),
         ]);
         return c.json({
@@ -435,14 +413,9 @@ export function createApiApp(ctx: ApiContext) {
           priceStats,
           topCities,
           activity,
-          recent: await serializeProperties(
-            recent,
-            ctx.reactionRepository,
-            user.id,
-            {
-              includeCompatibility: false,
-            }
-          ),
+          recent: await serializeProperties(recent, ctx.reactionRepository, {
+            includeCompatibility: false,
+          }),
           likes,
           dislikes,
           enrichment: {
@@ -470,23 +443,18 @@ export function createApiApp(ctx: ApiContext) {
         return c.json({
           priceStats,
           priceDrops,
-          drops: await serializeProperties(
-            drops,
-            ctx.reactionRepository,
-            user.id,
-            {
-              includeCompatibility: false,
-            }
-          ),
+          drops: await serializeProperties(drops, ctx.reactionRepository, {
+            includeCompatibility: false,
+          }),
         });
       }
       case "mine": {
         const [likes, dislikes, recentLikes, recentDislikes] =
           await Promise.all([
-            ctx.reactionRepository.countByUser(user.id, "like"),
-            ctx.reactionRepository.countByUser(user.id, "dislike"),
-            ctx.reactionRepository.findListingsByUser(user.id, "like", 5),
-            ctx.reactionRepository.findListingsByUser(user.id, "dislike", 5),
+            ctx.reactionRepository.countByType("like"),
+            ctx.reactionRepository.countByType("dislike"),
+            ctx.reactionRepository.findListingsByType("like", { limit: 5 }),
+            ctx.reactionRepository.findListingsByType("dislike", { limit: 5 }),
           ]);
         return c.json({
           likes,
@@ -494,13 +462,11 @@ export function createApiApp(ctx: ApiContext) {
           recentLikes: await serializeProperties(
             recentLikes,
             ctx.reactionRepository,
-            user.id,
             { includeCompatibility: false }
           ),
           recentDislikes: await serializeProperties(
             recentDislikes,
             ctx.reactionRepository,
-            user.id,
             { includeCompatibility: false }
           ),
         });
@@ -526,14 +492,9 @@ export function createApiApp(ctx: ApiContext) {
           zoneLabel,
           cron: scrapeConfig.scrape.cron,
           scrapers: scrapeConfig.scrape.scrapers ?? [],
-          recent: await serializeProperties(
-            recent,
-            ctx.reactionRepository,
-            user.id,
-            {
-              includeCompatibility: false,
-            }
-          ),
+          recent: await serializeProperties(recent, ctx.reactionRepository, {
+            includeCompatibility: false,
+          }),
         });
       }
       default:

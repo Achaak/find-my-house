@@ -25,8 +25,7 @@ describe("listingEmbed", () => {
   it("includes compatibility score when likes are available", async () => {
     const embed = await formatListingEmbedWithCompatibility(
       makePropertyRow({ price: 255_000, surface: 102 }),
-      createReactionRepository(),
-      "user-1"
+      createReactionRepository()
     );
 
     expect(embed.fields.some((field) => field.name === "Compatibility")).toBe(
@@ -37,8 +36,7 @@ describe("listingEmbed", () => {
   it("omits compatibility score when there are no likes yet", async () => {
     const embed = await formatListingEmbedWithCompatibility(
       makePropertyRow(),
-      createReactionRepository([]),
-      "user-1"
+      createReactionRepository([])
     );
 
     expect(embed.fields.some((field) => field.name === "Compatibility")).toBe(

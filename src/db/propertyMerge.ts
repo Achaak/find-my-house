@@ -30,12 +30,7 @@ export async function mergePropertiesIntoCanonical(
 
       for (const reaction of reactions) {
         const existing = await tx.listingReaction.findUnique({
-          where: {
-            discordUserId_propertyId: {
-              discordUserId: reaction.discordUserId,
-              propertyId: canonical.id,
-            },
-          },
+          where: { propertyId: canonical.id },
         });
 
         if (existing) {

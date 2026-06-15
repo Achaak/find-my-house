@@ -58,14 +58,12 @@ export function buildLikeCommand() {
 
 export const handleLike: CommandHandler = async (interaction, ctx) => {
   const subcommand = interaction.options.getSubcommand();
-  const discordUserId = interaction.user.id;
   await interaction.deferReply();
 
   if (subcommand === "list") {
     const limit = interaction.options.getInteger("limit") ?? 5;
     const reply = await formatReactionList(
       ctx.reactionRepository,
-      discordUserId,
       "like",
       limit,
       "You have no favorited listings."
@@ -83,7 +81,7 @@ export const handleLike: CommandHandler = async (interaction, ctx) => {
   }
 
   if (subcommand === "add") {
-    const result = await ctx.reactionRepository.add(discordUserId, id, "like");
+    const result = await ctx.reactionRepository.add(id, "like");
     resetListingCompatibilityCache();
     await interaction.editReply(
       result === "already_exists"
@@ -94,7 +92,7 @@ export const handleLike: CommandHandler = async (interaction, ctx) => {
   }
 
   if (subcommand === "archive") {
-    const result = await ctx.reactionRepository.archive(discordUserId, id);
+    const result = await ctx.reactionRepository.archive(id);
     await interaction.editReply(
       result === "archived"
         ? `📦 Listing **#${String(id)}** archived. It still counts toward your compatibility score.`
@@ -106,7 +104,7 @@ export const handleLike: CommandHandler = async (interaction, ctx) => {
   }
 
   if (subcommand === "unarchive") {
-    const result = await ctx.reactionRepository.unarchive(discordUserId, id);
+    const result = await ctx.reactionRepository.unarchive(id);
     await interaction.editReply(
       result === "unarchived"
         ? `Listing **#${String(id)}** restored to your favorites.`
@@ -117,11 +115,7 @@ export const handleLike: CommandHandler = async (interaction, ctx) => {
     return;
   }
 
-  const removed = await ctx.reactionRepository.remove(
-    discordUserId,
-    id,
-    "like"
-  );
+  const removed = await ctx.reactionRepository.remove(id, "like");
   resetListingCompatibilityCache();
   await interaction.editReply(
     removed

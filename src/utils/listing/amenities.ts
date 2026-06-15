@@ -1,3 +1,16 @@
+export function highlightsSetsEqual(
+  left: string[] | null | undefined,
+  right: string[] | null | undefined
+): boolean {
+  const a = new Set(left ?? []);
+  const b = new Set(right ?? []);
+  if (a.size !== b.size) return false;
+  for (const value of a) {
+    if (!b.has(value)) return false;
+  }
+  return true;
+}
+
 export function mergeHighlights(
   ...lists: (string[] | null | undefined)[]
 ): string[] | null {

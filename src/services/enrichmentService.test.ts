@@ -500,6 +500,37 @@ describe("enrichProperty", () => {
     expect(result.warnings).toEqual(["bienici: API indisponible"]);
     expect(result.patch.description).toBe("OK");
   });
+
+  it("skips display-only fetches for address purpose", async () => {
+    mockFetchSeLoger.mockResolvedValue({
+      description: "Description",
+      surface: 90,
+      landSurface: 400,
+      rooms: 4,
+      bedrooms: 2,
+      latitude: 45.75,
+      longitude: 4.85,
+      dpeClass: "C",
+      gesClass: "D",
+      dpeConsumptionKwhM2: 120,
+      gesEmissionKgM2: 25,
+      imageUrl: "https://example.com/photo.jpg",
+    });
+
+    const property = makePropertyRow({
+      surface: null,
+      publications: [publication("seloger", 1, "sl-1")],
+      source: "seloger",
+      url: "https://www.seloger.com/annonces/achat/sl-1.htm",
+    });
+
+    const result = await enrichProperty(property, "address");
+
+    expect(result.patch.surface).toBe(90);
+    expect(result.patch.description).toBeUndefined();
+    expect(result.patch.imageUrl).toBeUndefined();
+    expect(result.patch.landSurface).toBeUndefined();
+  });
 });
 
 describe("ensurePropertyEnriched", () => {

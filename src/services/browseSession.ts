@@ -43,7 +43,7 @@ async function loadBrowseCandidates(
 ): Promise<PropertyRow[]> {
   const { items } = await repository.search({
     ...filters,
-    excludeReactedByUser: userId,
+    excludeReacted: true,
     limit: 100,
     sort: "date_desc",
   });
@@ -62,7 +62,7 @@ export async function pickNextBrowseListing(
 } | null> {
   const resolvedPreferences =
     preferences ??
-    (await resolveListingCompatibilityPreferences(reactionRepository, userId));
+    (await resolveListingCompatibilityPreferences(reactionRepository));
 
   const candidates = await loadBrowseCandidates(
     repository,
@@ -123,10 +123,8 @@ export async function getBrowseState(
   userId: string,
   session: BrowseSession
 ): Promise<BrowseState> {
-  const preferences = await resolveListingCompatibilityPreferences(
-    reactionRepository,
-    userId
-  );
+  const preferences =
+    await resolveListingCompatibilityPreferences(reactionRepository);
 
   if (session.currentPropertyId !== null) {
     const property = await repository.findById(session.currentPropertyId);
@@ -161,7 +159,7 @@ export async function advanceBrowseSession(
 ): Promise<BrowseState> {
   const resolvedPreferences =
     preferences ??
-    (await resolveListingCompatibilityPreferences(reactionRepository, userId));
+    (await resolveListingCompatibilityPreferences(reactionRepository));
 
   session.currentPropertyId = null;
 

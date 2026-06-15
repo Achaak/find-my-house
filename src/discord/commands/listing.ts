@@ -28,8 +28,7 @@ export const handleListing: CommandHandler = async (interaction, ctx) => {
     embeds: [
       await formatListingEmbedWithCompatibility(
         listing,
-        ctx.reactionRepository,
-        interaction.user.id
+        ctx.reactionRepository
       ),
     ],
     components: [buildListingActionRow(listing.id)],

@@ -40,14 +40,12 @@ export function buildDislikeCommand() {
 
 export const handleDislike: CommandHandler = async (interaction, ctx) => {
   const subcommand = interaction.options.getSubcommand();
-  const discordUserId = interaction.user.id;
   await interaction.deferReply();
 
   if (subcommand === "list") {
     const limit = interaction.options.getInteger("limit") ?? 5;
     const reply = await formatReactionList(
       ctx.reactionRepository,
-      discordUserId,
       "dislike",
       limit,
       "You have not marked any listings as disliked."
@@ -65,11 +63,7 @@ export const handleDislike: CommandHandler = async (interaction, ctx) => {
   }
 
   if (subcommand === "add") {
-    const result = await ctx.reactionRepository.add(
-      discordUserId,
-      id,
-      "dislike"
-    );
+    const result = await ctx.reactionRepository.add(id, "dislike");
     resetListingCompatibilityCache();
     await interaction.editReply(
       result === "already_exists"
@@ -79,11 +73,7 @@ export const handleDislike: CommandHandler = async (interaction, ctx) => {
     return;
   }
 
-  const removed = await ctx.reactionRepository.remove(
-    discordUserId,
-    id,
-    "dislike"
-  );
+  const removed = await ctx.reactionRepository.remove(id, "dislike");
   resetListingCompatibilityCache();
   await interaction.editReply(
     removed

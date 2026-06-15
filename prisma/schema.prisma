@@ -88,16 +88,14 @@ model ListingPublication {
 }
 
 model ListingReaction {
-  id            Int       @id @default(autoincrement())
-  discordUserId String    @map("discord_user_id")
-  propertyId    Int       @map("property_id")
-  type          ReactionType
-  archivedAt    DateTime? @map("archived_at")
-  createdAt     DateTime  @default(now()) @map("created_at")
+  id         Int          @id @default(autoincrement())
+  propertyId Int          @unique @map("property_id")
+  type       ReactionType
+  archivedAt DateTime?    @map("archived_at")
+  createdAt  DateTime     @default(now()) @map("created_at")
 
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
-  @@unique([discordUserId, propertyId])
-  @@index([discordUserId, type])
+  @@index([type])
   @@map("listing_reactions")
 }

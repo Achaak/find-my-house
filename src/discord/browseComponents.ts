@@ -97,8 +97,7 @@ export async function buildBrowseReply(
 
   const embed = await formatListingEmbedWithCompatibility(
     property,
-    reactionRepository,
-    discordUserId
+    reactionRepository
   );
 
   return {
@@ -182,11 +181,7 @@ export async function handleBrowseButton(
     return true;
   }
 
-  await reactionRepository.add(
-    interaction.user.id,
-    parsed.propertyId,
-    parsed.action
-  );
+  await reactionRepository.add(parsed.propertyId, parsed.action);
   resetListingCompatibilityCache();
 
   const next = await buildBrowseReply(

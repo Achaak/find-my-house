@@ -186,8 +186,7 @@ export const handleListings: CommandHandler = async (interaction, ctx) => {
   });
 
   const compatibilityPreferences = await resolveListingCompatibilityPreferences(
-    ctx.reactionRepository,
-    interaction.user.id
+    ctx.reactionRepository
   );
 
   const rankedListings =
@@ -219,8 +218,7 @@ export const handleListings: CommandHandler = async (interaction, ctx) => {
     embeds: [
       await formatListingEmbedWithCompatibility(
         rankedListings[0],
-        ctx.reactionRepository,
-        interaction.user.id
+        ctx.reactionRepository
       ),
     ],
     components: [buildListingActionRow(rankedListings[0].id)],
@@ -231,8 +229,7 @@ export const handleListings: CommandHandler = async (interaction, ctx) => {
       embeds: [
         await formatListingEmbedWithCompatibility(
           listing,
-          ctx.reactionRepository,
-          interaction.user.id
+          ctx.reactionRepository
         ),
       ],
       components: [buildListingActionRow(listing.id)],

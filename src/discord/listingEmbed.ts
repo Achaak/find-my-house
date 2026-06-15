@@ -14,13 +14,10 @@ export {
 
 export async function formatListingEmbedWithCompatibility(
   property: PropertyRow,
-  reactionRepository: ReactionRepository,
-  discordUserId?: string
+  reactionRepository: ReactionRepository
 ): Promise<ListingEmbed> {
-  const preferences = await resolveListingCompatibilityPreferences(
-    reactionRepository,
-    discordUserId
-  );
+  const preferences =
+    await resolveListingCompatibilityPreferences(reactionRepository);
   return formatListingEmbed(property, {
     compatibilityScore: getListingCompatibilityScore(property, preferences),
   });
@@ -28,13 +25,10 @@ export async function formatListingEmbedWithCompatibility(
 
 export async function formatListingEmbedsWithCompatibility(
   properties: PropertyRow[],
-  reactionRepository: ReactionRepository,
-  discordUserId?: string
+  reactionRepository: ReactionRepository
 ): Promise<ListingEmbed[]> {
-  const preferences = await resolveListingCompatibilityPreferences(
-    reactionRepository,
-    discordUserId
-  );
+  const preferences =
+    await resolveListingCompatibilityPreferences(reactionRepository);
   return properties.map((property) =>
     formatListingEmbed(property, {
       compatibilityScore: getListingCompatibilityScore(property, preferences),

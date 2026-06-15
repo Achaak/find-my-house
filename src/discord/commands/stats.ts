@@ -76,8 +76,8 @@ export const handleStats: CommandHandler = async (interaction, ctx) => {
         ctx.repository.getTopCities(3),
         ctx.repository.getActivityStats(),
         ctx.repository.findRecent(3),
-        ctx.reactionRepository.countByUser(interaction.user.id, "like"),
-        ctx.reactionRepository.countByUser(interaction.user.id, "dislike"),
+        ctx.reactionRepository.countByType("like"),
+        ctx.reactionRepository.countByType("dislike"),
         ctx.repository.countPendingDisplayEnrichment(),
       ]);
 
@@ -134,12 +134,11 @@ export const handleStats: CommandHandler = async (interaction, ctx) => {
     }
 
     case "mine": {
-      const discordUserId = interaction.user.id;
       const [likes, dislikes, recentLikes, recentDislikes] = await Promise.all([
-        ctx.reactionRepository.countByUser(discordUserId, "like"),
-        ctx.reactionRepository.countByUser(discordUserId, "dislike"),
-        ctx.reactionRepository.findListingsByUser(discordUserId, "like", 5),
-        ctx.reactionRepository.findListingsByUser(discordUserId, "dislike", 5),
+        ctx.reactionRepository.countByType("like"),
+        ctx.reactionRepository.countByType("dislike"),
+        ctx.reactionRepository.findListingsByType("like", { limit: 5 }),
+        ctx.reactionRepository.findListingsByType("dislike", { limit: 5 }),
       ]);
 
       await interaction.editReply({

@@ -37,14 +37,12 @@ function serializePropertyRow(
   property: PropertyRow,
   options?: {
     includeCompatibility?: boolean;
-    userId?: string;
     batch?: SerializeBatchContext;
     preferences?: CompatibilityPreferences | null;
     reaction?: ReactionSnapshot | null;
   }
 ): Property {
   const includeCompatibility = options?.includeCompatibility !== false;
-  const userId = options?.userId;
   const preferences =
     options?.preferences ?? options?.batch?.preferences ?? null;
   const existingReaction =
@@ -52,10 +50,9 @@ function serializePropertyRow(
       ? options.reaction
       : (options?.batch?.reactions.get(property.id) ?? null);
 
-  let compatibilityScore: number | undefined;
-  if (includeCompatibility && userId) {
-    compatibilityScore = getListingCompatibilityScore(property, preferences);
-  }
+  const compatibilityScore = includeCompatibility
+    ? getListingCompatibilityScore(property, preferences)
+    : undefined;
 
   let reaction: PropertyReactionState = null;
   let archived = false;
@@ -110,22 +107,18 @@ function serializePropertyRow(
 export async function serializeProperty(
   property: PropertyRow,
   reactionRepository: ReactionRepository,
-  userId?: string,
   options?: { includeCompatibility?: boolean }
 ): Promise<Property> {
-  if (!userId) {
-    return serializePropertyRow(property, options);
-  }
-
-  const preferences =
-    options?.includeCompatibility !== false
-      ? await resolveListingCompatibilityPreferences(reactionRepository, userId)
-      : null;
-  const reaction = await reactionRepository.getReaction(userId, property.id);
+  const includeCompatibility = options?.includeCompatibility !== false;
+  const [preferences, reaction] = await Promise.all([
+    includeCompatibility
+      ? resolveListingCompatibilityPreferences(reactionRepository)
+      : Promise.resolve(null),
+    reactionRepository.getReaction(property.id),
+  ]);
 
   return serializePropertyRow(property, {
     ...options,
-    userId,
     preferences,
     reaction,
   });
@@ -134,22 +127,18 @@ export async function serializeProperty(
 export async function serializeProperties(
   properties: PropertyRow[],
   reactionRepository: ReactionRepository,
-  userId?: string,
   options?: { includeCompatibility?: boolean }
 ): Promise<Property[]> {
-  if (!userId || properties.length === 0) {
-    return properties.map((property) =>
-      serializePropertyRow(property, options)
-    );
+  if (properties.length === 0) {
+    return [];
   }
 
   const includeCompatibility = options?.includeCompatibility !== false;
   const [preferences, reactions] = await Promise.all([
     includeCompatibility
-      ? resolveListingCompatibilityPreferences(reactionRepository, userId)
+      ? resolveListingCompatibilityPreferences(reactionRepository)
       : Promise.resolve(null),
     reactionRepository.getReactionsForProperties(
-      userId,
       properties.map((property) => property.id)
     ),
   ]);
@@ -157,6 +146,6 @@ export async function serializeProperties(
   const batch: SerializeBatchContext = { preferences, reactions };
 
   return properties.map((property) =>
-    serializePropertyRow(property, { ...options, userId, batch })
+    serializePropertyRow(property, { ...options, batch })
   );
 }

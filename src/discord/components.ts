@@ -88,11 +88,7 @@ export async function handleListingButton(
     return true;
   }
 
-  const result = await reactionRepository.toggle(
-    interaction.user.id,
-    parsed.listingId,
-    parsed.type
-  );
+  const result = await reactionRepository.toggle(parsed.listingId, parsed.type);
   resetListingCompatibilityCache();
 
   await interaction.editReply(toggleMessages[parsed.type][result]);

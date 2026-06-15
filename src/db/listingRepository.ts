@@ -42,6 +42,7 @@ import {
   type PublicationCreateData,
   toPublicationCreateData,
 } from "./publicationData.js";
+import { highlightsSetsEqual } from "../utils/listing/amenities.js";
 import { computePropertyKey } from "../utils/propertyKey.js";
 
 const propertyInclude = { publications: true } as const;
@@ -209,9 +210,7 @@ function buildPropertySearchWhere(
     publications: filters.source
       ? { some: { source: filters.source, isActive: true } }
       : { some: { isActive: true } },
-    reactions: filters.excludeReactedByUser
-      ? { none: { discordUserId: filters.excludeReactedByUser } }
-      : undefined,
+    reactions: filters.excludeReacted ? { none: {} } : undefined,
     ...(textFilter
       ? {
           OR: [
@@ -244,10 +243,9 @@ function buildPropertySearchWhere(
 }
 
 function needsSearchPostProcessing(
-  radiusFilter: { center: GeoPoint; radiusKm: number } | null,
-  filters: ListingSearchFilters
+  radiusFilter: { center: GeoPoint; radiusKm: number } | null
 ): boolean {
-  return radiusFilter !== null || filters.priceDropOnly === true;
+  return radiusFilter !== null;
 }
 
 type PropertyScalarData = {
@@ -407,13 +405,25 @@ function hasPropertyChanges(
     existing.orientation !== listing.orientation ||
     existing.propertyCondition !== listing.propertyCondition ||
     existing.parkingSpaces !== listing.parkingSpaces ||
-    JSON.stringify(existing.highlights ?? []) !==
-      JSON.stringify(listing.highlights ?? [])
+    !highlightsSetsEqual(existing.highlights, listing.highlights)
   );
 }
 
 export class ListingRepository {
   constructor(private readonly prisma: PrismaClient) {}
+
+  private async applyPriceDropWhere(
+    where: Prisma.PropertyWhereInput
+  ): Promise<Prisma.PropertyWhereInput> {
+    const rows = await this.prisma.$queryRaw<{ id: number }[]>`
+      SELECT id FROM properties WHERE price < first_price
+    `;
+    const ids = rows.map((row) => row.id);
+    if (ids.length === 0) {
+      return { AND: [where, { id: -1 }] };
+    }
+    return { AND: [where, { id: { in: ids } }] };
+  }
 
   private async findExistingPublications(
     listings: Listing[]
@@ -915,12 +925,15 @@ export class ListingRepository {
       radiusFilter = resolveRadiusSearchFilter(geoFilter, searchCenter.center);
     }
 
-    const where = buildPropertySearchWhere(filters, useGeoFilter, radiusFilter);
+    let where = buildPropertySearchWhere(filters, useGeoFilter, radiusFilter);
+    if (filters.priceDropOnly) {
+      where = await this.applyPriceDropWhere(where);
+    }
     const orderBy = searchOrderBy(filters.sort);
     const offset = filters.offset ?? 0;
     const limit = filters.limit ?? 10;
 
-    if (!needsSearchPostProcessing(radiusFilter, filters)) {
+    if (!needsSearchPostProcessing(radiusFilter)) {
       const [total, rows] = await Promise.all([
         this.prisma.property.count({ where }),
         this.prisma.property.findMany({
@@ -935,61 +948,56 @@ export class ListingRepository {
       return { items: rows.map(toPropertyRow), total };
     }
 
-    const rows = await this.prisma.property.findMany({
+    const leanRows = await this.prisma.property.findMany({
       where,
-      include: propertyInclude,
-      orderBy,
+      select: { id: true, latitude: true, longitude: true },
     });
 
-    let results = rows.map(toPropertyRow);
+    if (!radiusFilter) {
+      return { items: [], total: 0 };
+    }
 
-    if (radiusFilter) {
-      const { center, radiusKm } = radiusFilter;
-      results = results.filter((property) => {
-        if (property.latitude === null || property.longitude === null)
-          return false;
+    const { center, radiusKm } = radiusFilter;
+    const rankedIds = leanRows
+      .filter((row) => {
+        if (row.latitude === null || row.longitude === null) return false;
         return isWithinRadiusKm(
-          { lat: property.latitude, lng: property.longitude },
+          { lat: row.latitude, lng: row.longitude },
           center,
           radiusKm
         );
-      });
-
-      results.sort((a, b) => {
-        if (
-          a.latitude === null ||
-          a.longitude === null ||
-          b.latitude === null ||
-          b.longitude === null
-        ) {
-          return 0;
-        }
-        const distA = haversineDistanceKm(
+      })
+      .map((row) => ({
+        id: row.id,
+        distance: haversineDistanceKm(
           center.lat,
           center.lng,
-          a.latitude,
-          a.longitude
-        );
-        const distB = haversineDistanceKm(
-          center.lat,
-          center.lng,
-          b.latitude,
-          b.longitude
-        );
-        return distA - distB;
-      });
+          row.latitude,
+          row.longitude
+        ),
+      }))
+      .sort((a, b) => a.distance - b.distance);
+
+    const total = rankedIds.length;
+    const pageIds = rankedIds
+      .slice(offset, offset + limit)
+      .map((entry) => entry.id);
+
+    if (pageIds.length === 0) {
+      return { items: [], total };
     }
 
-    if (filters.priceDropOnly) {
-      results = results.filter(
-        (property) => property.price < property.firstPrice
-      );
-    }
-
-    const total = results.length;
+    const rows = await this.prisma.property.findMany({
+      where: { id: { in: pageIds } },
+      include: propertyInclude,
+    });
+    const rowsById = new Map(rows.map((row) => [row.id, row]));
 
     return {
-      items: results.slice(offset, offset + limit),
+      items: pageIds
+        .map((id) => rowsById.get(id))
+        .filter((row): row is PropertyWithPublications => row !== undefined)
+        .map(toPropertyRow),
       total,
     };
   }

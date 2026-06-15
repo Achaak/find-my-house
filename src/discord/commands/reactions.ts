@@ -9,17 +9,14 @@ export type ReactionListReply = {
 
 export async function formatReactionList(
   reactionRepository: ReactionRepository,
-  discordUserId: string,
   type: "like" | "dislike",
   limit: number,
   emptyLabel: string
 ): Promise<ReactionListReply> {
-  const total = await reactionRepository.countByUser(discordUserId, type);
-  const listings = await reactionRepository.findListingsByUser(
-    discordUserId,
-    type,
-    limit
-  );
+  const total = await reactionRepository.countByType(type);
+  const listings = await reactionRepository.findListingsByType(type, {
+    limit,
+  });
 
   if (listings.length === 0) {
     return { content: emptyLabel, embeds: [] };
@@ -34,8 +31,7 @@ export async function formatReactionList(
     content: header,
     embeds: await formatListingEmbedsWithCompatibility(
       listings,
-      reactionRepository,
-      discordUserId
+      reactionRepository
     ),
   };
 }

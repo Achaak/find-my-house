@@ -7,7 +7,7 @@ import type {
 export type { ListingSource, ListingSearchSort };
 
 export type ListingSearchFilters = ApiListingSearchFilters & {
-  excludeReactedByUser?: string;
+  excludeReacted?: boolean;
 };
 
 export type Listing = {

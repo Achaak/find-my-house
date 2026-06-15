@@ -9,7 +9,6 @@ describe("ReactionRepository.getReactionsForProperties", () => {
   let repository: ListingRepository;
   let dispose: (() => Promise<void>) | undefined;
   let propertyId: number;
-  const userId = "user-batch";
 
   beforeAll(async () => {
     const testDb = createTestRepository();
@@ -25,7 +24,7 @@ describe("ReactionRepository.getReactionsForProperties", () => {
     ]);
 
     propertyId = (result.insertedListings[0] ?? result.linkedListings[0]).id;
-    await reactionRepository.add(userId, propertyId, "like");
+    await reactionRepository.add(propertyId, "like");
   });
 
   afterAll(async () => {
@@ -33,10 +32,10 @@ describe("ReactionRepository.getReactionsForProperties", () => {
   });
 
   it("returns reactions keyed by property id", async () => {
-    const reactions = await reactionRepository.getReactionsForProperties(
-      userId,
-      [propertyId, propertyId + 999]
-    );
+    const reactions = await reactionRepository.getReactionsForProperties([
+      propertyId,
+      propertyId + 999,
+    ]);
 
     expect(reactions.get(propertyId)).toEqual({
       type: "like",

@@ -29,5 +29,5 @@ In-memory per-user cursor over search results for one-at-a-time review (like/dis
 _Avoid_: Swipe stack, feed session
 
 **Reaction**:
-A user's like or dislike on a property, stored per Discord/web user id.
-_Avoid_: Vote, rating
+A household like or dislike on a property — one reaction per property, shared across web and Discord.
+_Avoid_: Vote, rating, per-user reaction

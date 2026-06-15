@@ -54,8 +54,8 @@ const enrichmentQueue = {
 };
 
 const reactionRepository = {
-  countByUser: vi.fn(() => Promise.resolve(2)),
-  findListingsByUser: vi.fn(() => Promise.resolve([])),
+  countByType: vi.fn(() => Promise.resolve(2)),
+  findListingsByType: vi.fn(() => Promise.resolve([])),
 };
 
 describe("handleStats", () => {
@@ -74,10 +74,7 @@ describe("handleStats", () => {
 
     expect(interaction.deferReply).toHaveBeenCalledOnce();
     expect(repository.countActiveProperties).toHaveBeenCalledOnce();
-    expect(reactionRepository.countByUser).toHaveBeenCalledWith(
-      "user-1",
-      "like"
-    );
+    expect(reactionRepository.countByType).toHaveBeenCalledWith("like");
     const reply = vi.mocked(interaction.editReply).mock.calls[0]?.[0] as {
       embeds: { title: string }[];
     };

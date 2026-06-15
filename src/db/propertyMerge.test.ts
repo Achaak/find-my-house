@@ -60,9 +60,7 @@ describe("mergePropertiesIntoCanonical", () => {
       propertyUpdate,
     } = createMergePrismaMocks();
 
-    reactionFindMany.mockResolvedValueOnce([
-      { id: 10, discordUserId: "user-a", propertyId: 2 },
-    ]);
+    reactionFindMany.mockResolvedValueOnce([{ id: 10, propertyId: 2 }]);
 
     await mergePropertiesIntoCanonical(prisma, { id: 1, firstPrice: 300_000 }, [
       { id: 2, firstPrice: 295_000 },
@@ -82,16 +80,16 @@ describe("mergePropertiesIntoCanonical", () => {
       where: { id: 1 },
       data: { firstPrice: 295_000 },
     });
-    expect(reactionFindUnique).toHaveBeenCalled();
+    expect(reactionFindUnique).toHaveBeenCalledWith({
+      where: { propertyId: 1 },
+    });
   });
 
   it("drops duplicate reactions when the canonical property already has one", async () => {
     const { prisma, reactionFindMany, reactionFindUnique, reactionDelete } =
       createMergePrismaMocks();
 
-    reactionFindMany.mockResolvedValueOnce([
-      { id: 11, discordUserId: "user-a", propertyId: 2 },
-    ]);
+    reactionFindMany.mockResolvedValueOnce([{ id: 11, propertyId: 2 }]);
     reactionFindUnique.mockResolvedValueOnce({ id: 99 });
 
     await mergePropertiesIntoCanonical(prisma, { id: 1, firstPrice: 300_000 }, [

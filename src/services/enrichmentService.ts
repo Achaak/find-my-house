@@ -17,7 +17,10 @@ import {
   type BienIciAd,
 } from "../utils/bienici/index.js";
 import { parseOgImageFromHtml } from "../utils/html/ogImage.js";
-import { mergeHighlights } from "../utils/listing/amenities.js";
+import {
+  mergeHighlights,
+  highlightsSetsEqual,
+} from "../utils/listing/amenities.js";
 import { normalizeEnergyClass } from "../utils/energy/energyClass.js";
 import {
   fetchLeboncoinAdById,
@@ -51,8 +54,32 @@ export {
 } from "../domain/enrichmentCriteria.js";
 
 type EnrichPublicationOptions = {
+  purpose?: EnrichmentPurpose;
   skipImage?: boolean;
 };
+
+const ADDRESS_ENRICHMENT_FIELDS = [
+  "surface",
+  "latitude",
+  "longitude",
+  "dpeClass",
+  "gesClass",
+  "dpeConsumptionKwhM2",
+  "gesEmissionKgM2",
+] as const satisfies readonly (keyof PropertyEnrichmentPatch)[];
+
+function pickPatchForPurpose(
+  patch: PropertyEnrichmentPatch,
+  purpose: EnrichmentPurpose
+): PropertyEnrichmentPatch {
+  if (purpose === "display") return patch;
+
+  return pickDefined(
+    Object.fromEntries(
+      ADDRESS_ENRICHMENT_FIELDS.map((field) => [field, patch[field]])
+    ) as PropertyEnrichmentPatch
+  );
+}
 
 const SOURCE_PRIORITY: ListingSource[] = [
   "seloger",
@@ -103,16 +130,22 @@ async function enrichFromBienIci(
   if (!ad) return {};
 
   const patch = mapBienIciAdToEnrichmentPatch(ad);
-  if (options.skipImage) {
-    return pickDefined(patch);
+  if (options.purpose === "address" || options.skipImage) {
+    return pickPatchForPurpose(
+      pickDefined(patch),
+      options.purpose ?? "display"
+    );
   }
 
   const html = await fetchBienIciListingHtml(publication.url);
 
-  return pickDefined({
-    ...patch,
-    imageUrl: parseOgImageFromHtml(html),
-  });
+  return pickPatchForPurpose(
+    pickDefined({
+      ...patch,
+      imageUrl: parseOgImageFromHtml(html),
+    }),
+    options.purpose ?? "display"
+  );
 }
 
 async function enrichFromLeboncoin(
@@ -166,16 +199,30 @@ async function enrichFromPublication(
   publication: PublicationRow,
   options: EnrichPublicationOptions = {}
 ): Promise<PropertyEnrichmentPatch> {
+  const purpose = options.purpose ?? "display";
+  const publicationOptions: EnrichPublicationOptions = {
+    ...options,
+    purpose,
+    skipImage: options.skipImage ?? purpose === "address",
+  };
+
+  let patch: PropertyEnrichmentPatch;
   switch (publication.source) {
     case "seloger":
-      return enrichFromSeLoger(publication, options);
+      patch = await enrichFromSeLoger(publication, publicationOptions);
+      break;
     case "logicimmo":
-      return enrichFromLogicImmo(publication, options);
+      patch = await enrichFromLogicImmo(publication, publicationOptions);
+      break;
     case "bienici":
-      return enrichFromBienIci(publication, options);
+      patch = await enrichFromBienIci(publication, publicationOptions);
+      break;
     case "leboncoin":
-      return enrichFromLeboncoin(publication, options);
+      patch = await enrichFromLeboncoin(publication, publicationOptions);
+      break;
   }
+
+  return pickPatchForPurpose(patch, purpose);
 }
 
 const ENRICHMENT_FIELDS = [
@@ -203,10 +250,7 @@ function highlightsEqual(
   left: string[] | null | undefined,
   right: string[] | null | undefined
 ): boolean {
-  const a = left ?? [];
-  const b = right ?? [];
-  if (a.length !== b.length) return false;
-  return a.every((value, index) => value === b[index]);
+  return highlightsSetsEqual(left, right);
 }
 
 function mergePatches(
@@ -267,7 +311,8 @@ function diffPatch(
 }
 
 export async function enrichProperty(
-  property: PropertyRow
+  property: PropertyRow,
+  purpose: EnrichmentPurpose = "display"
 ): Promise<EnrichmentResult> {
   const publications =
     property.publications.length > 0
@@ -294,6 +339,7 @@ export async function enrichProperty(
   for (const publication of ordered) {
     try {
       const patch = await enrichFromPublication(publication, {
+        purpose,
         skipImage: resolvedImageUrl !== null,
       });
       patches.push(patch);
@@ -335,7 +381,10 @@ export async function ensurePropertyEnriched(
     return { property, warnings: [] };
   }
 
-  const { patch, updatedFields, warnings } = await enrichProperty(property);
+  const { patch, updatedFields, warnings } = await enrichProperty(
+    property,
+    purpose
+  );
 
   let resultProperty = property;
   if (updatedFields.length > 0) {
