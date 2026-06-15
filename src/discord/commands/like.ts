@@ -6,11 +6,11 @@ import type { CommandHandler } from "./types.js";
 export function buildLikeCommand() {
   return new SlashCommandBuilder()
     .setName("like")
-    .setDescription("Manage your favorite listings")
+    .setDescription("Manage household favorite listings")
     .addSubcommand((sub) =>
       sub
         .setName("add")
-        .setDescription("Add a listing to your favorites")
+        .setDescription("Add a listing to household favorites")
         .addIntegerOption((opt) =>
           opt.setName("id").setDescription("Listing ID").setRequired(true)
         )
@@ -18,7 +18,7 @@ export function buildLikeCommand() {
     .addSubcommand((sub) =>
       sub
         .setName("remove")
-        .setDescription("Remove a listing from your favorites")
+        .setDescription("Remove a listing from household favorites")
         .addIntegerOption((opt) =>
           opt.setName("id").setDescription("Listing ID").setRequired(true)
         )
@@ -26,7 +26,7 @@ export function buildLikeCommand() {
     .addSubcommand((sub) =>
       sub
         .setName("list")
-        .setDescription("Show your favorite listings")
+        .setDescription("Show household favorite listings")
         .addIntegerOption((opt) =>
           opt
             .setName("limit")
@@ -66,7 +66,7 @@ export const handleLike: CommandHandler = async (interaction, ctx) => {
       ctx.reactionRepository,
       "like",
       limit,
-      "You have no favorited listings."
+      "No household favorites yet."
     );
     await interaction.editReply(reply);
     return;
@@ -85,8 +85,8 @@ export const handleLike: CommandHandler = async (interaction, ctx) => {
     resetListingCompatibilityCache();
     await interaction.editReply(
       result === "already_exists"
-        ? `Listing **#${String(id)}** is already in your favorites.`
-        : `❤️ Listing **#${String(id)}** added to your favorites.`
+        ? `Listing **#${String(id)}** is already in household favorites.`
+        : `❤️ Listing **#${String(id)}** added to household favorites.`
     );
     return;
   }
@@ -95,10 +95,10 @@ export const handleLike: CommandHandler = async (interaction, ctx) => {
     const result = await ctx.reactionRepository.archive(id);
     await interaction.editReply(
       result === "archived"
-        ? `📦 Listing **#${String(id)}** archived. It still counts toward your compatibility score.`
+        ? `📦 Listing **#${String(id)}** archived. It still counts toward the household compatibility score.`
         : result === "already_archived"
           ? `Listing **#${String(id)}** is already archived.`
-          : `Listing **#${String(id)}** is not in your favorites.`
+          : `Listing **#${String(id)}** is not in household favorites.`
     );
     return;
   }
@@ -107,10 +107,10 @@ export const handleLike: CommandHandler = async (interaction, ctx) => {
     const result = await ctx.reactionRepository.unarchive(id);
     await interaction.editReply(
       result === "unarchived"
-        ? `Listing **#${String(id)}** restored to your favorites.`
+        ? `Listing **#${String(id)}** restored to household favorites.`
         : result === "not_archived"
           ? `Listing **#${String(id)}** is not archived.`
-          : `Listing **#${String(id)}** is not in your favorites.`
+          : `Listing **#${String(id)}** is not in household favorites.`
     );
     return;
   }
@@ -119,7 +119,7 @@ export const handleLike: CommandHandler = async (interaction, ctx) => {
   resetListingCompatibilityCache();
   await interaction.editReply(
     removed
-      ? `Listing **#${String(id)}** removed from your favorites.`
-      : `Listing **#${String(id)}** was not in your favorites.`
+      ? `Listing **#${String(id)}** removed from household favorites.`
+      : `Listing **#${String(id)}** was not in household favorites.`
   );
 };

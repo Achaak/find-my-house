@@ -10,10 +10,13 @@ import { ensurePropertyEnriched } from "./enrichmentService.js";
 
 const log = createLogger("enrichment-queue");
 
+export const ENRICHMENT_WAIT_TIMEOUT_MS = 30_000;
+
 export type EnrichmentPriority = "high" | "low";
 
 export type EnrichmentJobResult = {
   warnings: string[];
+  timedOut?: boolean;
 };
 
 type QueueItem = {
@@ -25,6 +28,7 @@ type QueueItem = {
 type Waiter = {
   resolve: (result: EnrichmentJobResult) => void;
   reject: (error: unknown) => void;
+  timer: ReturnType<typeof setTimeout>;
 };
 
 function jobKey(propertyId: number, purpose: EnrichmentPurpose): string {
@@ -86,7 +90,8 @@ export class EnrichmentQueue {
   async waitUntilEnriched(
     propertyId: number,
     purpose: EnrichmentPurpose,
-    priority: EnrichmentPriority = "high"
+    priority: EnrichmentPriority = "high",
+    timeoutMs = ENRICHMENT_WAIT_TIMEOUT_MS
   ): Promise<EnrichmentJobResult> {
     const property = await this.repository.findById(propertyId);
     if (!property) {
@@ -99,13 +104,40 @@ export class EnrichmentQueue {
 
     const key = jobKey(propertyId, purpose);
     return new Promise<EnrichmentJobResult>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.removeWaiter(key, waiter);
+        resolve({
+          warnings: ["Enrichment timed out"],
+          timedOut: true,
+        });
+      }, timeoutMs);
+
+      const waiter: Waiter = {
+        resolve,
+        reject,
+        timer,
+      };
+
       const pending = this.waiters.get(key) ?? [];
-      pending.push({ resolve, reject });
+      pending.push(waiter);
       this.waiters.set(key, pending);
+
       queueMicrotask(() => {
         this.schedule(propertyId, purpose, priority);
       });
     });
+  }
+
+  private removeWaiter(key: string, target: Waiter): void {
+    const pending = this.waiters.get(key);
+    if (!pending) return;
+
+    const next = pending.filter((waiter) => waiter !== target);
+    if (next.length === 0) {
+      this.waiters.delete(key);
+    } else {
+      this.waiters.set(key, next);
+    }
   }
 
   private async drain(): Promise<void> {
@@ -146,6 +178,7 @@ export class EnrichmentQueue {
     const pending = this.waiters.get(key) ?? [];
     this.waiters.delete(key);
     for (const waiter of pending) {
+      clearTimeout(waiter.timer);
       waiter.resolve(result);
     }
   }
@@ -154,6 +187,7 @@ export class EnrichmentQueue {
     const pending = this.waiters.get(key) ?? [];
     this.waiters.delete(key);
     for (const waiter of pending) {
+      clearTimeout(waiter.timer);
       waiter.reject(error);
     }
   }

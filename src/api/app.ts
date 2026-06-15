@@ -12,6 +12,7 @@ import {
   serializeProperty,
 } from "./serialize.js";
 import type { ApiContext } from "./types.js";
+import { fetchStatsSection } from "../services/statsService.js";
 import { scrapeConfig } from "../config/scrape.js";
 import { getPrisma } from "../db/prisma.js";
 import {
@@ -371,135 +372,97 @@ export function createApiApp(ctx: ApiContext) {
 
   app.get("/api/stats/:section", async (c) => {
     const section = c.req.param("section");
+    const validSections = [
+      "overview",
+      "sources",
+      "prices",
+      "mine",
+      "activity",
+    ] as const;
 
-    switch (section) {
-      case "overview": {
-        const [
-          total,
-          activeProperties,
-          activePublications,
-          inactivePublications,
-          priceDrops,
-          sourceCounts,
-          priceStats,
-          topCities,
-          activity,
-          recent,
-          likes,
-          dislikes,
-          enrichmentPending,
-        ] = await Promise.all([
-          ctx.repository.count(),
-          ctx.repository.countActiveProperties(),
-          ctx.repository.countPublications(),
-          ctx.repository.countInactivePublications(),
-          ctx.repository.countPriceDrops(),
-          ctx.repository.getPublicationCountsBySource(),
-          ctx.repository.getPriceStats(),
-          ctx.repository.getTopCities(3),
-          ctx.repository.getActivityStats(),
-          ctx.repository.findRecent(3),
-          ctx.reactionRepository.countByType("like"),
-          ctx.reactionRepository.countByType("dislike"),
-          ctx.repository.countPendingDisplayEnrichment(),
-        ]);
-        return c.json({
-          total,
-          activeProperties,
-          activePublications,
-          inactivePublications,
-          priceDrops,
-          sourceCounts,
-          priceStats,
-          topCities,
-          activity,
-          recent: await serializeProperties(recent, ctx.reactionRepository, {
-            includeCompatibility: false,
-          }),
-          likes,
-          dislikes,
-          enrichment: {
-            pending: enrichmentPending,
-            queued: ctx.enrichmentQueue.getQueuedCount(),
-          },
-        });
-      }
-      case "sources": {
-        const [sourceCounts, activity] = await Promise.all([
-          ctx.repository.getPublicationCountsBySource(),
-          ctx.repository.getActivityStats(),
-        ]);
-        return c.json({
-          sourceCounts,
-          multiSourceCount: activity.multiSourceCount,
-        });
-      }
-      case "prices": {
-        const [priceStats, priceDrops, drops] = await Promise.all([
-          ctx.repository.getPriceStats(),
-          ctx.repository.countPriceDrops(),
-          ctx.repository.findPriceDrops(5),
-        ]);
-        return c.json({
-          priceStats,
-          priceDrops,
-          drops: await serializeProperties(drops, ctx.reactionRepository, {
-            includeCompatibility: false,
-          }),
-        });
-      }
-      case "mine": {
-        const [likes, dislikes, recentLikes, recentDislikes] =
-          await Promise.all([
-            ctx.reactionRepository.countByType("like"),
-            ctx.reactionRepository.countByType("dislike"),
-            ctx.reactionRepository.findListingsByType("like", { limit: 5 }),
-            ctx.reactionRepository.findListingsByType("dislike", { limit: 5 }),
-          ]);
-        return c.json({
-          likes,
-          dislikes,
-          recentLikes: await serializeProperties(
-            recentLikes,
-            ctx.reactionRepository,
-            { includeCompatibility: false }
-          ),
-          recentDislikes: await serializeProperties(
-            recentDislikes,
-            ctx.reactionRepository,
-            { includeCompatibility: false }
-          ),
-        });
-      }
-      case "activity": {
-        const { city, maxTravelMinutes } = ctx.scrapeDefaults;
-        const geoFilter = resolveGeoFilter({ maxTravelMinutes }, true);
-        const zoneLabel =
-          geoFilter.mode === "city"
-            ? city
-            : `${city} (${geoFilterLabel(geoFilter)})`;
-        const [activity, recent, enrichmentPending] = await Promise.all([
-          ctx.repository.getActivityStats(),
-          ctx.repository.findRecent(5),
-          ctx.repository.countPendingDisplayEnrichment(),
-        ]);
-        return c.json({
-          activity,
-          enrichment: {
-            pending: enrichmentPending,
-            queued: ctx.enrichmentQueue.getQueuedCount(),
-          },
-          zoneLabel,
-          cron: scrapeConfig.scrape.cron,
-          scrapers: scrapeConfig.scrape.scrapers ?? [],
-          recent: await serializeProperties(recent, ctx.reactionRepository, {
-            includeCompatibility: false,
-          }),
-        });
-      }
-      default:
-        return c.json({ error: "Unknown stats section" }, 404);
+    if (!validSections.includes(section as (typeof validSections)[number])) {
+      return c.json({ error: "Unknown stats section" }, 404);
     }
+
+    if (section === "overview") {
+      const overview = await fetchStatsSection("overview", {
+        repository: ctx.repository,
+        reactionRepository: ctx.reactionRepository,
+        enrichmentQueue: ctx.enrichmentQueue,
+        scrapeDefaults: ctx.scrapeDefaults,
+      });
+      return c.json({
+        ...overview,
+        recent: await serializeProperties(
+          overview.recent,
+          ctx.reactionRepository,
+          { includeCompatibility: false }
+        ),
+      });
+    }
+
+    if (section === "prices") {
+      const prices = await fetchStatsSection("prices", {
+        repository: ctx.repository,
+        reactionRepository: ctx.reactionRepository,
+        enrichmentQueue: ctx.enrichmentQueue,
+        scrapeDefaults: ctx.scrapeDefaults,
+      });
+      return c.json({
+        ...prices,
+        drops: await serializeProperties(prices.drops, ctx.reactionRepository, {
+          includeCompatibility: false,
+        }),
+      });
+    }
+
+    if (section === "mine") {
+      const mine = await fetchStatsSection("mine", {
+        repository: ctx.repository,
+        reactionRepository: ctx.reactionRepository,
+        enrichmentQueue: ctx.enrichmentQueue,
+        scrapeDefaults: ctx.scrapeDefaults,
+      });
+      return c.json({
+        ...mine,
+        recentLikes: await serializeProperties(
+          mine.recentLikes,
+          ctx.reactionRepository,
+          { includeCompatibility: false }
+        ),
+        recentDislikes: await serializeProperties(
+          mine.recentDislikes,
+          ctx.reactionRepository,
+          { includeCompatibility: false }
+        ),
+      });
+    }
+
+    if (section === "activity") {
+      const activity = await fetchStatsSection("activity", {
+        repository: ctx.repository,
+        reactionRepository: ctx.reactionRepository,
+        enrichmentQueue: ctx.enrichmentQueue,
+        scrapeDefaults: ctx.scrapeDefaults,
+      });
+      return c.json({
+        ...activity,
+        recent: await serializeProperties(
+          activity.recent,
+          ctx.reactionRepository,
+          { includeCompatibility: false }
+        ),
+      });
+    }
+
+    return c.json(
+      await fetchStatsSection(section as (typeof validSections)[number], {
+        repository: ctx.repository,
+        reactionRepository: ctx.reactionRepository,
+        enrichmentQueue: ctx.enrichmentQueue,
+        scrapeDefaults: ctx.scrapeDefaults,
+      })
+    );
   });
 
   app.get("/api/properties/:id/address", async (c) => {

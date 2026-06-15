@@ -6,11 +6,11 @@ import type { CommandHandler } from "./types.js";
 export function buildDislikeCommand() {
   return new SlashCommandBuilder()
     .setName("dislike")
-    .setDescription("Manage listings you dislike")
+    .setDescription("Manage household disliked listings")
     .addSubcommand((sub) =>
       sub
         .setName("add")
-        .setDescription("Mark a listing as disliked")
+        .setDescription("Mark a listing as a household dislike")
         .addIntegerOption((opt) =>
           opt.setName("id").setDescription("Listing ID").setRequired(true)
         )
@@ -18,7 +18,7 @@ export function buildDislikeCommand() {
     .addSubcommand((sub) =>
       sub
         .setName("remove")
-        .setDescription("Remove a listing from your dislikes")
+        .setDescription("Remove a listing from household dislikes")
         .addIntegerOption((opt) =>
           opt.setName("id").setDescription("Listing ID").setRequired(true)
         )
@@ -26,7 +26,7 @@ export function buildDislikeCommand() {
     .addSubcommand((sub) =>
       sub
         .setName("list")
-        .setDescription("Show listings you have disliked")
+        .setDescription("Show household disliked listings")
         .addIntegerOption((opt) =>
           opt
             .setName("limit")
@@ -48,7 +48,7 @@ export const handleDislike: CommandHandler = async (interaction, ctx) => {
       ctx.reactionRepository,
       "dislike",
       limit,
-      "You have not marked any listings as disliked."
+      "No household dislikes yet."
     );
     await interaction.editReply(reply);
     return;
@@ -67,8 +67,8 @@ export const handleDislike: CommandHandler = async (interaction, ctx) => {
     resetListingCompatibilityCache();
     await interaction.editReply(
       result === "already_exists"
-        ? `Listing **#${String(id)}** is already in your dislikes.`
-        : `👎 Listing **#${String(id)}** added to your dislikes.`
+        ? `Listing **#${String(id)}** is already in household dislikes.`
+        : `👎 Listing **#${String(id)}** added to household dislikes.`
     );
     return;
   }
@@ -77,7 +77,7 @@ export const handleDislike: CommandHandler = async (interaction, ctx) => {
   resetListingCompatibilityCache();
   await interaction.editReply(
     removed
-      ? `Listing **#${String(id)}** removed from your dislikes.`
-      : `Listing **#${String(id)}** was not in your dislikes.`
+      ? `Listing **#${String(id)}** removed from household dislikes.`
+      : `Listing **#${String(id)}** was not in household dislikes.`
   );
 };

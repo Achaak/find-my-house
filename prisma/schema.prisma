@@ -25,6 +25,7 @@ model Property {
   title         String
   price         Int
   firstPrice    Int       @map("first_price")
+  hasPriceDrop  Boolean   @default(false) @map("has_price_drop")
   surface       Float?
   landSurface   Float?    @map("land_surface")
   rooms         Int?

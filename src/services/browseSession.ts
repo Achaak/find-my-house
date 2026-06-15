@@ -38,7 +38,6 @@ export function getBrowseSession(userId: string): BrowseSession | undefined {
 
 async function loadBrowseCandidates(
   repository: ListingRepository,
-  userId: string,
   filters: ListingSearchFilters
 ): Promise<PropertyRow[]> {
   const { items } = await repository.search({
@@ -64,11 +63,7 @@ export async function pickNextBrowseListing(
     preferences ??
     (await resolveListingCompatibilityPreferences(reactionRepository));
 
-  const candidates = await loadBrowseCandidates(
-    repository,
-    userId,
-    session.filters
-  );
+  const candidates = await loadBrowseCandidates(repository, session.filters);
   const pick = pickBrowseListing(
     candidates,
     resolvedPreferences,

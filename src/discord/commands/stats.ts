@@ -1,6 +1,9 @@
 import { SlashCommandBuilder } from "discord.js";
-import { scrapeConfig } from "../../config/scrape.js";
-import { geoFilterLabel, resolveGeoFilter } from "../../utils/geo/geoFilter.js";
+import {
+  fetchStatsSection,
+  formatStatsScrapersLabel,
+  formatStatsZoneLabel,
+} from "../../services/statsService.js";
 import {
   formatActivityStatsEmbed,
   formatMineStatsEmbed,
@@ -24,7 +27,7 @@ export function buildStatsCommand() {
       sub.setName("prices").setDescription("Price and drop statistics")
     )
     .addSubcommand((sub) =>
-      sub.setName("mine").setDescription("Your favorites and dislikes")
+      sub.setName("mine").setDescription("Household favorites and dislikes")
     )
     .addSubcommand((sub) =>
       sub
@@ -33,147 +36,73 @@ export function buildStatsCommand() {
     );
 }
 
-function formatScrapersLabel(): string {
-  const scrapers = scrapeConfig.scrape.scrapers;
-  if (!scrapers || scrapers.length === 0) return "all";
-  return scrapers.join(", ");
-}
-
-function formatZoneLabel(city: string, maxTravelMinutes?: number): string {
-  const geoFilter = resolveGeoFilter({ maxTravelMinutes }, true);
-  const zone = geoFilterLabel(geoFilter);
-  return geoFilter.mode === "city" ? city : `${city} (${zone})`;
-}
-
 export const handleStats: CommandHandler = async (interaction, ctx) => {
   const subcommand = interaction.options.getSubcommand();
   await interaction.deferReply();
 
+  const statsCtx = {
+    repository: ctx.repository,
+    reactionRepository: ctx.reactionRepository,
+    enrichmentQueue: ctx.enrichmentQueue,
+    scrapeDefaults: ctx.defaultScrapeOptions,
+  };
+
   switch (subcommand) {
     case "overview": {
-      const [
-        total,
-        activeProperties,
-        activePublications,
-        inactivePublications,
-        priceDrops,
-        sourceCounts,
-        priceStats,
-        topCities,
-        activity,
-        recent,
-        likes,
-        dislikes,
-        enrichmentPending,
-      ] = await Promise.all([
-        ctx.repository.count(),
-        ctx.repository.countActiveProperties(),
-        ctx.repository.countPublications(),
-        ctx.repository.countInactivePublications(),
-        ctx.repository.countPriceDrops(),
-        ctx.repository.getPublicationCountsBySource(),
-        ctx.repository.getPriceStats(),
-        ctx.repository.getTopCities(3),
-        ctx.repository.getActivityStats(),
-        ctx.repository.findRecent(3),
-        ctx.reactionRepository.countByType("like"),
-        ctx.reactionRepository.countByType("dislike"),
-        ctx.repository.countPendingDisplayEnrichment(),
-      ]);
-
+      const overview = await fetchStatsSection("overview", statsCtx);
       await interaction.editReply({
-        embeds: [
-          formatOverviewStatsEmbed({
-            total,
-            activeProperties,
-            activePublications,
-            inactivePublications,
-            priceDrops,
-            sourceCounts,
-            priceStats,
-            topCities,
-            activity,
-            likes,
-            dislikes,
-            enrichment: {
-              pending: enrichmentPending,
-              queued: ctx.enrichmentQueue.getQueuedCount(),
-            },
-            recent,
-          }),
-        ],
+        embeds: [formatOverviewStatsEmbed(overview)],
       });
       return;
     }
 
     case "sources": {
-      const [sourceCounts, activity] = await Promise.all([
-        ctx.repository.getPublicationCountsBySource(),
-        ctx.repository.getActivityStats(),
-      ]);
-
+      const sources = await fetchStatsSection("sources", statsCtx);
       await interaction.editReply({
         embeds: [
-          formatSourcesStatsEmbed(sourceCounts, activity.multiSourceCount),
+          formatSourcesStatsEmbed(
+            sources.sourceCounts,
+            sources.multiSourceCount
+          ),
         ],
       });
       return;
     }
 
     case "prices": {
-      const [priceStats, priceDrops, drops] = await Promise.all([
-        ctx.repository.getPriceStats(),
-        ctx.repository.countPriceDrops(),
-        ctx.repository.findPriceDrops(5),
-      ]);
-
-      await interaction.editReply({
-        embeds: [formatPricesStatsEmbed(priceStats, priceDrops, drops)],
-      });
-      return;
-    }
-
-    case "mine": {
-      const [likes, dislikes, recentLikes, recentDislikes] = await Promise.all([
-        ctx.reactionRepository.countByType("like"),
-        ctx.reactionRepository.countByType("dislike"),
-        ctx.reactionRepository.findListingsByType("like", { limit: 5 }),
-        ctx.reactionRepository.findListingsByType("dislike", { limit: 5 }),
-      ]);
-
+      const prices = await fetchStatsSection("prices", statsCtx);
       await interaction.editReply({
         embeds: [
-          formatMineStatsEmbed({
-            likes,
-            dislikes,
-            recentLikes,
-            recentDislikes,
-          }),
+          formatPricesStatsEmbed(
+            prices.priceStats,
+            prices.priceDrops,
+            prices.drops
+          ),
         ],
       });
       return;
     }
 
-    case "activity": {
-      const { city, maxTravelMinutes } = ctx.defaultScrapeOptions;
-      const [activity, recent, enrichmentPending] = await Promise.all([
-        ctx.repository.getActivityStats(),
-        ctx.repository.findRecent(5),
-        ctx.repository.countPendingDisplayEnrichment(),
-      ]);
+    case "mine": {
+      const mine = await fetchStatsSection("mine", statsCtx);
+      await interaction.editReply({
+        embeds: [formatMineStatsEmbed(mine)],
+      });
+      return;
+    }
 
+    case "activity": {
+      const activity = await fetchStatsSection("activity", statsCtx);
+      const { city, maxTravelMinutes } = ctx.defaultScrapeOptions;
       await interaction.editReply({
         embeds: [
           formatActivityStatsEmbed({
-            activity,
-            enrichment: {
-              pending: enrichmentPending,
-              queued: ctx.enrichmentQueue.getQueuedCount(),
-            },
-            zoneLabel: formatZoneLabel(city, maxTravelMinutes),
-            cron: scrapeConfig.scrape.cron,
-            scrapersLabel: formatScrapersLabel(),
-            recent,
+            activity: activity.activity,
+            enrichment: activity.enrichment,
+            zoneLabel: formatStatsZoneLabel(city, maxTravelMinutes),
+            cron: activity.cron,
+            scrapersLabel: formatStatsScrapersLabel(),
+            recent: activity.recent,
           }),
         ],
       });

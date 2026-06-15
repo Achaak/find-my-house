@@ -154,4 +154,72 @@ describe("createApiApp", () => {
     expect(body.item.id).toBe(propertyId);
     expect(body.enrichment.status).toBe("complete");
   });
+
+  it("POST /api/reactions/like adds a household like", async () => {
+    const response = await app.request("/api/reactions/like", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ propertyId }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ status: "added" });
+
+    const list = await app.request("/api/reactions/like");
+    const body = (await list.json()) as { items: { id: number }[] };
+    expect(body.items.some((item) => item.id === propertyId)).toBe(true);
+  });
+
+  it("DELETE /api/reactions/like/:id removes a like", async () => {
+    await ctx.reactionRepository.add(propertyId, "like");
+
+    const response = await app.request(
+      `/api/reactions/like/${String(propertyId)}`,
+      { method: "DELETE" }
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ removed: true });
+  });
+
+  it("POST /api/reactions/like/:id/archive archives a like", async () => {
+    await ctx.reactionRepository.add(propertyId, "like");
+
+    const response = await app.request(
+      `/api/reactions/like/${String(propertyId)}/archive`,
+      { method: "POST" }
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { status: string };
+    expect(body.status).toBe("archived");
+  });
+
+  it("GET /api/stats/overview returns database overview", async () => {
+    const response = await app.request("/api/stats/overview");
+    expect(response.status).toBe(200);
+
+    const body = (await response.json()) as {
+      total: number;
+      likes: number;
+      enrichment: { pending: number; queued: number };
+    };
+    expect(body.total).toBeGreaterThan(0);
+    expect(body.enrichment.queued).toBe(0);
+    expect(typeof body.likes).toBe("number");
+  });
+
+  it("GET /api/stats/mine returns household reactions", async () => {
+    await ctx.reactionRepository.add(propertyId, "like");
+
+    const response = await app.request("/api/stats/mine");
+    expect(response.status).toBe(200);
+
+    const body = (await response.json()) as {
+      likes: number;
+      recentLikes: { id: number }[];
+    };
+    expect(body.likes).toBeGreaterThan(0);
+    expect(body.recentLikes.some((item) => item.id === propertyId)).toBe(true);
+  });
 });

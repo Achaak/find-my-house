@@ -22,18 +22,9 @@ import type {
 import { displayEnrichmentPendingWhere } from "../domain/enrichmentCriteria.js";
 import type { PropertyEnrichmentPatch } from "../types/enrichment.js";
 import { parseHighlights, toPropertyRow } from "./listingMapper.js";
-import {
-  boundingBoxForRadiusKm,
-  haversineDistanceKm,
-  isWithinRadiusKm,
-  type GeoPoint,
-} from "../utils/geo/geo.js";
-import { createLogger } from "../utils/logger.js";
-import {
-  resolveGeoFilter,
-  resolveRadiusSearchFilter,
-} from "../utils/geo/geoFilter.js";
-import { resolveGeoSearchCenter } from "../utils/geo/geocode.js";
+import { propertyInclude } from "./propertyInclude.js";
+import { PropertySearchRepository } from "./propertySearchRepository.js";
+import { PropertyStatsRepository } from "./propertyStatsRepository.js";
 import {
   findPendingPropertyMatch,
   findPropertyMatchForListing,
@@ -44,8 +35,8 @@ import {
 } from "./publicationData.js";
 import { highlightsSetsEqual } from "../utils/listing/amenities.js";
 import { computePropertyKey } from "../utils/propertyKey.js";
+import { createLogger } from "../utils/logger.js";
 
-const propertyInclude = { publications: true } as const;
 const log = createLogger("db");
 
 const IN_QUERY_BATCH_SIZE = 900;
@@ -150,103 +141,6 @@ type PendingPropertyCreate = {
   scrapedAt: Date;
   extraPublications: { listing: Listing; scrapedAt: Date }[];
 };
-
-function searchOrderBy(
-  sort: ListingSearchFilters["sort"]
-): { price: "asc" | "desc" } | { firstSeenAt: "desc" } | { surface: "desc" } {
-  switch (sort) {
-    case "price_desc":
-      return { price: "desc" };
-    case "date_desc":
-      return { firstSeenAt: "desc" };
-    case "surface_desc":
-      return { surface: "desc" };
-    default:
-      return { price: "asc" };
-  }
-}
-
-function buildPropertySearchWhere(
-  filters: ListingSearchFilters,
-  useGeoFilter: boolean,
-  radiusFilter: { center: GeoPoint; radiusKm: number } | null
-): Prisma.PropertyWhereInput {
-  const textFilter = filters.text?.trim();
-  const priceFilter =
-    filters.minPrice !== undefined || filters.maxPrice !== undefined
-      ? {
-          ...(filters.minPrice !== undefined ? { gte: filters.minPrice } : {}),
-          ...(filters.maxPrice !== undefined ? { lte: filters.maxPrice } : {}),
-        }
-      : undefined;
-
-  return {
-    city:
-      filters.city && !useGeoFilter ? { contains: filters.city } : undefined,
-    postalCode:
-      filters.postalCode && !useGeoFilter
-        ? { contains: filters.postalCode }
-        : undefined,
-    price: priceFilter,
-    surface:
-      filters.minSurface !== undefined
-        ? { gte: filters.minSurface }
-        : undefined,
-    landSurface:
-      filters.minLandSurface !== undefined
-        ? { gte: filters.minLandSurface }
-        : undefined,
-    rooms:
-      filters.minRooms !== undefined ? { gte: filters.minRooms } : undefined,
-    bedrooms:
-      filters.minBedrooms !== undefined
-        ? { gte: filters.minBedrooms }
-        : undefined,
-    isNewProperty: filters.neufOnly
-      ? true
-      : filters.ancienOnly
-        ? { not: true }
-        : undefined,
-    publications: filters.source
-      ? { some: { source: filters.source, isActive: true } }
-      : { some: { isActive: true } },
-    reactions: filters.excludeReacted ? { none: {} } : undefined,
-    ...(textFilter
-      ? {
-          OR: [
-            { title: { contains: textFilter } },
-            { description: { contains: textFilter } },
-          ],
-        }
-      : {}),
-    ...(radiusFilter
-      ? (() => {
-          const bounds = boundingBoxForRadiusKm(
-            radiusFilter.center,
-            radiusFilter.radiusKm
-          );
-          return {
-            latitude: {
-              not: null,
-              gte: bounds.minLat,
-              lte: bounds.maxLat,
-            },
-            longitude: {
-              not: null,
-              gte: bounds.minLng,
-              lte: bounds.maxLng,
-            },
-          };
-        })()
-      : {}),
-  };
-}
-
-function needsSearchPostProcessing(
-  radiusFilter: { center: GeoPoint; radiusKm: number } | null
-): boolean {
-  return radiusFilter !== null;
-}
 
 type PropertyScalarData = {
   title: string;
@@ -410,19 +304,12 @@ function hasPropertyChanges(
 }
 
 export class ListingRepository {
-  constructor(private readonly prisma: PrismaClient) {}
+  private readonly searchRepo: PropertySearchRepository;
+  private readonly statsRepo: PropertyStatsRepository;
 
-  private async applyPriceDropWhere(
-    where: Prisma.PropertyWhereInput
-  ): Promise<Prisma.PropertyWhereInput> {
-    const rows = await this.prisma.$queryRaw<{ id: number }[]>`
-      SELECT id FROM properties WHERE price < first_price
-    `;
-    const ids = rows.map((row) => row.id);
-    if (ids.length === 0) {
-      return { AND: [where, { id: -1 }] };
-    }
-    return { AND: [where, { id: { in: ids } }] };
+  constructor(private readonly prisma: PrismaClient) {
+    this.searchRepo = new PropertySearchRepository(prisma);
+    this.statsRepo = new PropertyStatsRepository(prisma);
   }
 
   private async findExistingPublications(
@@ -779,9 +666,18 @@ export class ListingRepository {
 
     await this.prisma.$transaction(async (tx) => {
       for (const [propertyId, listing] of propertyUpdatesById) {
+        const existing = await tx.property.findUnique({
+          where: { id: propertyId },
+          select: { firstPrice: true },
+        });
+        if (!existing) continue;
+
         await tx.property.update({
           where: { id: propertyId },
-          data: toPrismaPropertyData(toPropertyData(listing)),
+          data: {
+            ...toPrismaPropertyData(toPropertyData(listing)),
+            hasPriceDrop: listing.price < existing.firstPrice,
+          },
         });
       }
 
@@ -805,6 +701,7 @@ export class ListingRepository {
             propertyKey,
             ...toPrismaPropertyData(toPropertyData(pending.listing)),
             firstPrice: pending.listing.price,
+            hasPriceDrop: false,
             firstSeenAt: pending.scrapedAt,
             publications: {
               create: pendingPublicationsToCreate(pending),
@@ -898,310 +795,65 @@ export class ListingRepository {
   }
 
   async findRecent(limit = 10): Promise<PropertyRow[]> {
-    const rows = await this.prisma.property.findMany({
-      where: { publications: { some: { isActive: true } } },
-      include: propertyInclude,
-      orderBy: { firstSeenAt: "desc" },
-      take: limit,
-    });
-    return rows.map(toPropertyRow);
+    return this.searchRepo.findRecent(limit);
   }
 
   async search(
     filters: ListingSearchFilters
   ): Promise<{ items: PropertyRow[]; total: number }> {
-    const geoFilter = resolveGeoFilter(filters, true);
-    const useGeoFilter = geoFilter.mode !== "city";
-
-    let radiusFilter: { center: GeoPoint; radiusKm: number } | null = null;
-
-    if (useGeoFilter) {
-      if (!filters.city) return { items: [], total: 0 };
-      const searchCenter = await resolveGeoSearchCenter(
-        filters.city,
-        filters.postalCode
-      );
-      if (!searchCenter) return { items: [], total: 0 };
-      radiusFilter = resolveRadiusSearchFilter(geoFilter, searchCenter.center);
-    }
-
-    let where = buildPropertySearchWhere(filters, useGeoFilter, radiusFilter);
-    if (filters.priceDropOnly) {
-      where = await this.applyPriceDropWhere(where);
-    }
-    const orderBy = searchOrderBy(filters.sort);
-    const offset = filters.offset ?? 0;
-    const limit = filters.limit ?? 10;
-
-    if (!needsSearchPostProcessing(radiusFilter)) {
-      const [total, rows] = await Promise.all([
-        this.prisma.property.count({ where }),
-        this.prisma.property.findMany({
-          where,
-          include: propertyInclude,
-          orderBy,
-          skip: offset,
-          take: limit,
-        }),
-      ]);
-
-      return { items: rows.map(toPropertyRow), total };
-    }
-
-    const leanRows = await this.prisma.property.findMany({
-      where,
-      select: { id: true, latitude: true, longitude: true },
-    });
-
-    if (!radiusFilter) {
-      return { items: [], total: 0 };
-    }
-
-    const { center, radiusKm } = radiusFilter;
-    const rankedIds = leanRows
-      .filter((row) => {
-        if (row.latitude === null || row.longitude === null) return false;
-        return isWithinRadiusKm(
-          { lat: row.latitude, lng: row.longitude },
-          center,
-          radiusKm
-        );
-      })
-      .map((row) => ({
-        id: row.id,
-        distance: haversineDistanceKm(
-          center.lat,
-          center.lng,
-          row.latitude,
-          row.longitude
-        ),
-      }))
-      .sort((a, b) => a.distance - b.distance);
-
-    const total = rankedIds.length;
-    const pageIds = rankedIds
-      .slice(offset, offset + limit)
-      .map((entry) => entry.id);
-
-    if (pageIds.length === 0) {
-      return { items: [], total };
-    }
-
-    const rows = await this.prisma.property.findMany({
-      where: { id: { in: pageIds } },
-      include: propertyInclude,
-    });
-    const rowsById = new Map(rows.map((row) => [row.id, row]));
-
-    return {
-      items: pageIds
-        .map((id) => rowsById.get(id))
-        .filter((row): row is PropertyWithPublications => row !== undefined)
-        .map(toPropertyRow),
-      total,
-    };
+    return this.searchRepo.search(filters);
   }
 
   async findAddedSince(since: Date, limit = 20): Promise<PropertyRow[]> {
-    const rows = await this.prisma.property.findMany({
-      where: {
-        firstSeenAt: { gte: since },
-        publications: { some: { isActive: true } },
-      },
-      include: propertyInclude,
-      orderBy: { firstSeenAt: "desc" },
-      take: limit,
-    });
-    return rows.map(toPropertyRow);
+    return this.searchRepo.findAddedSince(since, limit);
   }
 
   async count(): Promise<number> {
-    return this.prisma.property.count();
+    return this.statsRepo.count();
   }
 
   async countPublications(): Promise<number> {
-    return this.prisma.listingPublication.count({
-      where: { isActive: true },
-    });
+    return this.statsRepo.countPublications();
   }
 
   async countActiveProperties(): Promise<number> {
-    return this.prisma.property.count({
-      where: { publications: { some: { isActive: true } } },
-    });
+    return this.statsRepo.countActiveProperties();
   }
 
   async countPendingDisplayEnrichment(): Promise<number> {
-    return this.prisma.property.count({
-      where: displayEnrichmentPendingWhere(),
-    });
+    return this.statsRepo.countPendingDisplayEnrichment();
   }
 
   async countInactivePublications(): Promise<number> {
-    return this.prisma.listingPublication.count({
-      where: { isActive: false },
-    });
+    return this.statsRepo.countInactivePublications();
   }
 
   async getPublicationCountsBySource(): Promise<SourcePublicationCounts> {
-    const rows = await this.prisma.listingPublication.groupBy({
-      by: ["source", "isActive"],
-      _count: { _all: true },
-    });
-
-    const counts: SourcePublicationCounts = {
-      bienici: { active: 0, inactive: 0 },
-      seloger: { active: 0, inactive: 0 },
-      leboncoin: { active: 0, inactive: 0 },
-      logicimmo: { active: 0, inactive: 0 },
-    };
-
-    for (const row of rows) {
-      const bucket = row.isActive ? "active" : "inactive";
-      counts[row.source][bucket] = row._count._all;
-    }
-
-    return counts;
+    return this.statsRepo.getPublicationCountsBySource();
   }
 
   async countPriceDrops(): Promise<number> {
-    const result = await this.prisma.$queryRaw<{ count: bigint }[]>`
-      SELECT COUNT(*) AS count
-      FROM properties p
-      WHERE p.price < p.first_price
-        AND EXISTS (
-          SELECT 1
-          FROM listing_publications lp
-          WHERE lp.property_id = p.id
-            AND lp.is_active = 1
-        )
-    `;
-
-    return Number(result[0].count);
+    return this.statsRepo.countPriceDrops();
   }
 
   async getPriceStats(): Promise<PriceStats | null> {
-    const rows = await this.prisma.$queryRaw<{ price: number }[]>`
-      SELECT p.price AS price
-      FROM properties p
-      WHERE EXISTS (
-        SELECT 1
-        FROM listing_publications lp
-        WHERE lp.property_id = p.id
-          AND lp.is_active = 1
-      )
-      ORDER BY p.price ASC
-    `;
-
-    if (rows.length === 0) return null;
-
-    const prices = rows.map((row) => row.price);
-    const sum = prices.reduce((total, price) => total + price, 0);
-    const mid = Math.floor(prices.length / 2);
-
-    const min = prices[0];
-    const max = prices[prices.length - 1];
-
-    return {
-      count: prices.length,
-      min,
-      max,
-      median:
-        prices.length % 2 === 0
-          ? Math.round((prices[mid - 1] + prices[mid]) / 2)
-          : prices[mid],
-      average: Math.round(sum / prices.length),
-    };
+    return this.statsRepo.getPriceStats();
   }
 
   async findPriceDrops(limit = 5): Promise<PropertyRow[]> {
-    const rows = await this.prisma.$queryRaw<{ id: number }[]>`
-      SELECT p.id AS id
-      FROM properties p
-      WHERE p.price < p.first_price
-        AND EXISTS (
-          SELECT 1
-          FROM listing_publications lp
-          WHERE lp.property_id = p.id
-            AND lp.is_active = 1
-        )
-      ORDER BY (p.first_price - p.price) DESC
-      LIMIT ${limit}
-    `;
-
-    if (rows.length === 0) return [];
-
-    const properties = await this.prisma.property.findMany({
-      where: { id: { in: rows.map((row) => row.id) } },
-      include: propertyInclude,
-    });
-
-    const byId = new Map(properties.map((property) => [property.id, property]));
-
-    return rows
-      .map((row) => byId.get(row.id))
-      .filter((property): property is NonNullable<typeof property> =>
-        Boolean(property)
-      )
-      .map(toPropertyRow);
+    return this.statsRepo.findPriceDrops(limit);
   }
 
   async getTopCities(limit = 5): Promise<CityCount[]> {
-    const rows = await this.prisma.property.groupBy({
-      by: ["city"],
-      where: { publications: { some: { isActive: true } } },
-      _count: { _all: true },
-      orderBy: { _count: { city: "desc" } },
-      take: limit,
-    });
-
-    return rows.map((row) => ({
-      city: row.city,
-      count: row._count._all,
-    }));
+    return this.statsRepo.getTopCities(limit);
   }
 
   async getActivityStats(): Promise<ActivityStats> {
-    const since = new Date();
-    since.setDate(since.getDate() - 7);
-
-    const [lastScrape, addedLast7Days, deactivatedLast7Days, multiSource] =
-      await Promise.all([
-        this.prisma.listingPublication.aggregate({
-          _max: { scrapedAt: true },
-        }),
-        this.prisma.property.count({
-          where: { firstSeenAt: { gte: since } },
-        }),
-        this.prisma.listingPublication.count({
-          where: { isActive: false, updatedAt: { gte: since } },
-        }),
-        this.prisma.$queryRaw<{ count: bigint }[]>`
-          SELECT COUNT(*) AS count
-          FROM (
-            SELECT property_id
-            FROM listing_publications
-            WHERE is_active = 1
-            GROUP BY property_id
-            HAVING COUNT(DISTINCT source) > 1
-          )
-        `,
-      ]);
-
-    return {
-      lastScrapedAt: lastScrape._max.scrapedAt,
-      addedLast7Days,
-      deactivatedLast7Days,
-      multiSourceCount: Number(multiSource[0].count),
-    };
+    return this.statsRepo.getActivityStats();
   }
 
   async findById(id: number): Promise<PropertyRow | undefined> {
-    const row = await this.prisma.property.findUnique({
-      where: { id },
-      include: propertyInclude,
-    });
-    return row ? toPropertyRow(row) : undefined;
+    return this.searchRepo.findById(id);
   }
 
   async findPropertiesForEnrichmentScan(limit: number): Promise<PropertyRow[]> {
@@ -1282,22 +934,6 @@ export class ListingRepository {
   }
 
   async findByIds(ids: number[]): Promise<PropertyRow[]> {
-    if (ids.length === 0) return [];
-
-    const byId = new Map<number, PropertyWithPublications>();
-    for (const idBatch of chunk(ids, IN_QUERY_BATCH_SIZE)) {
-      const rows = await this.prisma.property.findMany({
-        where: { id: { in: idBatch } },
-        include: propertyInclude,
-      });
-      for (const row of rows) {
-        byId.set(row.id, row);
-      }
-    }
-
-    return ids
-      .map((id) => byId.get(id))
-      .filter((row): row is PropertyWithPublications => row !== undefined)
-      .map(toPropertyRow);
+    return this.searchRepo.findByIds(ids);
   }
 }

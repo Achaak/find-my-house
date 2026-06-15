@@ -733,4 +733,28 @@ describe("ListingRepository.search", () => {
     expect(page.items).toHaveLength(2);
     expect(page.items.map((item) => item.price)).toEqual([200_000, 300_000]);
   });
+
+  it("filters priceDropOnly listings via hasPriceDrop", async () => {
+    const fullPrice = makeListing({
+      externalId: "price-drop-full",
+      url: "https://www.bienici.com/annonce/price-drop-full",
+      price: 400_000,
+    });
+    const dropped = makeListing({
+      externalId: "price-drop-sale",
+      url: "https://www.bienici.com/annonce/price-drop-sale",
+      price: 400_000,
+    });
+
+    await repository.upsertMany([fullPrice, dropped]);
+    await repository.upsert({
+      ...dropped,
+      price: 360_000,
+      scrapedAt: "2026-06-12T10:00:00.000Z",
+    });
+
+    const { items, total } = await repository.search({ priceDropOnly: true });
+    expect(total).toBe(1);
+    expect(items[0]?.price).toBe(360_000);
+  });
 });

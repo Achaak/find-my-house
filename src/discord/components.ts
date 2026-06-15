@@ -59,12 +59,12 @@ const toggleMessages: Record<
   Record<"added" | "removed", string>
 > = {
   like: {
-    added: "❤️ Added to your favorites.",
-    removed: "Removed from your favorites.",
+    added: "❤️ Added to household favorites.",
+    removed: "Removed from household favorites.",
   },
   dislike: {
-    added: "👎 Added to your dislikes.",
-    removed: "Removed from your dislikes.",
+    added: "👎 Added to household dislikes.",
+    removed: "Removed from household dislikes.",
   },
 };
 

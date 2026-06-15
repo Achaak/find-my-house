@@ -90,6 +90,28 @@ describe("EnrichmentQueue", () => {
     expect(mockEnsurePropertyEnriched).not.toHaveBeenCalled();
   });
 
+  it("returns timedOut when enrichment does not finish in time", async () => {
+    const { items } = await repository.search({ limit: 1 });
+    const property = items[0];
+
+    mockEnsurePropertyEnriched.mockImplementation(
+      () => new Promise(() => undefined)
+    );
+
+    const result = await queue.waitUntilEnriched(
+      property.id,
+      "display",
+      "high",
+      50
+    );
+
+    expect(result).toEqual({
+      warnings: ["Enrichment timed out"],
+      timedOut: true,
+    });
+    expect(mockEnsurePropertyEnriched).toHaveBeenCalled();
+  });
+
   it("schedules enrichment for newly linked listings after a scrape", async () => {
     const { items } = await repository.search({ limit: 1 });
     const property = items[0];

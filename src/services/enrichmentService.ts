@@ -35,6 +35,7 @@ import {
   fetchSeLogerListingDetails,
   SeLogerAccessBlockedError,
 } from "../utils/seloger/index.js";
+import type { ClassifiedListingDetails } from "../utils/classifiedPortal/types.js";
 
 export type { PropertyEnrichmentPatch } from "../types/enrichment.js";
 
@@ -94,11 +95,10 @@ function pickDefined<T extends Record<string, unknown>>(patch: T): Partial<T> {
   ) as Partial<T>;
 }
 
-async function enrichFromSeLoger(
-  publication: PublicationRow,
+function mapClassifiedDetailsToEnrichmentPatch(
+  details: ClassifiedListingDetails,
   options: EnrichPublicationOptions = {}
-): Promise<PropertyEnrichmentPatch> {
-  const details = await fetchSeLogerListingDetails(publication.url);
+): PropertyEnrichmentPatch {
   return pickDefined({
     description: details.description,
     surface: details.surface,
@@ -120,6 +120,14 @@ async function enrichFromSeLoger(
     highlights: details.highlights,
     ...(options.skipImage ? {} : { imageUrl: details.imageUrl }),
   });
+}
+
+async function enrichFromSeLoger(
+  publication: PublicationRow,
+  options: EnrichPublicationOptions = {}
+): Promise<PropertyEnrichmentPatch> {
+  const details = await fetchSeLogerListingDetails(publication.url);
+  return mapClassifiedDetailsToEnrichmentPatch(details, options);
 }
 
 async function enrichFromBienIci(
@@ -172,27 +180,7 @@ async function enrichFromLogicImmo(
   options: EnrichPublicationOptions = {}
 ): Promise<PropertyEnrichmentPatch> {
   const details = await fetchLogicImmoListingDetails(publication.url);
-  return pickDefined({
-    description: details.description,
-    surface: details.surface,
-    landSurface: details.landSurface,
-    rooms: details.rooms,
-    bedrooms: details.bedrooms,
-    latitude: details.latitude,
-    longitude: details.longitude,
-    dpeClass: normalizeEnergyClass(details.dpeClass),
-    gesClass: normalizeEnergyClass(details.gesClass),
-    dpeConsumptionKwhM2: details.dpeConsumptionKwhM2,
-    gesEmissionKgM2: details.gesEmissionKgM2,
-    bathrooms: details.bathrooms,
-    constructionYear: details.constructionYear,
-    heating: details.heating,
-    orientation: details.orientation,
-    propertyCondition: details.propertyCondition,
-    parkingSpaces: details.parkingSpaces,
-    highlights: details.highlights,
-    ...(options.skipImage ? {} : { imageUrl: details.imageUrl }),
-  });
+  return mapClassifiedDetailsToEnrichmentPatch(details, options);
 }
 
 async function enrichFromPublication(
