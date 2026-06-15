@@ -80,6 +80,8 @@ export function makePropertyRow(
     propertyCondition: null,
     parkingSpaces: null,
     highlights: null,
+    displayEnrichedAt: null,
+    addressEnrichedAt: null,
     firstSeenAt: scrapedAt,
     publications,
     url: primary.url,

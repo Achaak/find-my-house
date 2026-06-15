@@ -81,6 +81,8 @@ export type PropertyRow = {
   propertyCondition: string | null;
   parkingSpaces: number | null;
   highlights: string[] | null;
+  displayEnrichedAt: string | null;
+  addressEnrichedAt: string | null;
   firstSeenAt: string;
   publications: PublicationRow[];
   url: string;
@@ -130,6 +132,7 @@ export type ScraperError = {
 
 export type ExtendedScrapeResult = ScrapeResult & {
   insertedListings: PropertyRow[];
+  linkedListings: PropertyRow[];
   priceDropListings: PropertyRow[];
   errors: ScraperError[];
 };

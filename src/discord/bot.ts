@@ -88,7 +88,8 @@ export async function startDiscordBot(options: BotOptions): Promise<Client> {
             (await handleBrowseButton(
               interaction,
               options.repository,
-              options.reactionRepository
+              options.reactionRepository,
+              options.enrichmentQueue
             )) ||
             (await handleListingButton(
               interaction,

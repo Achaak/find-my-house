@@ -36,6 +36,7 @@ describe("formatOverviewStatsEmbed", () => {
       },
       likes: 4,
       dislikes: 1,
+      enrichment: { pending: 3, queued: 0 },
       recent: [
         makePropertyRow({
           id: 42,

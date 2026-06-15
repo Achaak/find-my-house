@@ -50,6 +50,8 @@ model Property {
   propertyCondition    String?  @map("property_condition")
   parkingSpaces        Int?     @map("parking_spaces")
   highlights           Json?
+  displayEnrichedAt    DateTime? @map("display_enriched_at")
+  addressEnrichedAt    DateTime? @map("address_enriched_at")
   firstSeenAt   DateTime  @map("first_seen_at")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")

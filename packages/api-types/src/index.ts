@@ -123,6 +123,11 @@ export type ActivityStats = {
   multiSourceCount: number;
 };
 
+export type EnrichmentStats = {
+  pending: number;
+  queued: number;
+};
+
 export type StatsOverview = {
   total: number;
   activeProperties: number;
@@ -135,6 +140,7 @@ export type StatsOverview = {
   activity: ActivityStats;
   likes: number;
   dislikes: number;
+  enrichment: EnrichmentStats;
   recent: Property[];
 };
 
@@ -158,6 +164,7 @@ export type StatsMine = {
 
 export type StatsActivity = {
   activity: ActivityStats;
+  enrichment: EnrichmentStats;
   zoneLabel: string;
   cron: string;
   scrapers: string[];
@@ -218,4 +225,8 @@ export type ReconcileResult = {
   fuzzyMerged: number;
   unique: number;
   agencyFieldsUpdated: number;
+};
+
+export type EnrichmentBackfillResult = {
+  queued: number;
 };

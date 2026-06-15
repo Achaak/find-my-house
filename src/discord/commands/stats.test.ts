@@ -46,6 +46,11 @@ const repository = {
   ),
   findRecent: vi.fn(() => Promise.resolve([])),
   findPriceDrops: vi.fn(() => Promise.resolve([])),
+  countPendingDisplayEnrichment: vi.fn(() => Promise.resolve(0)),
+};
+
+const enrichmentQueue = {
+  getQueuedCount: vi.fn(() => 0),
 };
 
 const reactionRepository = {
@@ -61,6 +66,7 @@ describe("handleStats", () => {
       repository: repository as never,
       reactionRepository: reactionRepository as never,
       scraperService: {} as never,
+      enrichmentQueue: enrichmentQueue as never,
       defaultScrapeOptions: { city: "Lyon", maxPrice: 500_000, minSurface: 30 },
       discord: { token: "token" },
       notifyScrapeResults: vi.fn(),
@@ -85,6 +91,7 @@ describe("handleStats", () => {
       repository: repository as never,
       reactionRepository: reactionRepository as never,
       scraperService: {} as never,
+      enrichmentQueue: enrichmentQueue as never,
       defaultScrapeOptions: { city: "Lyon", maxPrice: 500_000, minSurface: 30 },
       discord: { token: "token" },
       notifyScrapeResults: vi.fn(),

@@ -63,9 +63,12 @@ describe("EnrichmentQueue", () => {
     queue.schedule(property.id, "display", "low");
     queue.schedule(property.id, "display", "low");
 
+    expect(queue.getQueuedCount()).toBe(1);
+
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     expect(mockEnsurePropertyEnriched).toHaveBeenCalledTimes(1);
+    expect(queue.getQueuedCount()).toBe(0);
   });
 
   it("returns immediately when the listing is already enriched", async () => {
@@ -85,5 +88,25 @@ describe("EnrichmentQueue", () => {
       queue.waitUntilEnriched(propertyId, "display", "high")
     ).resolves.toEqual({ warnings: [] });
     expect(mockEnsurePropertyEnriched).not.toHaveBeenCalled();
+  });
+
+  it("schedules enrichment for newly linked listings after a scrape", async () => {
+    const { items } = await repository.search({ limit: 1 });
+    const property = items[0];
+
+    queue.scheduleScrapeResults({
+      found: 1,
+      inserted: 0,
+      linked: 1,
+      updated: 0,
+      skipped: 0,
+      deactivated: 0,
+      insertedListings: [],
+      linkedListings: [property],
+      priceDropListings: [],
+      errors: [],
+    });
+
+    expect(queue.getQueuedCount()).toBe(1);
   });
 });

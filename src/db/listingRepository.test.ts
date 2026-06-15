@@ -9,6 +9,7 @@ import {
 } from "vitest";
 import { createTestRepository } from "../test/db.js";
 import { makeListing } from "../test/listingFixtures.js";
+import { propertyNeedsEnrichment } from "../services/enrichmentService.js";
 import type { ListingRepository } from "./listingRepository.js";
 
 vi.mock("../utils/geo/geocode.js", () => ({
@@ -237,6 +238,49 @@ describe("ListingRepository.upsertMany", () => {
     expect(second.status).toBe("linked");
     expect(second.row?.id).toBe(first.row?.id);
     expect(second.row?.publications).toHaveLength(2);
+  });
+
+  it("clears enrichment markers when a publication is linked", async () => {
+    const base = {
+      postalCode: "27999",
+      surface: 125,
+      rooms: 5,
+      bedrooms: 3,
+      landSurface: 1509,
+      city: "EnrichResetVille",
+      propertyType: "Maison",
+      isNewProperty: false,
+      price: 195_500,
+    };
+
+    const first = await repository.upsert(
+      makeListing({
+        ...base,
+        externalId: "enrich-reset-bienici-unique",
+        source: "bienici",
+        url: "https://www.bienici.com/annonce/enrich-reset-bienici-unique",
+      })
+    );
+    if (!first.row) throw new Error("Expected first property");
+
+    await repository.markEnrichmentAttempted(first.row.id, "display");
+    const enriched = await repository.findById(first.row.id);
+    expect(enriched?.displayEnrichedAt).not.toBeNull();
+
+    await repository.upsert(
+      makeListing({
+        ...base,
+        propertyType: "house",
+        externalId: "enrich-reset-lbc-unique",
+        source: "leboncoin",
+        url: "https://www.leboncoin.fr/ad/ventes_immobilieres/enrich-reset-lbc-unique",
+      })
+    );
+
+    const afterLink = await repository.findById(first.row.id);
+    expect(afterLink?.displayEnrichedAt).toBeNull();
+    expect(afterLink?.addressEnrichedAt).toBeNull();
+    expect(afterLink?.publications).toHaveLength(2);
   });
 
   it("links a Bienici republication from the same agency", async () => {
@@ -469,6 +513,64 @@ describe("ListingRepository.stats", () => {
     const activity = await repository.getActivityStats();
     expect(activity.lastScrapedAt).not.toBeNull();
     expect(activity.multiSourceCount).toBe(1);
+  });
+});
+
+describe("ListingRepository.countPendingDisplayEnrichment", () => {
+  let repository: ListingRepository;
+  let dispose: (() => Promise<void>) | undefined;
+
+  beforeAll(() => {
+    const testDb = createTestRepository();
+    repository = testDb.repository;
+    dispose = testDb.dispose;
+  });
+
+  afterAll(async () => {
+    await dispose?.();
+  });
+
+  it("matches propertyNeedsEnrichment across the catalog", async () => {
+    const complete = makeListing({
+      externalId: "enrich-complete",
+      url: "https://www.bienici.com/annonce/enrich-complete",
+      description: "Complete listing",
+      imageUrl: "https://example.com/photo.jpg",
+      landSurface: 400,
+      dpeConsumptionKwhM2: 120,
+      gesEmissionKgM2: 25,
+    });
+    const pending = makeListing({
+      externalId: "enrich-pending",
+      url: "https://www.bienici.com/annonce/enrich-pending",
+      description: null,
+      imageUrl: null,
+      landSurface: null,
+      dpeConsumptionKwhM2: null,
+      gesEmissionKgM2: null,
+    });
+    const stalePortalImage = makeListing({
+      externalId: "enrich-portal-image",
+      source: "seloger",
+      url: "https://www.seloger.com/annonces/enrich-portal-image",
+      description: "Portal listing",
+      imageUrl: "https://mms.seloger.com/6/a/0/4/photo.jpg",
+      landSurface: 500,
+      dpeConsumptionKwhM2: 120,
+      gesEmissionKgM2: 25,
+      latitude: 45.75,
+      longitude: 4.85,
+    });
+
+    await repository.upsertMany([complete, pending, stalePortalImage]);
+
+    const scanned = await repository.findPropertiesForEnrichmentScan(1000);
+    const expected = scanned.filter((property) =>
+      propertyNeedsEnrichment(property, "display")
+    ).length;
+
+    expect(await repository.countPendingDisplayEnrichment()).toBe(expected);
+    expect(expected).toBeGreaterThanOrEqual(2);
   });
 });
 

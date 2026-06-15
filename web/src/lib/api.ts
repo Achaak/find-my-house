@@ -7,6 +7,7 @@ import type {
   NotificationDigest,
   Property,
   PropertyAddressSearchResponse,
+  EnrichmentBackfillResult,
   ReconcileResult,
   StatsResponseMap,
   StatsSection,
@@ -155,6 +156,9 @@ export const api = {
 
   reconcile: () =>
     apiFetch<ReconcileResult>("/api/admin/reconcile", { method: "POST" }),
+
+  enrich: () =>
+    apiFetch<EnrichmentBackfillResult>("/api/admin/enrich", { method: "POST" }),
 };
 
 export const queryKeys = {

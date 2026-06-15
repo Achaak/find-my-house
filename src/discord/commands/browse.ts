@@ -50,6 +50,7 @@ export const handleBrowse: CommandHandler = async (interaction, ctx) => {
   const reply = await buildBrowseReply(
     ctx.repository,
     ctx.reactionRepository,
+    ctx.enrichmentQueue,
     discordUserId,
     session
   );

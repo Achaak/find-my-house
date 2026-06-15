@@ -20,10 +20,20 @@ export function ListingDetailSkeleton() {
   );
 }
 
+export function PropertyImageSkeleton({
+  compact = false,
+}: {
+  compact?: boolean;
+}) {
+  return (
+    <Bone className={cn("w-full rounded-none", compact ? "h-40" : "h-52")} />
+  );
+}
+
 export function ListingCardSkeleton() {
   return (
     <Card className="overflow-hidden">
-      <Bone className="h-52 w-full rounded-none" />
+      <PropertyImageSkeleton />
       <CardHeader className="space-y-3">
         <div className="flex gap-2">
           <Bone className="h-5 w-12" />

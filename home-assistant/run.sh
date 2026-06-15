@@ -65,6 +65,7 @@ export_opt LOG_LEVEL log_level
 # Web UI + Home Assistant (add-on only — see home-assistant/config.yaml)
 export_bool_opt WEB_ENABLED web_enabled
 export_opt WEB_ADMIN_USERS web_admin_users
+export PANEL_ADMIN=true
 export WEB_PORT=8099
 export WEB_HOST=0.0.0.0
 export HOME_ASSISTANT_URL=http://supervisor/core

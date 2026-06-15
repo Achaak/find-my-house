@@ -90,7 +90,7 @@ export class ScraperService {
       validBySource.set(listing.source, forSource);
     }
 
-    const { insertedListings, ...scrapeResult } =
+    const { insertedListings, linkedListings, ...scrapeResult } =
       await this.repository.upsertMany(validListings);
 
     let deactivated = 0;
@@ -122,6 +122,12 @@ export class ScraperService {
       deactivated += count;
     }
 
-    return { ...scrapeResult, insertedListings, errors, deactivated };
+    return {
+      ...scrapeResult,
+      insertedListings,
+      linkedListings,
+      errors,
+      deactivated,
+    };
   }
 }

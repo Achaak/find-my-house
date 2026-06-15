@@ -89,7 +89,7 @@ function ListingDetailPage() {
           {getErrorMessage(listingQuery.error)}
         </p>
       ) : null}
-      <PropertyCard property={property} />
+      <PropertyCard property={property} imageSkeleton={isRefreshingDetails} />
       {isRefreshingDetails ? (
         <DetailsSectionSkeleton />
       ) : (

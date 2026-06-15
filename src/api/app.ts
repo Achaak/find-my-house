@@ -19,6 +19,7 @@ import {
   resolveListingCompatibilityPreferences,
 } from "../services/compatibilityService.js";
 import { reconcileProperties } from "../services/reconcileService.js";
+import { scheduleEnrichmentBackfill } from "../services/enrichmentBackfill.js";
 import {
   getEnrichmentStatus,
   propertyNeedsEnrichment,
@@ -72,9 +73,15 @@ async function serializeBrowseResponse(
     true
   );
 
+  let property = state.property;
+  if (property) {
+    await ctx.enrichmentQueue.waitUntilEnriched(property.id, "display", "high");
+    property = (await ctx.repository.findById(property.id)) ?? property;
+  }
+
   return {
-    item: state.property
-      ? await serializeProperty(state.property, ctx.reactionRepository, userId)
+    item: property
+      ? await serializeProperty(property, ctx.reactionRepository, userId)
       : null,
     shownCount: state.shownCount,
     isExplore: state.isExplore,
@@ -414,6 +421,7 @@ export function createApiApp(ctx: ApiContext) {
           recent,
           likes,
           dislikes,
+          enrichmentPending,
         ] = await Promise.all([
           ctx.repository.count(),
           ctx.repository.countActiveProperties(),
@@ -427,6 +435,7 @@ export function createApiApp(ctx: ApiContext) {
           ctx.repository.findRecent(3),
           ctx.reactionRepository.countByUser(user.id, "like"),
           ctx.reactionRepository.countByUser(user.id, "dislike"),
+          ctx.repository.countPendingDisplayEnrichment(),
         ]);
         return c.json({
           total,
@@ -448,6 +457,10 @@ export function createApiApp(ctx: ApiContext) {
           ),
           likes,
           dislikes,
+          enrichment: {
+            pending: enrichmentPending,
+            queued: ctx.enrichmentQueue.getQueuedCount(),
+          },
         });
       }
       case "sources": {
@@ -511,12 +524,17 @@ export function createApiApp(ctx: ApiContext) {
           geoFilter.mode === "city"
             ? city
             : `${city} (${geoFilterLabel(geoFilter)})`;
-        const [activity, recent] = await Promise.all([
+        const [activity, recent, enrichmentPending] = await Promise.all([
           ctx.repository.getActivityStats(),
           ctx.repository.findRecent(5),
+          ctx.repository.countPendingDisplayEnrichment(),
         ]);
         return c.json({
           activity,
+          enrichment: {
+            pending: enrichmentPending,
+            queued: ctx.enrichmentQueue.getQueuedCount(),
+          },
           zoneLabel,
           cron: scrapeConfig.scrape.cron,
           scrapers: scrapeConfig.scrape.scrapers ?? [],
@@ -636,6 +654,21 @@ export function createApiApp(ctx: ApiContext) {
       getPrisma(scrapeConfig.database.url)
     );
     return c.json(result);
+  });
+
+  app.post("/api/admin/enrich", requireAdmin(), async (c) => {
+    const { enrichment } = scrapeConfig;
+    const queued = await scheduleEnrichmentBackfill(
+      ctx.repository,
+      ctx.reactionRepository,
+      ctx.enrichmentQueue,
+      {
+        minScore: enrichment.minCompatScore,
+        limit: enrichment.batchLimit,
+        searchLimit: enrichment.searchLimit,
+      }
+    );
+    return c.json({ queued });
   });
 
   return app;

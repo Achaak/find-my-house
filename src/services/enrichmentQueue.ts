@@ -45,6 +45,10 @@ export class EnrichmentQueue {
 
   constructor(private readonly repository: ListingRepository) {}
 
+  getQueuedCount(): number {
+    return this.queue.length;
+  }
+
   schedule(
     propertyId: number,
     purpose: EnrichmentPurpose,
@@ -70,6 +74,7 @@ export class EnrichmentQueue {
     const seen = new Set<number>();
     for (const listing of [
       ...result.insertedListings,
+      ...result.linkedListings,
       ...result.priceDropListings,
     ]) {
       if (seen.has(listing.id)) continue;

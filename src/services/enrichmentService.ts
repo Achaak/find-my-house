@@ -1,3 +1,4 @@
+import type { Prisma } from "../generated/prisma/client.js";
 import type { ListingRepository } from "../db/listingRepository.js";
 import type { PropertyEnrichmentPatch } from "../types/enrichment.js";
 import type {
@@ -46,15 +47,47 @@ type EnrichPublicationOptions = {
   skipImage?: boolean;
 };
 
-export function propertyNeedsEnrichment(
+function enrichmentAttemptedAt(
+  property: PropertyRow,
+  purpose: EnrichmentPurpose
+): string | null {
+  return purpose === "display"
+    ? property.displayEnrichedAt
+    : property.addressEnrichedAt;
+}
+
+function needsPortalImageRefresh(property: PropertyRow): boolean {
+  const hasHtmlPortalPublication = property.publications.some(
+    (publication) =>
+      publication.source === "seloger" || publication.source === "logicimmo"
+  );
+  return (
+    hasHtmlPortalPublication && classifiedImageNeedsRefresh(property.imageUrl)
+  );
+}
+
+function missingEnergyFields(
   property: PropertyRow,
   purpose: EnrichmentPurpose
 ): boolean {
-  const missingEnergy =
-    property.dpeClass === null ||
-    property.gesClass === null ||
+  const missingClasses =
+    property.dpeClass === null || property.gesClass === null;
+  if (purpose === "display") {
+    return missingClasses;
+  }
+
+  return (
+    missingClasses ||
     property.dpeConsumptionKwhM2 === null ||
-    property.gesEmissionKgM2 === null;
+    property.gesEmissionKgM2 === null
+  );
+}
+
+export function propertyHasMissingEnrichmentFields(
+  property: PropertyRow,
+  purpose: EnrichmentPurpose
+): boolean {
+  const missingEnergy = missingEnergyFields(property, purpose);
   const missingCoords =
     property.latitude === null || property.longitude === null;
   const hasHtmlPortalPublication = property.publications.some(
@@ -76,8 +109,22 @@ export function propertyNeedsEnrichment(
     property.description === null ||
     property.imageUrl === null ||
     (hasHtmlPortalPublication && missingCoords) ||
-    (hasHtmlPortalPublication && classifiedImageNeedsRefresh(property.imageUrl))
+    needsPortalImageRefresh(property)
   );
+}
+
+export function propertyNeedsEnrichment(
+  property: PropertyRow,
+  purpose: EnrichmentPurpose
+): boolean {
+  if (enrichmentAttemptedAt(property, purpose) !== null) {
+    if (purpose === "display" && needsPortalImageRefresh(property)) {
+      return true;
+    }
+    return false;
+  }
+
+  return propertyHasMissingEnrichmentFields(property, purpose);
 }
 
 export function getEnrichmentStatus(
@@ -85,6 +132,56 @@ export function getEnrichmentStatus(
   purpose: EnrichmentPurpose
 ): EnrichmentStatus {
   return propertyNeedsEnrichment(property, purpose) ? "pending" : "complete";
+}
+
+const HTML_PORTAL_SOURCES = ["seloger", "logicimmo"] as const;
+
+/** Prisma filter matching `propertyNeedsEnrichment(property, "display")`. */
+export function displayEnrichmentPendingWhere(): Prisma.PropertyWhereInput {
+  const missingFields: Prisma.PropertyWhereInput = {
+    OR: [
+      { dpeClass: null },
+      { gesClass: null },
+      { landSurface: null },
+      { description: null },
+      { imageUrl: null },
+      {
+        publications: {
+          some: { source: { in: [...HTML_PORTAL_SOURCES] } },
+        },
+        OR: [{ latitude: null }, { longitude: null }],
+      },
+    ],
+  };
+
+  const stalePortalImage: Prisma.PropertyWhereInput = {
+    publications: {
+      some: { source: { in: [...HTML_PORTAL_SOURCES] } },
+    },
+    OR: [
+      { imageUrl: { contains: "v.seloger.com/s/width/" } },
+      {
+        AND: [
+          {
+            OR: [
+              { imageUrl: { contains: "mms.logic-immo.com" } },
+              { imageUrl: { contains: "mms.seloger.com" } },
+            ],
+          },
+          { NOT: { imageUrl: { contains: "ci_seal=" } } },
+        ],
+      },
+    ],
+  };
+
+  return {
+    OR: [
+      {
+        AND: [{ displayEnrichedAt: null }, missingFields],
+      },
+      stalePortalImage,
+    ],
+  };
 }
 
 const SOURCE_PRIORITY: ListingSource[] = [
@@ -243,9 +340,17 @@ function highlightsEqual(
 }
 
 function mergePatches(
+  property: PropertyRow,
   patches: PropertyEnrichmentPatch[]
 ): PropertyEnrichmentPatch {
   const merged: PropertyEnrichmentPatch = {};
+
+  for (const field of ENRICHMENT_FIELDS) {
+    const existing = property[field];
+    if (existing !== null) {
+      (merged as Record<string, unknown>)[field] = existing;
+    }
+  }
 
   for (const field of ENRICHMENT_FIELDS) {
     for (const patch of patches) {
@@ -341,7 +446,7 @@ export async function enrichProperty(
     }
   }
 
-  const merged = mergePatches(patches);
+  const merged = mergePatches(property, patches);
   const patch = diffPatch(property, merged);
   const updatedFields = Object.keys(patch);
 
@@ -361,10 +466,13 @@ export async function ensurePropertyEnriched(
   }
 
   const { patch, updatedFields, warnings } = await enrichProperty(property);
-  if (updatedFields.length === 0) {
-    return { property, warnings };
+
+  let resultProperty = property;
+  if (updatedFields.length > 0) {
+    const updated = await repository.applyEnrichment(id, patch);
+    resultProperty = updated ?? property;
   }
 
-  const updated = await repository.applyEnrichment(id, patch);
-  return { property: updated ?? property, warnings };
+  const marked = await repository.markEnrichmentAttempted(id, purpose);
+  return { property: marked ?? resultProperty, warnings };
 }

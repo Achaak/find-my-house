@@ -81,6 +81,8 @@ export function toPropertyRow(row: PropertyWithPublications): PropertyRow {
     propertyCondition: row.propertyCondition,
     parkingSpaces: row.parkingSpaces,
     highlights: parseHighlights(row.highlights),
+    displayEnrichedAt: row.displayEnrichedAt?.toISOString() ?? null,
+    addressEnrichedAt: row.addressEnrichedAt?.toISOString() ?? null,
     firstSeenAt: row.firstSeenAt.toISOString(),
     publications,
     url: primary.url,

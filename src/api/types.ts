@@ -29,4 +29,5 @@ export type {
   PropertyReactionState,
   PropertyPublication,
   ReconcileResult,
+  EnrichmentBackfillResult,
 } from "@find-my-house/api-types";

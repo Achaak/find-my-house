@@ -131,7 +131,7 @@ function BrowsePage() {
             <p>No more listings to browse with current criteria.</p>
           ) : (
             <>
-              <PropertyCard property={state.item} />
+              <PropertyCard property={state.item} hideReactions />
               <div className="flex gap-2">
                 <Button
                   type="button"

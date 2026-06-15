@@ -58,7 +58,7 @@ export const scrapeEnvSchema = z
     ENRICHMENT_CRON: z.string().min(1).default("0 * * * *"),
     ENRICHMENT_DISABLED: z.preprocess((value) => value === "true", z.boolean()),
     ENRICHMENT_MIN_COMPAT_SCORE: z.coerce.number().min(0).max(100).default(0),
-    ENRICHMENT_BATCH_LIMIT: z.coerce.number().int().positive().default(10),
+    ENRICHMENT_BATCH_LIMIT: z.coerce.number().int().positive().default(20),
     ENRICHMENT_SEARCH_LIMIT: z.coerce.number().int().positive().default(1000),
     DATABASE_URL: z.string().min(1).optional(),
     DATABASE_PATH: z.string().min(1).optional(),

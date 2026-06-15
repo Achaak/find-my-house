@@ -7,6 +7,7 @@ import {
 } from "discord.js";
 import type { ListingRepository } from "../db/listingRepository.js";
 import type { ReactionRepository } from "../db/reactionRepository.js";
+import type { EnrichmentQueue } from "../services/enrichmentQueue.js";
 import {
   clearBrowseSession,
   getBrowseSession,
@@ -63,6 +64,7 @@ function browseHeader(options: {
 export async function buildBrowseReply(
   repository: ListingRepository,
   reactionRepository: ReactionRepository,
+  enrichmentQueue: EnrichmentQueue,
   discordUserId: string,
   session: BrowseSession
 ): Promise<
@@ -96,8 +98,12 @@ export async function buildBrowseReply(
     };
   }
 
+  await enrichmentQueue.waitUntilEnriched(pick.property.id, "display", "high");
+  const property =
+    (await repository.findById(pick.property.id)) ?? pick.property;
+
   const embed = await formatListingEmbedWithCompatibility(
-    pick.property,
+    property,
     reactionRepository,
     discordUserId
   );
@@ -109,7 +115,7 @@ export async function buildBrowseReply(
       hasPreferences: preferences !== null,
     }),
     embeds: [embed],
-    components: [buildBrowseActionRow(pick.property.id)],
+    components: [buildBrowseActionRow(property.id)],
   };
 }
 
@@ -144,7 +150,8 @@ function parseBrowseButtonCustomId(
 export async function handleBrowseButton(
   interaction: ButtonInteraction,
   repository: ListingRepository,
-  reactionRepository: ReactionRepository
+  reactionRepository: ReactionRepository,
+  enrichmentQueue: EnrichmentQueue
 ): Promise<boolean> {
   const parsed = parseBrowseButtonCustomId(interaction.customId);
   if (!parsed) return false;
@@ -192,6 +199,7 @@ export async function handleBrowseButton(
   const next = await buildBrowseReply(
     repository,
     reactionRepository,
+    enrichmentQueue,
     interaction.user.id,
     session
   );

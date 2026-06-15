@@ -5,6 +5,7 @@ import type {
   PriceStats,
   SourcePublicationCounts,
 } from "../../types/stats.js";
+import type { EnrichmentStats } from "@find-my-house/api-types";
 import { formatPrice, formatSourceLabel } from "../format.js";
 
 const EMBED_COLOR = 0x5865f2;
@@ -90,6 +91,12 @@ function formatScrapedAt(date: Date | null): string {
   return `<t:${String(Math.floor(date.getTime() / 1000))}:R>`;
 }
 
+function formatEnrichmentSummary(enrichment: EnrichmentStats): string {
+  const queuedSuffix =
+    enrichment.queued > 0 ? ` · **${String(enrichment.queued)}** in queue` : "";
+  return `**${String(enrichment.pending)}** pending enrichment${queuedSuffix}`;
+}
+
 export type OverviewStatsInput = {
   total: number;
   activeProperties: number;
@@ -102,6 +109,7 @@ export type OverviewStatsInput = {
   activity: ActivityStats;
   likes: number;
   dislikes: number;
+  enrichment: EnrichmentStats;
   recent: PropertyRow[];
 };
 
@@ -119,6 +127,7 @@ export function formatOverviewStatsEmbed(
       input.priceDrops > 0
         ? `**${String(input.priceDrops)}** ongoing price drop(s)`
         : null,
+      formatEnrichmentSummary(input.enrichment),
     ]
       .filter((line): line is string => line !== null)
       .join("\n"),
@@ -296,6 +305,7 @@ export function formatMineStatsEmbed(input: MineStatsInput): StatsEmbed {
 
 export type ActivityStatsInput = {
   activity: ActivityStats;
+  enrichment: EnrichmentStats;
   zoneLabel: string;
   cron: string;
   scrapersLabel: string;
@@ -326,6 +336,11 @@ export function formatActivityStatsEmbed(
           `**${String(input.activity.deactivatedLast7Days)}** publication(s) deactivated`,
           `**${String(input.activity.multiSourceCount)}** multi-source propert${input.activity.multiSourceCount === 1 ? "y" : "ies"}`,
         ].join("\n"),
+        inline: false,
+      },
+      {
+        name: "Enrichment",
+        value: formatEnrichmentSummary(input.enrichment),
         inline: false,
       },
       {

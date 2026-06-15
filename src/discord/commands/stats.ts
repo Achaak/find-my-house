@@ -64,6 +64,7 @@ export const handleStats: CommandHandler = async (interaction, ctx) => {
         recent,
         likes,
         dislikes,
+        enrichmentPending,
       ] = await Promise.all([
         ctx.repository.count(),
         ctx.repository.countActiveProperties(),
@@ -77,6 +78,7 @@ export const handleStats: CommandHandler = async (interaction, ctx) => {
         ctx.repository.findRecent(3),
         ctx.reactionRepository.countByUser(interaction.user.id, "like"),
         ctx.reactionRepository.countByUser(interaction.user.id, "dislike"),
+        ctx.repository.countPendingDisplayEnrichment(),
       ]);
 
       await interaction.editReply({
@@ -93,6 +95,10 @@ export const handleStats: CommandHandler = async (interaction, ctx) => {
             activity,
             likes,
             dislikes,
+            enrichment: {
+              pending: enrichmentPending,
+              queued: ctx.enrichmentQueue.getQueuedCount(),
+            },
             recent,
           }),
         ],
@@ -151,15 +157,20 @@ export const handleStats: CommandHandler = async (interaction, ctx) => {
 
     case "activity": {
       const { city, maxTravelMinutes } = ctx.defaultScrapeOptions;
-      const [activity, recent] = await Promise.all([
+      const [activity, recent, enrichmentPending] = await Promise.all([
         ctx.repository.getActivityStats(),
         ctx.repository.findRecent(5),
+        ctx.repository.countPendingDisplayEnrichment(),
       ]);
 
       await interaction.editReply({
         embeds: [
           formatActivityStatsEmbed({
             activity,
+            enrichment: {
+              pending: enrichmentPending,
+              queued: ctx.enrichmentQueue.getQueuedCount(),
+            },
             zoneLabel: formatZoneLabel(city, maxTravelMinutes),
             cron: scrapeConfig.scrape.cron,
             scrapersLabel: formatScrapersLabel(),

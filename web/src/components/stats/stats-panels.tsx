@@ -106,6 +106,17 @@ function InfoBlock({
   );
 }
 
+function formatEnrichmentBlock(enrichment: {
+  pending: number;
+  queued: number;
+}): string {
+  const queuedLine =
+    enrichment.queued > 0
+      ? `\n${String(enrichment.queued)} in enrichment queue`
+      : "";
+  return `${String(enrichment.pending)} pending enrichment${queuedLine}`;
+}
+
 function OverviewPanel({ data }: { data: StatsOverview }) {
   return (
     <div className="space-y-4">
@@ -114,6 +125,9 @@ function OverviewPanel({ data }: { data: StatsOverview }) {
         {data.activePublications} active publications ·{" "}
         {data.inactivePublications} inactive
         {data.priceDrops > 0 ? ` · ${String(data.priceDrops)} price drops` : ""}
+        {data.enrichment.pending > 0
+          ? ` · ${String(data.enrichment.pending)} to enrich`
+          : ""}
       </p>
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard label="Properties" value={String(data.total)} />
@@ -123,6 +137,11 @@ function OverviewPanel({ data }: { data: StatsOverview }) {
           value={String(data.activePublications)}
         />
         <StatCard label="Price drops" value={String(data.priceDrops)} />
+        <StatCard label="To enrich" value={String(data.enrichment.pending)} />
+        <StatCard
+          label="Enrichment queue"
+          value={String(data.enrichment.queued)}
+        />
         <StatCard label="Your likes" value={String(data.likes)} />
         <StatCard label="Your dislikes" value={String(data.dislikes)} />
       </div>
@@ -136,6 +155,9 @@ function OverviewPanel({ data }: { data: StatsOverview }) {
         </InfoBlock>
         <InfoBlock title="Activity (7 days)">
           {formatActivityBlock(data.activity)}
+        </InfoBlock>
+        <InfoBlock title="Enrichment">
+          {formatEnrichmentBlock(data.enrichment)}
         </InfoBlock>
       </div>
       {data.recent.length ? (
@@ -257,6 +279,9 @@ function ActivityPanel({ data }: { data: StatsActivity }) {
         </InfoBlock>
         <InfoBlock title="Last 7 days">
           {formatActivityBlock(data.activity)}
+        </InfoBlock>
+        <InfoBlock title="Enrichment">
+          {formatEnrichmentBlock(data.enrichment)}
         </InfoBlock>
       </div>
       {data.recent.length ? (

@@ -75,12 +75,20 @@ export function getIngressUsername(request: Request): string | null {
   return null;
 }
 
+/** HA Ingress with default panel_admin only allows administrators to open the panel. */
+function ingressAssumesHaAdmin(): boolean {
+  if (!process.env.SUPERVISOR_TOKEN) {
+    return false;
+  }
+  return process.env.PANEL_ADMIN !== "false";
+}
+
 function userFromIngress(username: string): ApiUser {
   const normalized = username.trim();
   return {
     id: `ha:${normalized.toLowerCase()}`,
     username: normalized,
-    isAdmin: resolveAdmin(normalized),
+    isAdmin: resolveAdmin(normalized) || ingressAssumesHaAdmin(),
   };
 }
 

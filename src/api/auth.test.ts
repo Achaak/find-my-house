@@ -63,4 +63,21 @@ describe("resolveApiUser", () => {
       isAdmin: false,
     });
   });
+
+  it("treats HA ingress users as admin when panel_admin is enabled", async () => {
+    vi.stubEnv("SUPERVISOR_TOKEN", "supervisor-token");
+    vi.stubEnv("PANEL_ADMIN", "true");
+
+    const user = await resolveApiUser(
+      new Request("http://localhost/api/me", {
+        headers: { "X-Remote-User-Name": "achak" },
+      })
+    );
+
+    expect(user).toEqual({
+      id: "ha:achak",
+      username: "achak",
+      isAdmin: true,
+    });
+  });
 });

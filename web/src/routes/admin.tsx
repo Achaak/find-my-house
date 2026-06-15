@@ -21,13 +21,14 @@ export const Route = createFileRoute("/admin")({
 function AdminPage() {
   const scrapeMutation = useMutation({ mutationFn: api.scrape });
   const reconcileMutation = useMutation({ mutationFn: api.reconcile });
+  const enrichMutation = useMutation({ mutationFn: api.enrich });
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Admin</h1>
         <p className="text-sm text-muted-foreground">
-          Manual scrape and reconcile operations (admin only).
+          Manual scrape, enrichment, and reconcile operations (admin only).
         </p>
       </div>
 
@@ -78,6 +79,38 @@ function AdminPage() {
             {reconcileMutation.error ? (
               <p className="text-sm text-destructive">
                 {getErrorMessage(reconcileMutation.error)}
+              </p>
+            ) : null}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Force enrichment</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Queue pending listings for display enrichment (same batch as the
+              hourly cron).
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => enrichMutation.mutate()}
+              disabled={enrichMutation.isPending}
+            >
+              {enrichMutation.isPending ? "Running…" : "Enrich now"}
+            </Button>
+            {enrichMutation.data ? (
+              <p className="text-sm text-muted-foreground">
+                {enrichMutation.data.queued === 0
+                  ? "No pending listings to enrich."
+                  : `${String(enrichMutation.data.queued)} listing(s) queued.`}
+              </p>
+            ) : null}
+            {enrichMutation.error ? (
+              <p className="text-sm text-destructive">
+                {getErrorMessage(enrichMutation.error)}
               </p>
             ) : null}
           </CardContent>

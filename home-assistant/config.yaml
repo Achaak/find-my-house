@@ -13,6 +13,7 @@ image: ghcr.io/achaak/find-my-house-{arch}
 ingress: true
 ingress_port: 8099
 ingress_entry: /
+panel_admin: true
 panel_icon: mdi:home-search
 panel_title: Find My House
 options:
@@ -36,7 +37,7 @@ options:
   enrichment_cron: "0 * * * *"
   enrichment_disabled: false
   enrichment_min_compat_score: 0
-  enrichment_batch_limit: 10
+  enrichment_batch_limit: 20
   enrichment_search_limit: 1000
   log_level: info
   web_enabled: true

@@ -19,6 +19,7 @@ import type {
   PriceStats,
   SourcePublicationCounts,
 } from "../types/stats.js";
+import { displayEnrichmentPendingWhere } from "../services/enrichmentService.js";
 import type { PropertyEnrichmentPatch } from "../types/enrichment.js";
 import { parseHighlights, toPropertyRow } from "./listingMapper.js";
 import {
@@ -470,6 +471,7 @@ export class ListingRepository {
         skipped: 0,
         deactivated: 0,
         insertedListings: [],
+        linkedListings: [],
         priceDropListings: [],
         errors: [],
       };
@@ -543,6 +545,7 @@ export class ListingRepository {
       listing: Listing;
       scrapedAt: Date;
     }[] = [];
+    const linkedPropertyIds = new Set<number>();
     const insertedPropertyIds: number[] = [];
     const priceDropPropertyIds = new Set<number>();
 
@@ -595,6 +598,7 @@ export class ListingRepository {
 
       const existingProperty = propertyByKey.get(propertyKey);
       if (existingProperty) {
+        linkedPropertyIds.add(existingProperty.id);
         linkedPublications.push({
           propertyId: existingProperty.id,
           listing,
@@ -631,6 +635,7 @@ export class ListingRepository {
         postalCandidates
       );
       if (matchedProperty) {
+        linkedPropertyIds.add(matchedProperty.id);
         linkedPublications.push({
           propertyId: matchedProperty.id,
           listing,
@@ -708,11 +713,22 @@ export class ListingRepository {
             ...toPublicationCreateData(link.listing, link.scrapedAt),
           },
         });
+        await tx.property.update({
+          where: { id: link.propertyId },
+          data: {
+            displayEnrichedAt: null,
+            addressEnrichedAt: null,
+          },
+        });
       }
     });
 
     const idsToRefresh = [
-      ...new Set([...insertedPropertyIds, ...priceDropPropertyIds]),
+      ...new Set([
+        ...insertedPropertyIds,
+        ...priceDropPropertyIds,
+        ...linkedPropertyIds,
+      ]),
     ];
     const refreshedById = new Map(
       (idsToRefresh.length > 0 ? await this.findByIds(idsToRefresh) : []).map(
@@ -723,6 +739,9 @@ export class ListingRepository {
     return {
       ...result,
       insertedListings: insertedPropertyIds
+        .map((id) => refreshedById.get(id))
+        .filter((row): row is PropertyRow => row !== undefined),
+      linkedListings: [...linkedPropertyIds]
         .map((id) => refreshedById.get(id))
         .filter((row): row is PropertyRow => row !== undefined),
       priceDropListings: [...priceDropPropertyIds]
@@ -967,6 +986,12 @@ export class ListingRepository {
     });
   }
 
+  async countPendingDisplayEnrichment(): Promise<number> {
+    return this.prisma.property.count({
+      where: displayEnrichmentPendingWhere(),
+    });
+  }
+
   async countInactivePublications(): Promise<number> {
     return this.prisma.listingPublication.count({
       where: { isActive: false },
@@ -1161,6 +1186,30 @@ export class ListingRepository {
     } catch (error) {
       log.warn(
         `Enrichissement property ${String(id)}: ${error instanceof Error ? error.message : String(error)}`
+      );
+      return undefined;
+    }
+  }
+
+  async markEnrichmentAttempted(
+    id: number,
+    purpose: "display" | "address"
+  ): Promise<PropertyRow | undefined> {
+    const data =
+      purpose === "display"
+        ? { displayEnrichedAt: new Date() }
+        : { addressEnrichedAt: new Date() };
+
+    try {
+      const row = await this.prisma.property.update({
+        where: { id },
+        data,
+        include: propertyInclude,
+      });
+      return toPropertyRow(row);
+    } catch (error) {
+      log.warn(
+        `Enrichment attempt marker ${String(id)} (${purpose}): ${error instanceof Error ? error.message : String(error)}`
       );
       return undefined;
     }

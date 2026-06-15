@@ -10,6 +10,7 @@ const baseResult: ExtendedScrapeResult = {
   skipped: 4,
   deactivated: 0,
   insertedListings: [],
+  linkedListings: [],
   priceDropListings: [],
   errors: [],
 };

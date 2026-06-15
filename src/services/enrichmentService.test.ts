@@ -76,7 +76,7 @@ function publication(
 }
 
 describe("propertyNeedsEnrichment", () => {
-  it("requires energy metrics for display", () => {
+  it("requires DPE/GES classes for display energy", () => {
     const property = makePropertyRow({
       dpeClass: null,
       gesClass: "D",
@@ -85,6 +85,21 @@ describe("propertyNeedsEnrichment", () => {
     });
 
     expect(propertyNeedsEnrichment(property, "display")).toBe(true);
+  });
+
+  it("does not require numeric energy metrics for display", () => {
+    expect(
+      propertyNeedsEnrichment(
+        makePropertyRow({
+          dpeClass: "D",
+          gesClass: "A",
+          dpeConsumptionKwhM2: null,
+          gesEmissionKgM2: null,
+          imageUrl: "https://example.com/photo.jpg",
+        }),
+        "display"
+      )
+    ).toBe(false);
   });
 
   it("requires land surface and description for display", () => {
@@ -133,6 +148,35 @@ describe("propertyNeedsEnrichment", () => {
         "display"
       )
     ).toBe(false);
+  });
+
+  it("returns false after a display enrichment attempt even if fields stay missing", () => {
+    expect(
+      propertyNeedsEnrichment(
+        makePropertyRow({
+          landSurface: null,
+          displayEnrichedAt: "2026-06-15T10:00:00.000Z",
+        }),
+        "display"
+      )
+    ).toBe(false);
+  });
+
+  it("re-enriches display when a new publication is linked after a prior attempt", () => {
+    expect(
+      propertyNeedsEnrichment(
+        makePropertyRow({
+          landSurface: null,
+          displayEnrichedAt: null,
+          addressEnrichedAt: null,
+          publications: [
+            publication("leboncoin", 1, "lbc-1"),
+            publication("bienici", 2, "bi-1"),
+          ],
+        }),
+        "display"
+      )
+    ).toBe(true);
   });
 });
 
@@ -309,6 +353,7 @@ describe("enrichProperty", () => {
     mockFetchLeboncoinAd.mockResolvedValue(null);
 
     const property = makePropertyRow({
+      description: null,
       landSurface: null,
       imageUrl: null,
       publications: [
@@ -322,6 +367,52 @@ describe("enrichProperty", () => {
     expect(result.patch.landSurface).toBe(750);
     expect(result.patch.imageUrl).toBe("https://example.com/og-photo.jpg");
     expect(result.patch.description).toBe("Description SeLoger");
+  });
+
+  it("keeps existing property values and fills gaps from other sources", async () => {
+    mockFetchSeLoger.mockResolvedValue({
+      description: "Description SeLoger",
+      surface: null,
+      landSurface: null,
+      rooms: null,
+      bedrooms: null,
+      latitude: null,
+      longitude: null,
+      dpeClass: "B",
+      gesClass: "C",
+      dpeConsumptionKwhM2: 90,
+      gesEmissionKgM2: 15,
+    });
+    mockFetchBienIci.mockResolvedValue({
+      id: "bi-1",
+      title: "BienIci",
+      price: 300_000,
+      city: "Paris",
+      description: "Description BienIci",
+      energyClassification: "D",
+      greenhouseGazClassification: "E",
+      energyConsumption: 200,
+      greenhouseGazConsumption: 50,
+    });
+
+    const result = await enrichProperty(
+      makePropertyRow({
+        description: "Description existante",
+        dpeClass: "D",
+        gesClass: "A",
+        dpeConsumptionKwhM2: null,
+        gesEmissionKgM2: null,
+        publications: [
+          publication("bienici", 1, "bi-1"),
+          publication("seloger", 2, "sl-1"),
+        ],
+      })
+    );
+
+    expect(result.patch.description).toBeUndefined();
+    expect(result.patch.dpeClass).toBeUndefined();
+    expect(result.patch.dpeConsumptionKwhM2).toBe(90);
+    expect(result.patch.gesEmissionKgM2).toBe(15);
   });
 
   it("omits fields that already match the property", async () => {
@@ -499,6 +590,85 @@ describe("ensurePropertyEnriched", () => {
     expect(result.property?.dpeClass).toBe("B");
     expect(result.property?.gesClass).toBe("C");
     expect(result.property?.dpeConsumptionKwhM2).toBe(88);
+    expect(result.property?.displayEnrichedAt).not.toBeNull();
+  });
+
+  it("marks display enrichment as attempted when enrichment cannot fill remaining gaps", async () => {
+    const inserted = await repository.upsert(
+      makeListing({
+        externalId: "enrich-noop-1",
+        source: "leboncoin",
+        url: "https://www.leboncoin.fr/ad/ventes_immobilieres/enrich-noop-1",
+        description: "Description existante",
+        imageUrl: "https://example.com/photo.jpg",
+        landSurface: null,
+        dpeClass: "D",
+        gesClass: "A",
+      })
+    );
+
+    mockFetchLeboncoin.mockResolvedValue({
+      ad: {
+        list_id: 1,
+        subject: "Maison",
+        body: "Description existante",
+        url: "https://www.leboncoin.fr/ad/ventes_immobilieres/1",
+        price: [300_000],
+        location: { city: "Paris", lat: 48.1, lng: 2.1 },
+        attributes: [
+          { key: "energy_rate", value: "d" },
+          { key: "ges", value: "a" },
+        ],
+      },
+      imageUrl: "https://example.com/photo.jpg",
+    });
+
+    if (!inserted.row) {
+      throw new Error("Expected inserted property row");
+    }
+
+    const result = await ensurePropertyEnriched(
+      repository,
+      inserted.row.id,
+      "display"
+    );
+
+    expect(result.warnings).toEqual([]);
+    expect(result.property?.displayEnrichedAt).not.toBeNull();
+    expect(result.property?.landSurface).toBeNull();
+    if (!result.property) {
+      throw new Error("Expected enriched property");
+    }
+    expect(propertyNeedsEnrichment(result.property, "display")).toBe(false);
+  });
+
+  it("skips enrichment for display-complete listings", async () => {
+    const inserted = await repository.upsert(
+      makeListing({
+        externalId: "enrich-complete-2",
+        source: "leboncoin",
+        url: "https://www.leboncoin.fr/ad/ventes_immobilieres/enrich-complete-2",
+        description: "Description existante",
+        imageUrl: "https://example.com/photo.jpg",
+        landSurface: 500,
+        dpeClass: "D",
+        gesClass: "A",
+      })
+    );
+
+    if (!inserted.row) {
+      throw new Error("Expected inserted property row");
+    }
+
+    const result = await ensurePropertyEnriched(
+      repository,
+      inserted.row.id,
+      "display"
+    );
+
+    expect(result.warnings).toEqual([]);
+    expect(result.property?.displayEnrichedAt).toBeNull();
+    expect(mockFetchLeboncoin).not.toHaveBeenCalled();
   });
 
   it("returns undefined when the property does not exist", async () => {

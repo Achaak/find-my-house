@@ -16,17 +16,22 @@ import { api, queryKeys } from "@/lib/api";
 import { getErrorMessage } from "@/lib/error-message";
 import { formatPriceDrop } from "@/lib/price-drop";
 import type { Property } from "@/lib/types";
+import { PropertyImageSkeleton } from "@/components/listings/listing-detail-skeleton";
 import { cn, formatPrice, formatSource } from "@/lib/utils";
 
 export function PropertyCard({
   property,
   compact = false,
   selected = false,
+  imageSkeleton = false,
+  hideReactions = false,
   onSelect,
 }: {
   property: Property;
   compact?: boolean;
   selected?: boolean;
+  imageSkeleton?: boolean;
+  hideReactions?: boolean;
   onSelect?: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -108,7 +113,9 @@ export function PropertyCard({
       tabIndex={onSelect ? 0 : undefined}
     >
       <Card className="overflow-hidden">
-        {property.imageUrl && !imageFailed ? (
+        {imageSkeleton ? (
+          <PropertyImageSkeleton compact={compact} />
+        ) : property.imageUrl && !imageFailed ? (
           <img
             src={property.imageUrl}
             alt={imageAlt}
@@ -186,54 +193,62 @@ export function PropertyCard({
           >
             Details
           </Link>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={isPending}
-            aria-label={
-              property.reaction === "like" ? "Unlike listing" : "Like listing"
-            }
-            onClick={() =>
-              property.reaction === "like"
-                ? removeMutation.mutate("like")
-                : likeMutation.mutate()
-            }
-          >
-            <Heart className="size-4" />
-            {property.reaction === "like" ? "Unlike" : "Like"}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={isPending}
-            aria-label={
-              property.reaction === "dislike"
-                ? "Remove dislike"
-                : "Dislike listing"
-            }
-            onClick={() =>
-              property.reaction === "dislike"
-                ? removeMutation.mutate("dislike")
-                : dislikeMutation.mutate()
-            }
-          >
-            <ThumbsDown className="size-4" />
-            {property.reaction === "dislike" ? "Undo" : "Dislike"}
-          </Button>
-          {property.reaction === "like" ? (
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={isPending}
-              aria-label={
-                property.archived ? "Unarchive favorite" : "Archive favorite"
-              }
-              onClick={() => archiveMutation.mutate()}
-            >
-              <Archive className="size-4" />
-              {property.archived ? "Unarchive" : "Archive"}
-            </Button>
-          ) : null}
+          {hideReactions ? null : (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isPending}
+                aria-label={
+                  property.reaction === "like"
+                    ? "Unlike listing"
+                    : "Like listing"
+                }
+                onClick={() =>
+                  property.reaction === "like"
+                    ? removeMutation.mutate("like")
+                    : likeMutation.mutate()
+                }
+              >
+                <Heart className="size-4" />
+                {property.reaction === "like" ? "Unlike" : "Like"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isPending}
+                aria-label={
+                  property.reaction === "dislike"
+                    ? "Remove dislike"
+                    : "Dislike listing"
+                }
+                onClick={() =>
+                  property.reaction === "dislike"
+                    ? removeMutation.mutate("dislike")
+                    : dislikeMutation.mutate()
+                }
+              >
+                <ThumbsDown className="size-4" />
+                {property.reaction === "dislike" ? "Undo" : "Dislike"}
+              </Button>
+              {property.reaction === "like" ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isPending}
+                  aria-label={
+                    property.archived
+                      ? "Unarchive favorite"
+                      : "Archive favorite"
+                  }
+                  onClick={() => archiveMutation.mutate()}
+                >
+                  <Archive className="size-4" />
+                  {property.archived ? "Unarchive" : "Archive"}
+                </Button>
+              ) : null}
+            </>
+          )}
           <a
             href={property.url}
             target="_blank"
