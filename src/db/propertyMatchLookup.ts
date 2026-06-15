@@ -56,3 +56,18 @@ export function findPropertyMatchForListing<T extends PropertyMatchCandidate>(
     findFuzzyPropertyMatch(listing, candidates)
   );
 }
+
+export function findPendingPropertyMatch<T extends { listing: Listing }>(
+  listing: Listing,
+  pending: Iterable<T>
+): T | undefined {
+  const input = toPropertyMatchInput(listing);
+
+  for (const entry of pending) {
+    if (propertiesMatchFuzzy(input, toPropertyMatchInput(entry.listing))) {
+      return entry;
+    }
+  }
+
+  return undefined;
+}

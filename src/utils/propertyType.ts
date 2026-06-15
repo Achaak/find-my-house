@@ -1,6 +1,9 @@
 const PROPERTY_TYPE_ALIASES: Record<string, string> = {
   house: "house",
   maison: "house",
+  pavillon: "house",
+  propriété: "house",
+  propriete: "house",
   flat: "apartment",
   apartment: "apartment",
   appartement: "apartment",

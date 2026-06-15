@@ -34,7 +34,10 @@ import {
   resolveRadiusSearchFilter,
 } from "../utils/geo/geoFilter.js";
 import { resolveGeoSearchCenter } from "../utils/geo/geocode.js";
-import { findPropertyMatchForListing } from "./propertyMatchLookup.js";
+import {
+  findPendingPropertyMatch,
+  findPropertyMatchForListing,
+} from "./propertyMatchLookup.js";
 import {
   type PublicationCreateData,
   toPublicationCreateData,
@@ -677,6 +680,16 @@ export class ListingRepository {
       const pendingCreate = pendingPropertyCreates.get(propertyKey);
       if (pendingCreate) {
         mergeIntoPendingCreate(pendingCreate, listing, scrapedAt);
+        result.linked++;
+        continue;
+      }
+
+      const fuzzyPendingCreate = findPendingPropertyMatch(
+        listing,
+        pendingPropertyCreates.values()
+      );
+      if (fuzzyPendingCreate) {
+        mergeIntoPendingCreate(fuzzyPendingCreate, listing, scrapedAt);
         result.linked++;
         continue;
       }

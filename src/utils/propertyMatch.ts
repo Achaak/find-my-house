@@ -33,6 +33,21 @@ function isNewPropertyCompatible(
   return a === b;
 }
 
+function nullableNumericFieldsMatch(
+  a: number | null,
+  b: number | null
+): boolean {
+  if (a === null || b === null) return true;
+  return a === b;
+}
+
+function propertyTypesMatch(a: string | null, b: string | null): boolean {
+  const left = canonicalPropertyType(a);
+  const right = canonicalPropertyType(b);
+  if (!left || !right) return true;
+  return left === right;
+}
+
 function structuralFieldsMatch(
   a: PropertyMatchInput,
   b: PropertyMatchInput
@@ -42,13 +57,10 @@ function structuralFieldsMatch(
   }
 
   if (a.surface !== b.surface) return false;
-  if (a.rooms !== b.rooms) return false;
-  if (a.bedrooms !== b.bedrooms) return false;
+  if (!nullableNumericFieldsMatch(a.rooms, b.rooms)) return false;
+  if (!nullableNumericFieldsMatch(a.bedrooms, b.bedrooms)) return false;
 
-  return (
-    canonicalPropertyType(a.propertyType) ===
-    canonicalPropertyType(b.propertyType)
-  );
+  return propertyTypesMatch(a.propertyType, b.propertyType);
 }
 
 export function propertiesMatchFuzzy(

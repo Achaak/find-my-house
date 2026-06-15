@@ -355,6 +355,46 @@ describe("ListingRepository.upsertMany", () => {
     expect(result.insertedListings).toHaveLength(1);
     expect(result.insertedListings[0]?.publications).toHaveLength(2);
   });
+
+  it("links cross-portal listings in one batch when fuzzy fields differ", async () => {
+    const leboncoin = {
+      postalCode: "76190",
+      price: 239_000,
+      surface: 124,
+      rooms: 7,
+      bedrooms: 6,
+      landSurface: 1500,
+      city: "Saint Martin de l'If",
+      propertyType: "Maison",
+      isNewProperty: false,
+    };
+
+    const result = await repository.upsertMany([
+      makeListing({
+        ...leboncoin,
+        externalId: "lbc-saint-martin",
+        source: "leboncoin",
+        url: "https://www.leboncoin.fr/ad/ventes_immobilieres/lbc-saint-martin",
+        title: "Pavillon 7 pièces 124 m²",
+      }),
+      makeListing({
+        ...leboncoin,
+        rooms: null,
+        bedrooms: null,
+        propertyType: null,
+        isNewProperty: null,
+        externalId: "limmo-saint-martin",
+        source: "logicimmo",
+        url: "https://www.logic-immo.com/annonces/achat/maison/limmo-saint-martin.htm",
+        title: "Maison à vendre",
+      }),
+    ]);
+
+    expect(result.inserted).toBe(1);
+    expect(result.linked).toBe(1);
+    expect(result.insertedListings).toHaveLength(1);
+    expect(result.insertedListings[0]?.publications).toHaveLength(2);
+  });
 });
 
 describe("ListingRepository.deactivateMissingPublications", () => {
@@ -543,6 +583,8 @@ describe("ListingRepository.countPendingDisplayEnrichment", () => {
     const pending = makeListing({
       externalId: "enrich-pending",
       url: "https://www.bienici.com/annonce/enrich-pending",
+      price: 310_000,
+      surface: 95,
       description: null,
       imageUrl: null,
       landSurface: null,

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { makeListing } from "../test/listingFixtures.js";
-import { findAgencyPropertyMatch } from "./propertyMatchLookup.js";
+import {
+  findAgencyPropertyMatch,
+  findPendingPropertyMatch,
+} from "./propertyMatchLookup.js";
 
 describe("findAgencyPropertyMatch", () => {
   it("matches a new Bienici listing to a property from the same agency", () => {
@@ -39,5 +42,40 @@ describe("findAgencyPropertyMatch", () => {
     ]);
 
     expect(match?.id).toBe(42);
+  });
+});
+
+describe("findPendingPropertyMatch", () => {
+  it("matches listings queued for creation in the same scrape batch", () => {
+    const leboncoin = makeListing({
+      source: "leboncoin",
+      externalId: "lbc-1",
+      postalCode: "76400",
+      price: 292_000,
+      surface: 150,
+      rooms: 7,
+      bedrooms: 5,
+      landSurface: 1500,
+      propertyType: "Maison",
+      isNewProperty: false,
+    });
+    const logicimmo = makeListing({
+      source: "logicimmo",
+      externalId: "limmo-1",
+      postalCode: "76400",
+      price: 292_000,
+      surface: 150,
+      rooms: null,
+      bedrooms: null,
+      landSurface: 1500,
+      propertyType: null,
+      isNewProperty: null,
+    });
+
+    const match = findPendingPropertyMatch(logicimmo, [
+      { listing: leboncoin, scrapedAt: new Date(), extraPublications: [] },
+    ]);
+
+    expect(match?.listing.externalId).toBe("lbc-1");
   });
 });

@@ -20,6 +20,11 @@ describe("canonicalPropertyType", () => {
     expect(canonicalPropertyType("townhouse")).toBe("townhouse");
     expect(canonicalPropertyType("Maison de ville")).toBe("townhouse");
   });
+
+  it("maps common French house labels to house", () => {
+    expect(canonicalPropertyType("Pavillon")).toBe("house");
+    expect(canonicalPropertyType("Propriété")).toBe("house");
+  });
 });
 
 describe("computePropertyKey with canonical property types", () => {

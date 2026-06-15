@@ -50,4 +50,27 @@ describe("propertiesMatchFuzzy", () => {
       true
     );
   });
+
+  it("matches when rooms or bedrooms are missing on one side", () => {
+    expect(propertiesMatchFuzzy(base, { ...base, rooms: null })).toBe(true);
+    expect(propertiesMatchFuzzy(base, { ...base, bedrooms: null })).toBe(true);
+    expect(
+      propertiesMatchFuzzy(base, { ...base, rooms: null, bedrooms: null })
+    ).toBe(true);
+  });
+
+  it("matches when property type is missing on one side", () => {
+    expect(propertiesMatchFuzzy(base, { ...base, propertyType: null })).toBe(
+      true
+    );
+  });
+
+  it("matches pavillon and propriété with maison", () => {
+    expect(
+      propertiesMatchFuzzy(base, { ...base, propertyType: "Pavillon" })
+    ).toBe(true);
+    expect(
+      propertiesMatchFuzzy(base, { ...base, propertyType: "Propriété" })
+    ).toBe(true);
+  });
 });

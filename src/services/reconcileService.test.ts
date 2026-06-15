@@ -117,4 +117,78 @@ describe("reconcileProperties", () => {
       await dispose();
     }
   });
+
+  it("fuzzy-merges properties when one row has incomplete portal fields", async () => {
+    const { prisma, dispose } = createTestRepository();
+
+    try {
+      const older = await prisma.property.create({
+        data: {
+          propertyKey: "older-key",
+          title: "Leboncoin listing",
+          price: 239_000,
+          firstPrice: 239_000,
+          surface: 124,
+          landSurface: 1500,
+          rooms: 7,
+          bedrooms: 6,
+          isNewProperty: false,
+          city: "Saint Martin de l'If",
+          postalCode: "76190",
+          propertyType: "Maison",
+          firstSeenAt: new Date("2026-01-01T00:00:00.000Z"),
+        },
+      });
+      const newer = await prisma.property.create({
+        data: {
+          propertyKey: "newer-key",
+          title: "Logic-Immo listing",
+          price: 239_000,
+          firstPrice: 239_000,
+          surface: 124,
+          landSurface: 1500,
+          rooms: null,
+          bedrooms: null,
+          isNewProperty: null,
+          city: "Saint Martin de l'If",
+          postalCode: "76190",
+          propertyType: null,
+          firstSeenAt: new Date("2026-02-01T00:00:00.000Z"),
+        },
+      });
+
+      await prisma.listingPublication.createMany({
+        data: [
+          {
+            propertyId: older.id,
+            externalId: "lbc-sm",
+            source: "leboncoin",
+            url: "https://www.leboncoin.fr/ad/ventes_immobilieres/lbc-sm",
+            scrapedAt: new Date("2026-01-01T00:00:00.000Z"),
+          },
+          {
+            propertyId: newer.id,
+            externalId: "limmo-sm",
+            source: "logicimmo",
+            url: "https://www.logic-immo.com/annonces/achat/maison/limmo-sm.htm",
+            scrapedAt: new Date("2026-02-01T00:00:00.000Z"),
+          },
+        ],
+      });
+
+      const result = await reconcileProperties(prisma);
+
+      expect(result.fuzzyMerged).toBe(1);
+      expect(result.unique).toBe(1);
+
+      const properties = await prisma.property.findMany({
+        include: { publications: true },
+      });
+
+      expect(properties).toHaveLength(1);
+      expect(properties[0]?.publications).toHaveLength(2);
+    } finally {
+      await dispose();
+    }
+  });
 });
