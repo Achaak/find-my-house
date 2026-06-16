@@ -133,3 +133,20 @@ model ListingReaction {
   @@index([type])
   @@map("listing_reactions")
 }
+
+model PropertyMatchDiagnostic {
+  id                Int           @id @default(autoincrement())
+  listingSource     ListingSource @map("listing_source")
+  listingExternalId String        @map("listing_external_id")
+  postalCode        String?       @map("postal_code")
+  threshold         Float
+  bestScore         Float?        @map("best_score")
+  bestCandidateId   Int?          @map("best_candidate_id")
+  bestVeto          String?       @map("best_veto")
+  nearMisses        Json          @map("near_misses")
+  createdAt         DateTime      @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([listingSource, listingExternalId])
+  @@map("property_match_diagnostics")
+}

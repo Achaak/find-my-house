@@ -14,9 +14,13 @@ import type {
 import { parseHighlights, toPropertyRow } from "./listingMapper.js";
 import { propertyInclude } from "./propertyInclude.js";
 import {
-  findPendingPropertyMatch,
-  findPropertyMatchForListing,
-} from "./propertyMatchLookup.js";
+  DefaultPropertyMatchPolicy,
+  type PropertyMatchPolicy,
+} from "./propertyMatchPolicy.js";
+import {
+  LoggerPropertyMatchDiagnosticsSink,
+  type PropertyMatchDiagnosticsSink,
+} from "./propertyMatchDiagnostics.js";
 import {
   type PublicationCreateData,
   toPrismaPublicationData,
@@ -173,12 +177,18 @@ function toPrismaPropertyProjectionDataFromListing(
 
 export class PublicationUpsertRepository {
   private readonly projectionUpdater: ProjectionUpdater;
+  private readonly propertyMatchPolicy: PropertyMatchPolicy;
+  private readonly diagnosticsSink: PropertyMatchDiagnosticsSink;
 
   constructor(
     private readonly prisma: PrismaClient,
-    private readonly refreshByIds: (ids: number[]) => Promise<PropertyRow[]>
+    private readonly refreshByIds: (ids: number[]) => Promise<PropertyRow[]>,
+    propertyMatchPolicy: PropertyMatchPolicy = new DefaultPropertyMatchPolicy(),
+    diagnosticsSink: PropertyMatchDiagnosticsSink = new LoggerPropertyMatchDiagnosticsSink()
   ) {
     this.projectionUpdater = new ProjectionUpdater(prisma);
+    this.propertyMatchPolicy = propertyMatchPolicy;
+    this.diagnosticsSink = diagnosticsSink;
   }
 
   private async findExistingPublications(
@@ -450,7 +460,7 @@ export class PublicationUpsertRepository {
         continue;
       }
 
-      const fuzzyPendingCreate = findPendingPropertyMatch(
+      const fuzzyPendingCreate = this.propertyMatchPolicy.findPendingMatch(
         listing,
         pendingPropertyCreates.values()
       );
@@ -486,7 +496,7 @@ export class PublicationUpsertRepository {
       const postalCandidates = listing.postalCode
         ? (propertiesByPostalCode.get(listing.postalCode) ?? [])
         : [];
-      const matchedProperty = findPropertyMatchForListing(
+      const matchedProperty = this.propertyMatchPolicy.findCandidateMatch(
         listing,
         postalCandidates
       );
@@ -510,6 +520,13 @@ export class PublicationUpsertRepository {
 
         result.linked++;
         continue;
+      }
+      if (postalCandidates.length > 0) {
+        const diagnostics = this.propertyMatchPolicy.collectDiagnostics(
+          listing,
+          postalCandidates
+        );
+        await this.diagnosticsSink.recordCandidateMiss(listing, diagnostics);
       }
 
       pendingPropertyCreates.set(propertyKey, {

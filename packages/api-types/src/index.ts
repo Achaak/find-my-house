@@ -230,3 +230,64 @@ export type ReconcileResult = {
 export type EnrichmentBackfillResult = {
   queued: number;
 };
+
+export type VersionResponse = {
+  version: string;
+  commit?: string;
+};
+
+export type ListingsResponse = {
+  items: Property[];
+  total: number;
+  zone?: string;
+};
+
+export type BrowseStopResponse = {
+  reviewed: number;
+};
+
+export type ReactionsResponse = {
+  items: Property[];
+};
+
+export type ReactionMutationResponse = {
+  status: string;
+};
+
+export type RemoveReactionResponse = {
+  removed: boolean;
+};
+
+export type AddressConfirmResponse = {
+  address: string;
+  dpeNumero: string;
+};
+
+export type AdminScrapeResponse = {
+  summary: string;
+  result: unknown;
+};
+
+export type PropertyMatchNearMiss = {
+  candidateId: number;
+  score: number;
+  veto: string | null;
+};
+
+export type PropertyMatchDiagnosticItem = {
+  id: number;
+  listingSource: ListingSource;
+  listingExternalId: string;
+  postalCode: string | null;
+  threshold: number;
+  bestScore: number | null;
+  bestCandidateId: number | null;
+  bestVeto: string | null;
+  nearMisses: PropertyMatchNearMiss[];
+  createdAt: string;
+};
+
+export type PropertyMatchDiagnosticsPage = {
+  items: PropertyMatchDiagnosticItem[];
+  nextBeforeId: number | null;
+};

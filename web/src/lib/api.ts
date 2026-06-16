@@ -1,16 +1,24 @@
 import { apiFetch } from "./api-client";
 import type {
   ApiUser,
+  AddressConfirmResponse,
+  AdminScrapeResponse,
+  BrowseStopResponse,
   BrowseState,
+  ListingsResponse,
   ListingDetailResponse,
   ListingSearchFilters,
   NotificationDigest,
-  Property,
   PropertyAddressSearchResponse,
+  ReactionMutationResponse,
+  ReactionsResponse,
+  RemoveReactionResponse,
   EnrichmentBackfillResult,
   ReconcileResult,
   StatsResponseMap,
   StatsSection,
+  PropertyMatchDiagnosticsPage,
+  VersionResponse,
 } from "./types";
 
 function searchParams(filters: ListingSearchFilters): string {
@@ -25,11 +33,9 @@ function searchParams(filters: ListingSearchFilters): string {
 async function fetchAllListings(filters: ListingSearchFilters = {}) {
   const pageLimit = 100;
   const query = searchParams({ ...filters, offset: 0, limit: pageLimit });
-  const first = await apiFetch<{
-    items: Property[];
-    total: number;
-    zone?: string;
-  }>(`/api/listings${query ? `?${query}` : ""}`);
+  const first = await apiFetch<ListingsResponse>(
+    `/api/listings${query ? `?${query}` : ""}`
+  );
   const items = [...first.items];
   let offset = items.length;
 
@@ -39,11 +45,7 @@ async function fetchAllListings(filters: ListingSearchFilters = {}) {
       offset,
       limit: pageLimit,
     });
-    const page = await apiFetch<{
-      items: Property[];
-      total: number;
-      zone?: string;
-    }>(`/api/listings?${pageQuery}`);
+    const page = await apiFetch<ListingsResponse>(`/api/listings?${pageQuery}`);
     if (page.items.length === 0) break;
     items.push(...page.items);
     offset += page.items.length;
@@ -55,11 +57,11 @@ async function fetchAllListings(filters: ListingSearchFilters = {}) {
 export const api = {
   me: () => apiFetch<ApiUser>("/api/me"),
 
-  version: () => apiFetch<{ version: string; commit?: string }>("/api/version"),
+  version: () => apiFetch<VersionResponse>("/api/version"),
 
   listings: (filters: ListingSearchFilters = {}) => {
     const query = searchParams(filters);
-    return apiFetch<{ items: Property[]; total: number; zone?: string }>(
+    return apiFetch<ListingsResponse>(
       `/api/listings${query ? `?${query}` : ""}`
     );
   },
@@ -75,7 +77,7 @@ export const api = {
   browseCurrent: () => apiFetch<BrowseState>("/api/browse"),
 
   browseStop: () =>
-    apiFetch<{ reviewed: number }>("/api/browse/stop", { method: "POST" }),
+    apiFetch<BrowseStopResponse>("/api/browse/stop", { method: "POST" }),
 
   browseReact: (action: "like" | "dislike", propertyId: number) =>
     apiFetch<BrowseState>(`/api/browse/${action}`, {
@@ -96,19 +98,19 @@ export const api = {
     });
     if (options.includeArchived) params.set("includeArchived", "true");
     if (options.archivedOnly) params.set("archivedOnly", "true");
-    return apiFetch<{ items: Property[] }>(
+    return apiFetch<ReactionsResponse>(
       `/api/reactions/${type}?${params.toString()}`
     );
   },
 
   addReaction: (type: "like" | "dislike", propertyId: number) =>
-    apiFetch<{ status: string }>(`/api/reactions/${type}`, {
+    apiFetch<ReactionMutationResponse>(`/api/reactions/${type}`, {
       method: "POST",
       body: JSON.stringify({ propertyId }),
     }),
 
   removeReaction: (type: "like" | "dislike", propertyId: number) =>
-    apiFetch<{ removed: boolean }>(
+    apiFetch<RemoveReactionResponse>(
       `/api/reactions/${type}/${String(propertyId)}`,
       {
         method: "DELETE",
@@ -116,13 +118,13 @@ export const api = {
     ),
 
   archiveLike: (propertyId: number) =>
-    apiFetch<{ status: string }>(
+    apiFetch<ReactionMutationResponse>(
       `/api/reactions/like/${String(propertyId)}/archive`,
       { method: "POST" }
     ),
 
   unarchiveLike: (propertyId: number) =>
-    apiFetch<{ status: string }>(
+    apiFetch<ReactionMutationResponse>(
       `/api/reactions/like/${String(propertyId)}/unarchive`,
       { method: "POST" }
     ),
@@ -141,7 +143,7 @@ export const api = {
     ),
 
   addressConfirm: (propertyId: number, numeroDpe: string) =>
-    apiFetch<{ address: string; dpeNumero: string }>(
+    apiFetch<AddressConfirmResponse>(
       `/api/properties/${String(propertyId)}/address/confirm`,
       {
         method: "POST",
@@ -150,7 +152,7 @@ export const api = {
     ),
 
   scrape: () =>
-    apiFetch<{ summary: string; result: unknown }>("/api/admin/scrape", {
+    apiFetch<AdminScrapeResponse>("/api/admin/scrape", {
       method: "POST",
     }),
 
@@ -159,6 +161,29 @@ export const api = {
 
   enrich: () =>
     apiFetch<EnrichmentBackfillResult>("/api/admin/enrich", { method: "POST" }),
+
+  propertyMatchDiagnostics: (filters?: {
+    limit?: number;
+    source?: string;
+    postalCode?: string;
+    bestVeto?: string;
+    from?: string;
+    to?: string;
+    beforeId?: number;
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.limit) params.set("limit", String(filters.limit));
+    if (filters?.source) params.set("source", filters.source);
+    if (filters?.postalCode) params.set("postalCode", filters.postalCode);
+    if (filters?.bestVeto) params.set("bestVeto", filters.bestVeto);
+    if (filters?.from) params.set("from", filters.from);
+    if (filters?.to) params.set("to", filters.to);
+    if (filters?.beforeId) params.set("beforeId", String(filters.beforeId));
+    const query = params.toString();
+    return apiFetch<PropertyMatchDiagnosticsPage>(
+      `/api/admin/property-match-diagnostics${query ? `?${query}` : ""}`
+    );
+  },
 };
 
 export const queryKeys = {

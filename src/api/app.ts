@@ -44,6 +44,8 @@ import { createLogger } from "../utils/logger.js";
 import { getBrowserReadiness } from "../utils/browser/client.js";
 import { isScrapeInProgress } from "../services/scraperService.js";
 import { scrapeFiltersToSearch } from "../utils/listing/scrapeFilters.js";
+import { PropertyMatchDiagnosticsRepository } from "../db/propertyMatchDiagnosticsRepository.js";
+import type { ListingSource } from "@find-my-house/api-types";
 
 const log = createLogger("api");
 
@@ -592,6 +594,58 @@ export function createApiApp(ctx: ApiContext) {
     );
     return c.json({ queued });
   });
+
+  app.get(
+    "/api/admin/property-match-diagnostics",
+    requireAdmin(),
+    async (c) => {
+      const limit = Number.parseInt(c.req.query("limit") ?? "50", 10);
+      const sourceRaw = c.req.query("source");
+      const sourceValues: ListingSource[] = [
+        "bienici",
+        "seloger",
+        "leboncoin",
+        "logicimmo",
+      ];
+      if (sourceRaw && !sourceValues.includes(sourceRaw as ListingSource)) {
+        return c.json({ error: "Invalid source" }, 400);
+      }
+      const source = sourceRaw as ListingSource | undefined;
+      const postalCode = c.req.query("postalCode") ?? undefined;
+      const bestVeto = c.req.query("bestVeto") ?? undefined;
+      const beforeIdRaw = c.req.query("beforeId");
+      let beforeId: number | undefined;
+      if (beforeIdRaw) {
+        const parsedBeforeId = Number.parseInt(beforeIdRaw, 10);
+        if (!Number.isInteger(parsedBeforeId) || parsedBeforeId <= 0) {
+          return c.json({ error: "Invalid beforeId" }, 400);
+        }
+        beforeId = parsedBeforeId;
+      }
+      const fromRaw = c.req.query("from");
+      const toRaw = c.req.query("to");
+      const from = fromRaw ? new Date(fromRaw) : undefined;
+      const to = toRaw ? new Date(toRaw) : undefined;
+      if (fromRaw && (!from || Number.isNaN(from.getTime()))) {
+        return c.json({ error: "Invalid from timestamp" }, 400);
+      }
+      if (toRaw && (!to || Number.isNaN(to.getTime()))) {
+        return c.json({ error: "Invalid to timestamp" }, 400);
+      }
+      const diagnosticsRepository = new PropertyMatchDiagnosticsRepository(
+        getPrisma(scrapeConfig.database.url)
+      );
+      const page = await diagnosticsRepository.findRecent(limit, {
+        source,
+        postalCode,
+        bestVeto,
+        beforeId,
+        from,
+        to,
+      });
+      return c.json(page);
+    }
+  );
 
   return app;
 }

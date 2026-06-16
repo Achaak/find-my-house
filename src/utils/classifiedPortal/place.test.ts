@@ -17,6 +17,20 @@ const samplePlace: ClassifiedPlace = {
   locationCode: "AD08FR12345",
 };
 
+function decodeTravelDuration(encoded: string): string {
+  const parsed: unknown = JSON.parse(
+    Buffer.from(encoded, "base64url").toString("utf8")
+  );
+  if (!parsed || typeof parsed !== "object" || !("duration" in parsed)) {
+    throw new Error("Missing duration in encoded location");
+  }
+  const duration = parsed.duration;
+  if (typeof duration !== "string") {
+    throw new Error("Invalid duration in encoded location");
+  }
+  return duration;
+}
+
 describe("resolveClassifiedLocation", () => {
   it("uses STRT travel-time encoding when a start point is available", () => {
     const location = resolveClassifiedLocation(
@@ -37,10 +51,7 @@ describe("resolveClassifiedLocation", () => {
     expect(snapClassifiedTravelMinutes(30)).toBe(30);
 
     const encoded = buildClassifiedTravelLocation("STRTFR123", 40);
-    const decoded = JSON.parse(
-      Buffer.from(encoded, "base64url").toString("utf8")
-    ) as { duration: string };
-    expect(decoded.duration).toBe("45");
+    expect(decodeTravelDuration(encoded)).toBe("45");
   });
 
   it("falls back to server-side radius search when STRT is missing", () => {

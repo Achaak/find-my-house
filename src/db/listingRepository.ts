@@ -23,6 +23,11 @@ import {
 import type { ReconcileResult } from "@find-my-house/api-types";
 import { ProjectionUpdater } from "./projectionUpdater.js";
 import { toPrismaPropertyPatch } from "./propertyWriteData.js";
+import {
+  CompositePropertyMatchDiagnosticsSink,
+  LoggerPropertyMatchDiagnosticsSink,
+  PrismaPropertyMatchDiagnosticsSink,
+} from "./propertyMatchDiagnostics.js";
 
 const log = createLogger("db");
 
@@ -40,8 +45,14 @@ export class ListingRepository {
     this.searchRepo = new PropertySearchRepository(prisma);
     this.statsRepo = new PropertyStatsRepository(prisma);
     this.projectionUpdater = new ProjectionUpdater(prisma);
-    this.upsertRepo = new PublicationUpsertRepository(prisma, (ids) =>
-      this.searchRepo.findByIds(ids)
+    this.upsertRepo = new PublicationUpsertRepository(
+      prisma,
+      (ids) => this.searchRepo.findByIds(ids),
+      undefined,
+      new CompositePropertyMatchDiagnosticsSink([
+        new LoggerPropertyMatchDiagnosticsSink(),
+        new PrismaPropertyMatchDiagnosticsSink(prisma),
+      ])
     );
   }
 

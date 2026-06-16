@@ -11,6 +11,7 @@ import { createTestRepository } from "../test/db.js";
 import { makeListing } from "../test/listingFixtures.js";
 import { propertyNeedsEnrichment } from "../domain/enrichmentCriteria.js";
 import type { ListingRepository } from "./listingRepository.js";
+import type { PrismaClient } from "../generated/prisma/client.js";
 
 vi.mock("../utils/geo/geocode.js", () => ({
   resolveGeoSearchCenter: vi.fn(),
@@ -22,11 +23,13 @@ const mockedResolveGeoSearchCenter = vi.mocked(resolveGeoSearchCenter);
 
 describe("ListingRepository.upsert", () => {
   let repository: ListingRepository;
+  let prisma: PrismaClient;
   let dispose: (() => Promise<void>) | undefined;
 
   beforeAll(() => {
     const testDb = createTestRepository();
     repository = testDb.repository;
+    prisma = testDb.prisma;
     dispose = testDb.dispose;
   });
 
@@ -108,6 +111,34 @@ describe("ListingRepository.upsert", () => {
     expect(updated.priceDropped).toBe(true);
     expect(updated.row?.price).toBe(470_000);
     expect(updated.row?.firstPrice).toBe(500_000);
+  });
+
+  it("persists near-miss diagnostics when no property match is found", async () => {
+    await repository.upsert(
+      makeListing({
+        externalId: "diag-base",
+        url: "https://www.bienici.com/annonce/diag-base",
+        postalCode: "75001",
+        price: 300_000,
+      })
+    );
+
+    await repository.upsert(
+      makeListing({
+        externalId: "diag-near-miss",
+        url: "https://www.bienici.com/annonce/diag-near-miss",
+        postalCode: "75001",
+        price: 293_000,
+      })
+    );
+
+    const diagnostics = await prisma.propertyMatchDiagnostic.findMany({
+      where: { listingExternalId: "diag-near-miss" },
+    });
+
+    expect(diagnostics.length).toBeGreaterThan(0);
+    expect(diagnostics[0]?.bestScore).not.toBeNull();
+    expect(diagnostics[0]?.nearMisses).toBeDefined();
   });
 });
 

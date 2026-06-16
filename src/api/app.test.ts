@@ -10,6 +10,11 @@ import {
 import type {
   BrowseState,
   ListingDetailResponse,
+  ReactionMutationResponse,
+  ReactionsResponse,
+  StatsMine,
+  StatsOverview,
+  PropertyMatchDiagnosticsPage,
 } from "@find-my-house/api-types";
 import { createApiApp } from "./app.js";
 import type { ApiContext } from "./types.js";
@@ -166,7 +171,7 @@ describe("createApiApp", () => {
     await expect(response.json()).resolves.toEqual({ status: "added" });
 
     const list = await app.request("/api/reactions/like");
-    const body = (await list.json()) as { items: { id: number }[] };
+    const body = (await list.json()) as ReactionsResponse;
     expect(body.items.some((item) => item.id === propertyId)).toBe(true);
   });
 
@@ -191,7 +196,7 @@ describe("createApiApp", () => {
     );
 
     expect(response.status).toBe(200);
-    const body = (await response.json()) as { status: string };
+    const body = (await response.json()) as ReactionMutationResponse;
     expect(body.status).toBe("archived");
   });
 
@@ -199,11 +204,7 @@ describe("createApiApp", () => {
     const response = await app.request("/api/stats/overview");
     expect(response.status).toBe(200);
 
-    const body = (await response.json()) as {
-      total: number;
-      likes: number;
-      enrichment: { pending: number; queued: number };
-    };
+    const body = (await response.json()) as StatsOverview;
     expect(body.total).toBeGreaterThan(0);
     expect(body.enrichment.queued).toBe(0);
     expect(typeof body.likes).toBe("number");
@@ -215,11 +216,44 @@ describe("createApiApp", () => {
     const response = await app.request("/api/stats/mine");
     expect(response.status).toBe(200);
 
-    const body = (await response.json()) as {
-      likes: number;
-      recentLikes: { id: number }[];
-    };
+    const body = (await response.json()) as StatsMine;
     expect(body.likes).toBeGreaterThan(0);
     expect(body.recentLikes.some((item) => item.id === propertyId)).toBe(true);
+  });
+
+  it("GET /api/admin/property-match-diagnostics returns diagnostics list", async () => {
+    const response = await app.request("/api/admin/property-match-diagnostics");
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as PropertyMatchDiagnosticsPage;
+    expect(Array.isArray(body.items)).toBe(true);
+    expect(
+      body.nextBeforeId === null || typeof body.nextBeforeId === "number"
+    ).toBe(true);
+  });
+
+  it("GET /api/admin/property-match-diagnostics validates from/to query params", async () => {
+    const badFrom = await app.request(
+      "/api/admin/property-match-diagnostics?from=not-a-date"
+    );
+    expect(badFrom.status).toBe(400);
+
+    const badTo = await app.request(
+      "/api/admin/property-match-diagnostics?to=not-a-date"
+    );
+    expect(badTo.status).toBe(400);
+  });
+
+  it("GET /api/admin/property-match-diagnostics validates beforeId query param", async () => {
+    const badBeforeId = await app.request(
+      "/api/admin/property-match-diagnostics?beforeId=oops"
+    );
+    expect(badBeforeId.status).toBe(400);
+  });
+
+  it("GET /api/admin/property-match-diagnostics validates source query param", async () => {
+    const badSource = await app.request(
+      "/api/admin/property-match-diagnostics?source=unknown"
+    );
+    expect(badSource.status).toBe(400);
   });
 });

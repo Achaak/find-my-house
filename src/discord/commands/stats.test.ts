@@ -1,6 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import { handleStats } from "./stats.js";
 
+type DiscordReply = {
+  embeds: { title: string }[];
+};
+
+function isDiscordReply(payload: unknown): payload is DiscordReply {
+  return !!payload && typeof payload === "object" && "embeds" in payload;
+}
+
 function makeInteraction(subcommand: string) {
   return {
     user: { id: "user-1" },
@@ -58,6 +66,19 @@ const reactionRepository = {
   findListingsByType: vi.fn(() => Promise.resolve([])),
 };
 
+function getFirstReply(
+  interaction: ReturnType<typeof makeInteraction>
+): DiscordReply {
+  const calls = (
+    interaction.editReply as unknown as { mock: { calls: unknown[][] } }
+  ).mock.calls;
+  const payload = calls[0]?.[0];
+  if (!isDiscordReply(payload)) {
+    throw new Error("Expected editReply payload with embeds");
+  }
+  return payload;
+}
+
 describe("handleStats", () => {
   it("returns an overview embed", async () => {
     const interaction = makeInteraction("overview");
@@ -75,9 +96,7 @@ describe("handleStats", () => {
     expect(interaction.deferReply).toHaveBeenCalledOnce();
     expect(repository.countActiveProperties).toHaveBeenCalledOnce();
     expect(reactionRepository.countByType).toHaveBeenCalledWith("like");
-    const reply = vi.mocked(interaction.editReply).mock.calls[0]?.[0] as {
-      embeds: { title: string }[];
-    };
+    const reply = getFirstReply(interaction);
     expect(reply.embeds[0]?.title).toContain("Overview");
   });
 
@@ -95,9 +114,7 @@ describe("handleStats", () => {
     });
 
     expect(repository.findPriceDrops).toHaveBeenCalledWith(5);
-    const reply = vi.mocked(interaction.editReply).mock.calls[0]?.[0] as {
-      embeds: { title: string }[];
-    };
+    const reply = getFirstReply(interaction);
     expect(reply.embeds[0]?.title).toContain("Prices");
   });
 });
