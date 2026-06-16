@@ -539,6 +539,65 @@ describe("ListingRepository.deactivateMissingPublications", () => {
     ]);
     expect(await repository.countPublications()).toBe(1);
   });
+
+  it("refreshes property projection when deactivating publications", async () => {
+    const bienici = makeListing({
+      externalId: "projection-bienici",
+      source: "bienici",
+      url: "https://www.bienici.com/annonce/projection-bienici",
+      title: "Priority publication",
+      price: 520_000,
+      city: "Lyon",
+      postalCode: "69001",
+      surface: 110,
+      rooms: 6,
+      bedrooms: 4,
+    });
+    const leboncoin = makeListing({
+      externalId: "projection-lbc",
+      source: "leboncoin",
+      url: "https://www.leboncoin.fr/ad/projection-lbc",
+      title: "Fallback publication",
+      price: 520_000,
+      city: "Lyon",
+      postalCode: "69001",
+      surface: 110,
+      rooms: 6,
+      bedrooms: 4,
+    });
+
+    await repository.upsertMany([bienici, leboncoin]);
+    const before = await repository.search({ limit: 200 });
+    const beforeProperty = before.items.find((item) =>
+      item.publications.some(
+        (publication) => publication.externalId === "projection-bienici"
+      )
+    );
+    expect(beforeProperty).toBeDefined();
+    expect(beforeProperty?.title).toBe("Priority publication");
+    expect(beforeProperty?.price).toBe(520_000);
+
+    const deactivated = await repository.deactivateMissingPublications(
+      "bienici",
+      []
+    );
+
+    expect(deactivated).toBe(1);
+    const after = await repository.search({ limit: 200 });
+    const afterProperty = after.items.find(
+      (item) => item.id === beforeProperty?.id
+    );
+    expect(afterProperty?.title).toBe("Fallback publication");
+    expect(afterProperty?.price).toBe(520_000);
+    expect(afterProperty?.publications).toEqual([
+      expect.objectContaining({ source: "leboncoin", isActive: true }),
+    ]);
+    expect(
+      afterProperty?.publications.some(
+        (publication) => publication.source === "bienici"
+      )
+    ).toBe(false);
+  });
 });
 
 describe("ListingRepository.stats", () => {

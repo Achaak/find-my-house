@@ -20,6 +20,7 @@ export type { PropertyEnrichmentPatch } from "../types/enrichment.js";
 
 export type EnrichmentResult = {
   patch: PropertyEnrichmentPatch;
+  patches: { publicationId: number; patch: PropertyEnrichmentPatch }[];
   updatedFields: string[];
   warnings: string[];
 };
@@ -105,6 +106,49 @@ function mergePatches(
   return merged;
 }
 
+function toPropertyLike(publication: PublicationRow): PropertyRow {
+  return {
+    id: 0,
+    title: publication.title,
+    price: publication.price,
+    firstPrice: publication.price,
+    surface: publication.surface,
+    landSurface: publication.landSurface,
+    rooms: publication.rooms,
+    bedrooms: publication.bedrooms,
+    isNewProperty: publication.isNewProperty,
+    latitude: publication.latitude,
+    longitude: publication.longitude,
+    city: publication.city,
+    postalCode: publication.postalCode,
+    address: publication.address,
+    dpeNumero: publication.dpeNumero,
+    description: publication.description,
+    imageUrl: publication.imageUrl,
+    propertyType: publication.propertyType,
+    dpeClass: publication.dpeClass,
+    gesClass: publication.gesClass,
+    dpeConsumptionKwhM2: publication.dpeConsumptionKwhM2,
+    gesEmissionKgM2: publication.gesEmissionKgM2,
+    bathrooms: publication.bathrooms,
+    constructionYear: publication.constructionYear,
+    heating: publication.heating,
+    orientation: publication.orientation,
+    propertyCondition: publication.propertyCondition,
+    parkingSpaces: publication.parkingSpaces,
+    highlights: publication.highlights,
+    displayEnrichedAt: publication.displayEnrichedAt,
+    addressEnrichedAt: publication.addressEnrichedAt,
+    firstSeenAt: publication.scrapedAt,
+    publications: [publication],
+    url: publication.url,
+    source: publication.source,
+    scrapedAt: publication.scrapedAt,
+    createdAt: publication.scrapedAt,
+    updatedAt: publication.scrapedAt,
+  };
+}
+
 function diffPatch(
   property: PropertyRow,
   patch: PropertyEnrichmentPatch
@@ -134,24 +178,19 @@ export async function enrichProperty(
   purpose: EnrichmentPurpose = "display"
 ): Promise<EnrichmentResult> {
   const publications =
-    property.publications.length > 0
-      ? property.publications
-      : [
-          {
-            id: 0,
-            externalId: "",
-            source: property.source,
-            url: property.url,
-            isActive: true,
-            scrapedAt: property.scrapedAt,
-          } satisfies PublicationRow,
-        ];
+    property.publications.length > 0 ? property.publications : [];
+  if (publications.length === 0) {
+    return { patch: {}, patches: [], updatedFields: [], warnings: [] };
+  }
 
   const ordered = SOURCE_PRIORITY.flatMap((source) =>
     publications.filter((publication) => publication.source === source)
   );
 
-  const patches: PropertyEnrichmentPatch[] = [];
+  const patches: {
+    publicationId: number;
+    patch: PropertyEnrichmentPatch;
+  }[] = [];
   const warnings: string[] = [];
   let resolvedImageUrl: string | null = null;
 
@@ -161,7 +200,8 @@ export async function enrichProperty(
         purpose,
         skipImage: resolvedImageUrl !== null,
       });
-      patches.push(patch);
+      const publicationPatch = diffPatch(toPropertyLike(publication), patch);
+      patches.push({ publicationId: publication.id, patch: publicationPatch });
       if (resolvedImageUrl === null && patch.imageUrl) {
         resolvedImageUrl = patch.imageUrl;
       }
@@ -178,11 +218,14 @@ export async function enrichProperty(
     }
   }
 
-  const merged = mergePatches(property, patches);
+  const merged = mergePatches(
+    property,
+    patches.map((entry) => entry.patch)
+  );
   const patch = diffPatch(property, merged);
   const updatedFields = Object.keys(patch);
 
-  return { patch, updatedFields, warnings };
+  return { patch, patches, updatedFields, warnings };
 }
 
 export async function ensurePropertyEnriched(
@@ -197,30 +240,45 @@ export async function ensurePropertyEnriched(
     return { property, warnings: [] };
   }
 
-  const { patch, updatedFields, warnings } = await enrichProperty(
+  const { patches, updatedFields, warnings } = await enrichProperty(
     property,
     purpose
   );
 
   let resultProperty = property;
-  if (updatedFields.length > 0) {
-    const updated = await repository.applyEnrichment(id, patch);
+  for (const publicationPatch of patches) {
+    if (Object.keys(publicationPatch.patch).length === 0) continue;
+    const updated = await repository.applyPublicationEnrichment(
+      publicationPatch.publicationId,
+      publicationPatch.patch
+    );
     if (updated.ok) {
       resultProperty = updated.value;
-      if (
-        enrichmentTouchesDedupFields(updatedFields) &&
-        resultProperty.postalCode
-      ) {
-        await repository.reconcileDuplicates([resultProperty.postalCode]);
-      }
     } else {
       warnings.push(`Database update failed: ${updated.error}`);
+    }
+    const marked = await repository.markPublicationEnrichmentAttempted(
+      publicationPatch.publicationId,
+      purpose
+    );
+    if (marked.ok) {
+      resultProperty = marked.value;
+    } else {
+      warnings.push(`Failed to mark enrichment attempt: ${marked.error}`);
     }
   }
 
   const marked = await repository.markEnrichmentAttempted(id, purpose);
   if (marked.ok) {
     resultProperty = marked.value;
+    if (
+      updatedFields.length > 0 &&
+      enrichmentTouchesDedupFields(updatedFields)
+    ) {
+      if (resultProperty.postalCode) {
+        await repository.reconcileDuplicates([resultProperty.postalCode]);
+      }
+    }
   } else {
     warnings.push(`Failed to mark enrichment attempt: ${marked.error}`);
   }

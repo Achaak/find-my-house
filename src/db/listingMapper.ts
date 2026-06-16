@@ -4,6 +4,7 @@ import type {
 } from "../generated/prisma/client.js";
 import type { PropertyRow, PublicationRow } from "../types/listing.js";
 import { InvariantError } from "../utils/errors/invariantError.js";
+import { selectProjectionPublications } from "../domain/propertyProjection.js";
 
 type PropertyWithPublications = PrismaProperty & {
   publications: PrismaPublication[];
@@ -15,6 +16,35 @@ function toPublicationRow(row: PrismaPublication): PublicationRow {
     externalId: row.externalId,
     source: row.source,
     url: row.url,
+    title: row.title,
+    price: row.price,
+    surface: row.surface,
+    landSurface: row.landSurface,
+    rooms: row.rooms,
+    bedrooms: row.bedrooms,
+    isNewProperty: row.isNewProperty,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    city: row.city,
+    postalCode: row.postalCode,
+    address: row.address,
+    dpeNumero: row.dpeNumero,
+    description: row.description,
+    imageUrl: row.imageUrl,
+    propertyType: row.propertyType,
+    dpeClass: row.dpeClass,
+    gesClass: row.gesClass,
+    dpeConsumptionKwhM2: row.dpeConsumptionKwhM2,
+    gesEmissionKgM2: row.gesEmissionKgM2,
+    bathrooms: row.bathrooms,
+    constructionYear: row.constructionYear,
+    heating: row.heating,
+    orientation: row.orientation,
+    propertyCondition: row.propertyCondition,
+    parkingSpaces: row.parkingSpaces,
+    highlights: parseHighlights(row.highlights),
+    displayEnrichedAt: row.displayEnrichedAt?.toISOString() ?? null,
+    addressEnrichedAt: row.addressEnrichedAt?.toISOString() ?? null,
     isActive: row.isActive,
     scrapedAt: row.scrapedAt.toISOString(),
   };
@@ -49,7 +79,12 @@ export function toPropertyRow(row: PropertyWithPublications): PropertyRow {
       ? allPublications.filter((publication) => publication.isActive)
       : allPublications;
 
-  const primary = publications[0];
+  const projectionOrder = selectProjectionPublications(row.publications);
+  const primaryPublicationId = projectionOrder[0]?.id ?? publications[0].id;
+  const primary =
+    publications.find(
+      (publication) => publication.id === primaryPublicationId
+    ) ?? publications[0];
 
   return {
     id: row.id,

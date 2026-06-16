@@ -19,6 +19,7 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:reconcile": "tsx src/scripts/reconcile-properties.ts",
+    "db:backfill:publication-centric": "tsx src/scripts/backfill-publication-centric.ts",
     "postinstall": "prisma generate && pnpm --filter @find-my-house/api-types build",
     "lint": "eslint .",
     "lint:all": "turbo run lint",

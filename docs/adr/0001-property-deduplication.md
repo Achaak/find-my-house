@@ -4,7 +4,7 @@ status: accepted
 
 # Property deduplication across portals
 
-Today, a **publication** is attached to a **property** at scrape time via a strict `propertyKey` fingerprint, with a secondary fuzzy match (`propertiesMatchFuzzy`) when keys differ. A manual **reconcile** pass can merge duplicates already in the database. Enrichment runs later and may fill fields (surface, rooms, land, description) that were missing or incomplete at scrape time, but it does not re-run deduplication.
+Today, a **publication** is attached to a **property** at scrape time via a strict `propertyKey` fingerprint, with a secondary fuzzy match (`propertiesMatchFuzzy`) when keys differ. A manual **reconcile** pass can merge duplicates already in the database. Listing attributes and enrichment now live primarily on `ListingPublication`; `Property` remains the aggregate root that stores denormalized canonical fields for search/sort plus reaction metadata.
 
 This design trades simplicity and low false-merge risk against missed merges: two portal ads for the same home can remain separate when structural fields disagree at first insert (e.g. `surface: null` on Logic-Immo vs `110` on Leboncoin), or when the second publication appears in a later scrape and fuzzy match fails. Reconcile fixes this only if an operator runs it manually.
 
@@ -42,7 +42,7 @@ Weights favour high-confidence signals (`postalCode` is a gate, not a weight; `p
 Keep scrape-time linking for exact `propertyKey` matches. Additionally:
 
 1. Run fuzzy reconcile automatically after each successful scrape.
-2. When enrichment updates `surface`, `rooms`, `bedrooms`, or `landSurface`, re-evaluate merge candidates in the same postal code.
+2. When enrichment updates publication structure (`surface`, `rooms`, `bedrooms`, or `landSurface`), refresh the canonical property projection then re-evaluate merge candidates in the same postal code.
 3. Log near-misses (score just below threshold) and hard vetoes with field breakdown for prod diagnosis.
 
 Reuse `mergePropertiesIntoCanonical` for the actual merge; only the _match predicate_ changes.
@@ -60,4 +60,5 @@ Cron reconcile without rule changes does not fix enrichment timing or null-field
 - `propertiesMatchFuzzy` becomes a thin wrapper over `scorePropertyMatch >= threshold`, or is replaced outright.
 - Duplicate properties should collapse without manual `/reconcile` in normal operation; the admin endpoint remains for on-demand runs.
 - `firstSeenAt` / canonical property selection stays “oldest property wins”.
+- The API contract remains property-shaped, but values are composed from publications through deterministic projection rules.
 - Tests must cover: score boundaries, cross-scrape merge, post-enrichment merge, hard vetoes (`isNewProperty` conflict), and regression cases that must not merge (same postal code, different homes).

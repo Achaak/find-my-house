@@ -1,5 +1,4 @@
 import {
-  Prisma,
   type ListingPublication as PrismaPublication,
   type PrismaClient,
   type Property as PrismaProperty,
@@ -20,10 +19,17 @@ import {
 } from "./propertyMatchLookup.js";
 import {
   type PublicationCreateData,
+  toPrismaPublicationData,
   toPublicationCreateData,
 } from "./publicationData.js";
-import { highlightsSetsEqual } from "../utils/listing/amenities.js";
+import { toPrismaProjectionData } from "./propertyWriteData.js";
 import { computePropertyKey } from "../utils/propertyKey.js";
+import { ProjectionUpdater } from "./projectionUpdater.js";
+import {
+  hasPropertyScalarChanges,
+  toPropertyScalarData,
+  type PropertyScalarData,
+} from "./propertyFieldManifest.js";
 
 const IN_QUERY_BATCH_SIZE = 900;
 
@@ -68,7 +74,9 @@ function mergeIntoPendingCreate(
     }
   }
 
-  if (hasPropertyChanges(toPropertyComparableData(pending.listing), listing)) {
+  if (
+    hasPropertyScalarChanges(toPropertyScalarData(pending.listing), listing)
+  ) {
     const previousPrimary = pending.listing;
     const previousScrapedAt = pending.scrapedAt;
 
@@ -128,112 +136,19 @@ type PendingPropertyCreate = {
   extraPublications: { listing: Listing; scrapedAt: Date }[];
 };
 
-type PropertyScalarData = {
-  title: string;
-  price: number;
-  surface: number | null;
-  landSurface: number | null;
-  rooms: number | null;
-  bedrooms: number | null;
-  isNewProperty: boolean | null;
-  latitude: number | null;
-  longitude: number | null;
-  city: string;
-  postalCode: string | null;
-  description: string | null;
-  imageUrl: string | null;
-  propertyType: string | null;
-  dpeClass: string | null;
-  gesClass: string | null;
-  dpeConsumptionKwhM2: number | null;
-  gesEmissionKgM2: number | null;
-  bathrooms: number | null;
-  constructionYear: number | null;
-  heating: string | null;
-  orientation: string | null;
-  propertyCondition: string | null;
-  parkingSpaces: number | null;
-  highlights: string[] | null;
-};
-
-function toPrismaHighlights(
-  highlights: string[] | null | undefined
-): Prisma.NullableJsonNullValueInput | Prisma.InputJsonValue | undefined {
-  if (highlights === undefined) return undefined;
-  if (highlights === null) return Prisma.DbNull;
-  return highlights;
-}
-
-function toPropertyData(listing: Listing): PropertyScalarData {
-  return {
-    title: listing.title,
-    price: listing.price,
-    surface: listing.surface,
-    landSurface: listing.landSurface,
-    rooms: listing.rooms,
-    bedrooms: listing.bedrooms,
-    isNewProperty: listing.isNewProperty,
-    latitude: listing.latitude,
-    longitude: listing.longitude,
-    city: listing.city,
-    postalCode: listing.postalCode,
-    description: listing.description,
-    imageUrl: listing.imageUrl,
-    propertyType: listing.propertyType,
-    dpeClass: listing.dpeClass,
-    gesClass: listing.gesClass,
-    dpeConsumptionKwhM2: listing.dpeConsumptionKwhM2,
-    gesEmissionKgM2: listing.gesEmissionKgM2,
-    bathrooms: listing.bathrooms,
-    constructionYear: listing.constructionYear,
-    heating: listing.heating,
-    orientation: listing.orientation,
-    propertyCondition: listing.propertyCondition,
-    parkingSpaces: listing.parkingSpaces,
-    highlights: listing.highlights,
-  };
-}
-
 function toPrismaPropertyData(data: PropertyScalarData) {
-  const { highlights, ...rest } = data;
-  return {
-    ...rest,
-    highlights: toPrismaHighlights(highlights),
-  };
+  return toPrismaPropertyProjectionDataFromListing(data);
 }
 
-function toPropertyComparableData(
-  source: Listing | Pick<PrismaProperty, keyof PropertyScalarData>
+function toPublicationComparableData(
+  source: Listing | Pick<PrismaPublication, keyof PropertyScalarData>
 ): PropertyScalarData {
   if ("externalId" in source) {
-    return toPropertyData(source);
+    return toPropertyScalarData(source);
   }
 
   return {
-    title: source.title,
-    price: source.price,
-    surface: source.surface,
-    landSurface: source.landSurface,
-    rooms: source.rooms,
-    bedrooms: source.bedrooms,
-    isNewProperty: source.isNewProperty,
-    latitude: source.latitude,
-    longitude: source.longitude,
-    city: source.city,
-    postalCode: source.postalCode,
-    description: source.description,
-    imageUrl: source.imageUrl,
-    propertyType: source.propertyType,
-    dpeClass: source.dpeClass,
-    gesClass: source.gesClass,
-    dpeConsumptionKwhM2: source.dpeConsumptionKwhM2,
-    gesEmissionKgM2: source.gesEmissionKgM2,
-    bathrooms: source.bathrooms,
-    constructionYear: source.constructionYear,
-    heating: source.heating,
-    orientation: source.orientation,
-    propertyCondition: source.propertyCondition,
-    parkingSpaces: source.parkingSpaces,
+    ...source,
     highlights: parseHighlights(source.highlights),
   };
 }
@@ -246,44 +161,25 @@ function isPriceDrop(
   return previousPrice !== newPrice && newPrice < firstPrice;
 }
 
-function hasPropertyChanges(
-  existing: PropertyScalarData,
-  listing: Listing
-): boolean {
-  return (
-    existing.price !== listing.price ||
-    existing.title !== listing.title ||
-    existing.surface !== listing.surface ||
-    existing.landSurface !== listing.landSurface ||
-    existing.rooms !== listing.rooms ||
-    existing.bedrooms !== listing.bedrooms ||
-    existing.isNewProperty !== listing.isNewProperty ||
-    existing.latitude !== listing.latitude ||
-    existing.longitude !== listing.longitude ||
-    existing.city !== listing.city ||
-    existing.postalCode !== listing.postalCode ||
-    existing.description !== listing.description ||
-    existing.imageUrl !== listing.imageUrl ||
-    existing.propertyType !== listing.propertyType ||
-    existing.dpeClass !== listing.dpeClass ||
-    existing.gesClass !== listing.gesClass ||
-    existing.dpeConsumptionKwhM2 !== listing.dpeConsumptionKwhM2 ||
-    existing.gesEmissionKgM2 !== listing.gesEmissionKgM2 ||
-    existing.bathrooms !== listing.bathrooms ||
-    existing.constructionYear !== listing.constructionYear ||
-    existing.heating !== listing.heating ||
-    existing.orientation !== listing.orientation ||
-    existing.propertyCondition !== listing.propertyCondition ||
-    existing.parkingSpaces !== listing.parkingSpaces ||
-    !highlightsSetsEqual(existing.highlights, listing.highlights)
-  );
+function toPrismaPropertyProjectionDataFromListing(
+  data: PropertyScalarData
+): ReturnType<typeof toPrismaProjectionData> {
+  return toPrismaProjectionData({
+    ...data,
+    address: null,
+    dpeNumero: null,
+  });
 }
 
 export class PublicationUpsertRepository {
+  private readonly projectionUpdater: ProjectionUpdater;
+
   constructor(
     private readonly prisma: PrismaClient,
     private readonly refreshByIds: (ids: number[]) => Promise<PropertyRow[]>
-  ) {}
+  ) {
+    this.projectionUpdater = new ProjectionUpdater(prisma);
+  }
 
   private async findExistingPublications(
     listings: Listing[]
@@ -494,7 +390,7 @@ export class PublicationUpsertRepository {
       skipped: 0,
       deactivated: 0,
     };
-    const propertyUpdatesById = new Map<number, Listing>();
+    const publicationUpdatesById = new Map<number, Listing>();
     const publicationScrapedAtById = new Map<number, Date>();
     const publicationReactivateById = new Set<number>();
     const pendingPropertyCreates = new Map<string, PendingPropertyCreate>();
@@ -519,8 +415,8 @@ export class PublicationUpsertRepository {
 
       if (existingPublication) {
         const property = existingPublication.property;
-        const propertyChanged = hasPropertyChanges(
-          toPropertyComparableData(property),
+        const propertyChanged = hasPropertyScalarChanges(
+          toPublicationComparableData(existingPublication),
           listing
         );
         const needsReactivation = !existingPublication.isActive;
@@ -537,7 +433,7 @@ export class PublicationUpsertRepository {
         }
 
         if (propertyChanged) {
-          propertyUpdatesById.set(property.id, listing);
+          publicationUpdatesById.set(existingPublication.id, listing);
           if (isPriceDrop(property.price, listing.price, property.firstPrice)) {
             priceDropPropertyIds.add(property.id);
           }
@@ -574,21 +470,13 @@ export class PublicationUpsertRepository {
         });
 
         if (
-          hasPropertyChanges(
-            toPropertyComparableData(existingProperty),
-            listing
+          isPriceDrop(
+            existingProperty.price,
+            listing.price,
+            existingProperty.firstPrice
           )
         ) {
-          propertyUpdatesById.set(existingProperty.id, listing);
-          if (
-            isPriceDrop(
-              existingProperty.price,
-              listing.price,
-              existingProperty.firstPrice
-            )
-          ) {
-            priceDropPropertyIds.add(existingProperty.id);
-          }
+          priceDropPropertyIds.add(existingProperty.id);
         }
 
         result.linked++;
@@ -611,18 +499,13 @@ export class PublicationUpsertRepository {
         });
 
         if (
-          hasPropertyChanges(toPropertyComparableData(matchedProperty), listing)
+          isPriceDrop(
+            matchedProperty.price,
+            listing.price,
+            matchedProperty.firstPrice
+          )
         ) {
-          propertyUpdatesById.set(matchedProperty.id, listing);
-          if (
-            isPriceDrop(
-              matchedProperty.price,
-              listing.price,
-              matchedProperty.firstPrice
-            )
-          ) {
-            priceDropPropertyIds.add(matchedProperty.id);
-          }
+          priceDropPropertyIds.add(matchedProperty.id);
         }
 
         result.linked++;
@@ -638,20 +521,25 @@ export class PublicationUpsertRepository {
     }
 
     await this.prisma.$transaction(async (tx) => {
-      for (const [propertyId, listing] of propertyUpdatesById) {
-        const existing = await tx.property.findUnique({
-          where: { id: propertyId },
-          select: { firstPrice: true },
-        });
-        if (!existing) continue;
+      const projectionRefreshIds = new Set<number>();
 
-        await tx.property.update({
-          where: { id: propertyId },
+      for (const [publicationId, listing] of publicationUpdatesById) {
+        await tx.listingPublication.update({
+          where: { id: publicationId },
           data: {
-            ...toPrismaPropertyData(toPropertyData(listing)),
-            hasPriceDrop: listing.price < existing.firstPrice,
+            ...toPrismaPublicationData(
+              toPublicationCreateData(listing, new Date(listing.scrapedAt))
+            ),
+            isActive: true,
           },
         });
+        const publication = await tx.listingPublication.findUnique({
+          where: { id: publicationId },
+          select: { propertyId: true },
+        });
+        if (publication) {
+          projectionRefreshIds.add(publication.propertyId);
+        }
       }
 
       for (const publicationId of publicationReactivateById) {
@@ -659,6 +547,13 @@ export class PublicationUpsertRepository {
           where: { id: publicationId },
           data: { isActive: true },
         });
+        const publication = await tx.listingPublication.findUnique({
+          where: { id: publicationId },
+          select: { propertyId: true },
+        });
+        if (publication) {
+          projectionRefreshIds.add(publication.propertyId);
+        }
       }
 
       for (const [publicationId, nextScrapedAt] of publicationScrapedAtById) {
@@ -666,29 +561,41 @@ export class PublicationUpsertRepository {
           where: { id: publicationId },
           data: { scrapedAt: nextScrapedAt },
         });
+        const publication = await tx.listingPublication.findUnique({
+          where: { id: publicationId },
+          select: { propertyId: true },
+        });
+        if (publication) {
+          projectionRefreshIds.add(publication.propertyId);
+        }
       }
 
       for (const [propertyKey, pending] of pendingPropertyCreates) {
         const row = await tx.property.create({
           data: {
             propertyKey,
-            ...toPrismaPropertyData(toPropertyData(pending.listing)),
+            ...toPrismaPropertyData(toPropertyScalarData(pending.listing)),
             firstPrice: pending.listing.price,
             hasPriceDrop: false,
             firstSeenAt: pending.scrapedAt,
             publications: {
-              create: pendingPublicationsToCreate(pending),
+              create: pendingPublicationsToCreate(pending).map(
+                toPrismaPublicationData
+              ),
             },
           },
         });
         insertedPropertyIds.push(row.id);
+        projectionRefreshIds.add(row.id);
       }
 
       for (const link of linkedPublications) {
         await tx.listingPublication.create({
           data: {
             propertyId: link.propertyId,
-            ...toPublicationCreateData(link.listing, link.scrapedAt),
+            ...toPrismaPublicationData(
+              toPublicationCreateData(link.listing, link.scrapedAt)
+            ),
           },
         });
         await tx.property.update({
@@ -698,7 +605,10 @@ export class PublicationUpsertRepository {
             addressEnrichedAt: null,
           },
         });
+        projectionRefreshIds.add(link.propertyId);
       }
+
+      await this.projectionUpdater.refreshMany(projectionRefreshIds, tx);
     });
 
     const idsToRefresh = [
@@ -741,7 +651,7 @@ export class PublicationUpsertRepository {
 
     const publications = await this.prisma.listingPublication.findMany({
       where: { source, isActive: true },
-      select: { id: true, externalId: true, url: true },
+      select: { id: true, externalId: true, url: true, propertyId: true },
     });
 
     const idsToDeactivate = publications
@@ -763,6 +673,20 @@ export class PublicationUpsertRepository {
         data: { isActive: false },
       });
       deactivated += result.count;
+    }
+
+    const idsToDeactivateSet = new Set(idsToDeactivate);
+    const affectedPropertyIds = [
+      ...new Set(
+        publications
+          .filter((publication) => idsToDeactivateSet.has(publication.id))
+          .map((publication) => publication.propertyId)
+      ),
+    ];
+    if (affectedPropertyIds.length > 0) {
+      await this.prisma.$transaction(async (tx) => {
+        await this.projectionUpdater.refreshMany(affectedPropertyIds, tx);
+      });
     }
 
     return deactivated;

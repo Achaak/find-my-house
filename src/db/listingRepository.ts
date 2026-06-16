@@ -1,4 +1,4 @@
-import { Prisma, type PrismaClient } from "../generated/prisma/client.js";
+import type { PrismaClient } from "../generated/prisma/client.js";
 import type { ListingSearchFilters, PropertyRow } from "../types/listing.js";
 import type {
   ActivityStats,
@@ -21,35 +21,25 @@ import {
   reconcilePropertiesInPostalCodes,
 } from "../services/reconcileService.js";
 import type { ReconcileResult } from "@find-my-house/api-types";
+import { ProjectionUpdater } from "./projectionUpdater.js";
+import { toPrismaPropertyPatch } from "./propertyWriteData.js";
 
 const log = createLogger("db");
 
-function toPrismaHighlights(
-  highlights: string[] | null | undefined
-): Prisma.NullableJsonNullValueInput | Prisma.InputJsonValue | undefined {
-  if (highlights === undefined) return undefined;
-  if (highlights === null) return Prisma.DbNull;
-  return highlights;
-}
-
 function toPrismaEnrichmentPatch(patch: PropertyEnrichmentPatch) {
-  const { highlights, ...rest } = patch;
-  return {
-    ...rest,
-    ...(highlights !== undefined
-      ? { highlights: toPrismaHighlights(highlights) }
-      : {}),
-  };
+  return toPrismaPropertyPatch(patch);
 }
 
 export class ListingRepository {
   private readonly searchRepo: PropertySearchRepository;
   private readonly statsRepo: PropertyStatsRepository;
   private readonly upsertRepo: PublicationUpsertRepository;
+  private readonly projectionUpdater: ProjectionUpdater;
 
   constructor(private readonly prisma: PrismaClient) {
     this.searchRepo = new PropertySearchRepository(prisma);
     this.statsRepo = new PropertyStatsRepository(prisma);
+    this.projectionUpdater = new ProjectionUpdater(prisma);
     this.upsertRepo = new PublicationUpsertRepository(prisma, (ids) =>
       this.searchRepo.findByIds(ids)
     );
@@ -166,6 +156,26 @@ export class ListingRepository {
     }
   }
 
+  async applyPublicationEnrichment(
+    publicationId: number,
+    patch: PropertyEnrichmentPatch
+  ): Promise<RepositoryWriteResult<PropertyRow>> {
+    try {
+      const publication = await this.prisma.listingPublication.update({
+        where: { id: publicationId },
+        data: toPrismaEnrichmentPatch(patch),
+        select: { propertyId: true },
+      });
+      return await this.refreshPropertyProjection(publication.propertyId);
+    } catch (error) {
+      const message = repositoryWriteError(error);
+      log.warn(
+        `Enrichissement publication ${String(publicationId)}: ${message}`
+      );
+      return { ok: false, error: message };
+    }
+  }
+
   async markEnrichmentAttempted(
     id: number,
     purpose: "display" | "address"
@@ -186,6 +196,31 @@ export class ListingRepository {
       const message = repositoryWriteError(error);
       log.warn(
         `Enrichment attempt marker ${String(id)} (${purpose}): ${message}`
+      );
+      return { ok: false, error: message };
+    }
+  }
+
+  async markPublicationEnrichmentAttempted(
+    publicationId: number,
+    purpose: "display" | "address"
+  ): Promise<RepositoryWriteResult<PropertyRow>> {
+    const data =
+      purpose === "display"
+        ? { displayEnrichedAt: new Date() }
+        : { addressEnrichedAt: new Date() };
+
+    try {
+      const publication = await this.prisma.listingPublication.update({
+        where: { id: publicationId },
+        data,
+        select: { propertyId: true },
+      });
+      return await this.refreshPropertyProjection(publication.propertyId);
+    } catch (error) {
+      const message = repositoryWriteError(error);
+      log.warn(
+        `Publication enrichment marker ${String(publicationId)} (${purpose}): ${message}`
       );
       return { ok: false, error: message };
     }
@@ -212,6 +247,18 @@ export class ListingRepository {
 
   async findByIds(ids: number[]): Promise<PropertyRow[]> {
     return this.searchRepo.findByIds(ids);
+  }
+
+  async refreshPropertyProjection(
+    propertyId: number
+  ): Promise<RepositoryWriteResult<PropertyRow>> {
+    const result = await this.projectionUpdater.refresh(propertyId);
+    if (!result.ok) {
+      log.warn(
+        `Property projection refresh ${String(propertyId)}: ${result.error}`
+      );
+    }
+    return result;
   }
 
   async reconcileDuplicates(postalCodes?: string[]): Promise<ReconcileResult> {
