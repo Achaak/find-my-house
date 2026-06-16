@@ -24,6 +24,8 @@ describe("canonicalPropertyType", () => {
   it("maps common French house labels to house", () => {
     expect(canonicalPropertyType("Pavillon")).toBe("house");
     expect(canonicalPropertyType("Propriété")).toBe("house");
+    expect(canonicalPropertyType("Maison à vendre")).toBe("house");
+    expect(canonicalPropertyType("Maison individuelle")).toBe("house");
   });
 });
 

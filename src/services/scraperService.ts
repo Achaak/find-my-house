@@ -78,6 +78,13 @@ export class ScraperService {
     const { insertedListings, linkedListings, ...scrapeResult } =
       await this.repository.upsertMany(validListings);
 
+    const reconcileResult = await this.repository.reconcileDuplicates();
+    if (reconcileResult.merged > 0 || reconcileResult.fuzzyMerged > 0) {
+      log.info(
+        `Reconcile: ${String(reconcileResult.merged)} strict, ${String(reconcileResult.fuzzyMerged)} fuzzy`
+      );
+    }
+
     let deactivated = 0;
     for (const [source, rawForSource] of scrapedBySource) {
       const validForSource = validBySource.get(source) ?? [];

@@ -395,6 +395,82 @@ describe("ListingRepository.upsertMany", () => {
     expect(result.insertedListings).toHaveLength(1);
     expect(result.insertedListings[0]?.publications).toHaveLength(2);
   });
+
+  it("links the Bréauté cross-portal case when Logic-Immo lacks surface", async () => {
+    const shared = {
+      postalCode: "76110",
+      price: 239_000,
+      rooms: 4,
+      bedrooms: 3,
+      landSurface: 2142,
+      city: "Bréauté",
+    };
+
+    const result = await repository.upsertMany([
+      makeListing({
+        ...shared,
+        surface: 110,
+        propertyType: "Maison",
+        isNewProperty: false,
+        externalId: "lbc-breaute",
+        source: "leboncoin",
+        url: "https://www.leboncoin.fr/ad/ventes_immobilieres/lbc-breaute",
+        title: "Maison 4 pièces 110 m²",
+      }),
+      makeListing({
+        ...shared,
+        surface: null,
+        landSurface: 2140,
+        propertyType: "Maison à vendre",
+        isNewProperty: null,
+        externalId: "limmo-breaute",
+        source: "logicimmo",
+        url: "https://www.logic-immo.com/annonces/achat/maison/limmo-breaute.htm",
+        title: "Maison à vendre",
+      }),
+    ]);
+
+    expect(result.inserted).toBe(1);
+    expect(result.linked).toBe(1);
+    expect(result.insertedListings[0]?.publications).toHaveLength(2);
+  });
+
+  it("links the Yvetot cross-portal case across property keys", async () => {
+    const shared = {
+      postalCode: "76190",
+      price: 240_000,
+      surface: 170,
+      rooms: 5,
+      bedrooms: 3,
+      landSurface: 48_000,
+      city: "Yvetot",
+    };
+
+    const result = await repository.upsertMany([
+      makeListing({
+        ...shared,
+        propertyType: "Propriété",
+        isNewProperty: false,
+        externalId: "lbc-yvetot",
+        source: "leboncoin",
+        url: "https://www.leboncoin.fr/ad/ventes_immobilieres/lbc-yvetot",
+        title: "Propriété 5 pièces 170 m²",
+      }),
+      makeListing({
+        ...shared,
+        propertyType: "Maison",
+        isNewProperty: null,
+        externalId: "limmo-yvetot",
+        source: "logicimmo",
+        url: "https://www.logic-immo.com/annonces/achat/maison/limmo-yvetot.htm",
+        title: "Maison à vendre",
+      }),
+    ]);
+
+    expect(result.inserted).toBe(1);
+    expect(result.linked).toBe(1);
+    expect(result.insertedListings[0]?.publications).toHaveLength(2);
+  });
 });
 
 describe("ListingRepository.deactivateMissingPublications", () => {

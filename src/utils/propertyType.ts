@@ -23,5 +23,16 @@ export function canonicalPropertyType(propertyType: string | null): string {
   if (!propertyType) return "";
 
   const normalized = propertyType.trim().toLowerCase().replace(/\s+/g, " ");
-  return PROPERTY_TYPE_ALIASES[normalized] ?? normalized;
+  const aliased = PROPERTY_TYPE_ALIASES[normalized];
+  if (aliased) return aliased;
+
+  if (normalized.startsWith("maison")) return "house";
+  if (
+    normalized.startsWith("propriété") ||
+    normalized.startsWith("propriete")
+  ) {
+    return "house";
+  }
+
+  return normalized;
 }

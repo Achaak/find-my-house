@@ -16,6 +16,11 @@ import { PropertySearchRepository } from "./propertySearchRepository.js";
 import { PropertyStatsRepository } from "./propertyStatsRepository.js";
 import { PublicationUpsertRepository } from "./publicationUpsertRepository.js";
 import { createLogger } from "../utils/logger.js";
+import {
+  reconcileProperties,
+  reconcilePropertiesInPostalCodes,
+} from "../services/reconcileService.js";
+import type { ReconcileResult } from "@find-my-house/api-types";
 
 const log = createLogger("db");
 
@@ -207,5 +212,22 @@ export class ListingRepository {
 
   async findByIds(ids: number[]): Promise<PropertyRow[]> {
     return this.searchRepo.findByIds(ids);
+  }
+
+  async reconcileDuplicates(postalCodes?: string[]): Promise<ReconcileResult> {
+    if (postalCodes && postalCodes.length > 0) {
+      const partial = await reconcilePropertiesInPostalCodes(
+        this.prisma,
+        postalCodes
+      );
+      const unique = await this.prisma.property.count();
+      return {
+        ...partial,
+        unique,
+        agencyFieldsUpdated: 0,
+      };
+    }
+
+    return reconcileProperties(this.prisma);
   }
 }

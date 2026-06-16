@@ -7,7 +7,10 @@ import {
   toPropertyMatchInput,
 } from "../domain/propertyDedup.js";
 import { parseBieniciAgency } from "../utils/bienici/agency.js";
+import { createLogger } from "../utils/logger.js";
 import { computePropertyKey } from "../utils/propertyKey.js";
+
+const log = createLogger("reconcile");
 
 type PropertyRecord = Awaited<
   ReturnType<PrismaClient["property"]["findMany"]>
@@ -108,16 +111,16 @@ async function refreshPropertyKeys(prisma: PrismaClient): Promise<void> {
   }
 }
 
-export async function reconcileProperties(
-  prisma: PrismaClient
-): Promise<ReconcileResult> {
+async function reconcilePropertyRecords(
+  prisma: PrismaClient,
+  properties: PropertyRecord[],
+  options: {
+    postalCodes?: string[];
+    refreshKeys?: boolean;
+  } = {}
+): Promise<Pick<ReconcileResult, "merged" | "fuzzyMerged">> {
   let merged = 0;
   let fuzzyMerged = 0;
-
-  let properties = await prisma.property.findMany({
-    include: { publications: true },
-    orderBy: { firstSeenAt: "asc" },
-  });
 
   const strictGroups = groupByStrictPropertyKey(
     properties,
@@ -129,22 +132,87 @@ export async function reconcileProperties(
     merged += await mergePropertyGroup(prisma, group);
   }
 
-  properties = await prisma.property.findMany({
+  const remaining = await prisma.property.findMany({
+    ...(options.postalCodes
+      ? { where: { postalCode: { in: options.postalCodes } } }
+      : {}),
     include: { publications: true },
     orderBy: { firstSeenAt: "asc" },
   });
 
   for (const group of groupByFuzzyPropertyMatch(
-    properties,
+    remaining,
     propertyToMatchInput
   )) {
     fuzzyMerged += await mergePropertyGroup(prisma, group);
   }
 
+  if (options.refreshKeys !== false) {
+    await refreshPropertyKeys(prisma);
+  }
+
+  return { merged, fuzzyMerged };
+}
+
+export async function reconcilePropertiesInPostalCodes(
+  prisma: PrismaClient,
+  postalCodes: string[]
+): Promise<Pick<ReconcileResult, "merged" | "fuzzyMerged">> {
+  const uniquePostalCodes = [
+    ...new Set(postalCodes.filter((postalCode) => postalCode.length > 0)),
+  ];
+  if (uniquePostalCodes.length === 0) {
+    return { merged: 0, fuzzyMerged: 0 };
+  }
+
+  const properties = await prisma.property.findMany({
+    where: { postalCode: { in: uniquePostalCodes } },
+    include: { publications: true },
+    orderBy: { firstSeenAt: "asc" },
+  });
+
+  if (properties.length <= 1) {
+    return { merged: 0, fuzzyMerged: 0 };
+  }
+
+  const result = await reconcilePropertyRecords(prisma, properties, {
+    postalCodes: uniquePostalCodes,
+    refreshKeys: true,
+  });
+
+  if (result.merged > 0 || result.fuzzyMerged > 0) {
+    log.info(
+      `Postal reconcile ${uniquePostalCodes.join(", ")}: ${String(result.merged)} strict, ${String(result.fuzzyMerged)} fuzzy`
+    );
+  }
+
+  return result;
+}
+
+export async function reconcileProperties(
+  prisma: PrismaClient
+): Promise<ReconcileResult> {
+  const properties = await prisma.property.findMany({
+    include: { publications: true },
+    orderBy: { firstSeenAt: "asc" },
+  });
+
+  const { merged, fuzzyMerged } = await reconcilePropertyRecords(
+    prisma,
+    properties,
+    { refreshKeys: false }
+  );
+
   const agencyFieldsUpdated = await backfillBieniciAgencyFields(prisma);
   await refreshPropertyKeys(prisma);
 
   const unique = await prisma.property.count();
+
+  if (merged > 0 || fuzzyMerged > 0) {
+    log.info(
+      `Reconcile complete: ${String(merged)} strict, ${String(fuzzyMerged)} fuzzy, ${String(unique)} unique`
+    );
+  }
 
   return { merged, fuzzyMerged, unique, agencyFieldsUpdated };
 }

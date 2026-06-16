@@ -33,6 +33,17 @@ export {
   propertyNeedsEnrichment,
 } from "../domain/enrichmentCriteria.js";
 
+const DEDUP_STRUCTURE_FIELDS = new Set([
+  "surface",
+  "landSurface",
+  "rooms",
+  "bedrooms",
+]);
+
+function enrichmentTouchesDedupFields(updatedFields: string[]): boolean {
+  return updatedFields.some((field) => DEDUP_STRUCTURE_FIELDS.has(field));
+}
+
 const ENRICHMENT_FIELDS = [
   "description",
   "surface",
@@ -196,6 +207,12 @@ export async function ensurePropertyEnriched(
     const updated = await repository.applyEnrichment(id, patch);
     if (updated.ok) {
       resultProperty = updated.value;
+      if (
+        enrichmentTouchesDedupFields(updatedFields) &&
+        resultProperty.postalCode
+      ) {
+        await repository.reconcileDuplicates([resultProperty.postalCode]);
+      }
     } else {
       warnings.push(`Database update failed: ${updated.error}`);
     }
