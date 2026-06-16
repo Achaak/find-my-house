@@ -15,10 +15,7 @@ import {
   startBrowseSession,
   type BrowseSession,
 } from "../services/browseSession.js";
-import {
-  formatListingEmbedWithCompatibility,
-  resetListingCompatibilityCache,
-} from "./listingEmbed.js";
+import { formatListingEmbedWithCompatibility } from "./listingEmbed.js";
 
 const LIKE_PREFIX = "browse:like:";
 const DISLIKE_PREFIX = "browse:dislike:";
@@ -182,7 +179,6 @@ export async function handleBrowseButton(
   }
 
   await reactionRepository.add(parsed.propertyId, parsed.action);
-  resetListingCompatibilityCache();
 
   const next = await buildBrowseReply(
     repository,

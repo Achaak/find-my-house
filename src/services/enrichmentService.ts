@@ -4,38 +4,17 @@ import {
   type EnrichmentPurpose,
 } from "../domain/enrichmentCriteria.js";
 import type { PropertyEnrichmentPatch } from "../types/enrichment.js";
-import type {
-  ListingSource,
-  PropertyRow,
-  PublicationRow,
-} from "../types/listing.js";
+import type { PropertyRow, PublicationRow } from "../types/listing.js";
 import { formatSourceLabel } from "../discord/format.js";
-import {
-  fetchBienIciAdById,
-  fetchBienIciListingHtml,
-  mapBienIciAdToEnrichmentPatch,
-  type BienIciAd,
-} from "../utils/bienici/index.js";
-import { parseOgImageFromHtml } from "../utils/html/ogImage.js";
 import {
   mergeHighlights,
   highlightsSetsEqual,
 } from "../utils/listing/amenities.js";
-import { normalizeEnergyClass } from "../utils/energy/energyClass.js";
 import {
-  fetchLeboncoinAdById,
-  fetchLeboncoinDetailById,
-  mapLeboncoinAdToEnrichmentPatch,
-} from "../utils/leboncoin/index.js";
-import {
-  fetchLogicImmoListingDetails,
-  LogicImmoAccessBlockedError,
-} from "../utils/logicimmo/index.js";
-import {
-  fetchSeLogerListingDetails,
-  SeLogerAccessBlockedError,
-} from "../utils/seloger/index.js";
-import type { ClassifiedListingDetails } from "../utils/classifiedPortal/types.js";
+  enrichFromPublication,
+  isEnrichmentAccessBlockedError,
+  SOURCE_PRIORITY,
+} from "./enrichmentAdapters.js";
 
 export type { PropertyEnrichmentPatch } from "../types/enrichment.js";
 
@@ -53,165 +32,6 @@ export {
   getEnrichmentStatus,
   propertyNeedsEnrichment,
 } from "../domain/enrichmentCriteria.js";
-
-type EnrichPublicationOptions = {
-  purpose?: EnrichmentPurpose;
-  skipImage?: boolean;
-};
-
-const ADDRESS_ENRICHMENT_FIELDS = [
-  "surface",
-  "latitude",
-  "longitude",
-  "dpeClass",
-  "gesClass",
-  "dpeConsumptionKwhM2",
-  "gesEmissionKgM2",
-] as const satisfies readonly (keyof PropertyEnrichmentPatch)[];
-
-function pickPatchForPurpose(
-  patch: PropertyEnrichmentPatch,
-  purpose: EnrichmentPurpose
-): PropertyEnrichmentPatch {
-  if (purpose === "display") return patch;
-
-  return pickDefined(
-    Object.fromEntries(
-      ADDRESS_ENRICHMENT_FIELDS.map((field) => [field, patch[field]])
-    ) as PropertyEnrichmentPatch
-  );
-}
-
-const SOURCE_PRIORITY: ListingSource[] = [
-  "seloger",
-  "logicimmo",
-  "leboncoin",
-  "bienici",
-];
-
-function pickDefined<T extends Record<string, unknown>>(patch: T): Partial<T> {
-  return Object.fromEntries(
-    Object.entries(patch).filter(([, value]) => value !== undefined)
-  ) as Partial<T>;
-}
-
-function mapClassifiedDetailsToEnrichmentPatch(
-  details: ClassifiedListingDetails,
-  options: EnrichPublicationOptions = {}
-): PropertyEnrichmentPatch {
-  return pickDefined({
-    description: details.description,
-    surface: details.surface,
-    landSurface: details.landSurface,
-    rooms: details.rooms,
-    bedrooms: details.bedrooms,
-    latitude: details.latitude,
-    longitude: details.longitude,
-    dpeClass: normalizeEnergyClass(details.dpeClass),
-    gesClass: normalizeEnergyClass(details.gesClass),
-    dpeConsumptionKwhM2: details.dpeConsumptionKwhM2,
-    gesEmissionKgM2: details.gesEmissionKgM2,
-    bathrooms: details.bathrooms,
-    constructionYear: details.constructionYear,
-    heating: details.heating,
-    orientation: details.orientation,
-    propertyCondition: details.propertyCondition,
-    parkingSpaces: details.parkingSpaces,
-    highlights: details.highlights,
-    ...(options.skipImage ? {} : { imageUrl: details.imageUrl }),
-  });
-}
-
-async function enrichFromSeLoger(
-  publication: PublicationRow,
-  options: EnrichPublicationOptions = {}
-): Promise<PropertyEnrichmentPatch> {
-  const details = await fetchSeLogerListingDetails(publication.url);
-  return mapClassifiedDetailsToEnrichmentPatch(details, options);
-}
-
-async function enrichFromBienIci(
-  publication: PublicationRow,
-  options: EnrichPublicationOptions = {}
-): Promise<PropertyEnrichmentPatch> {
-  const ad = await fetchBienIciAdById<BienIciAd>(publication.externalId);
-  if (!ad) return {};
-
-  const patch = mapBienIciAdToEnrichmentPatch(ad);
-  if (options.purpose === "address" || options.skipImage) {
-    return pickPatchForPurpose(
-      pickDefined(patch),
-      options.purpose ?? "display"
-    );
-  }
-
-  const html = await fetchBienIciListingHtml(publication.url);
-
-  return pickPatchForPurpose(
-    pickDefined({
-      ...patch,
-      imageUrl: parseOgImageFromHtml(html),
-    }),
-    options.purpose ?? "display"
-  );
-}
-
-async function enrichFromLeboncoin(
-  publication: PublicationRow,
-  options: EnrichPublicationOptions = {}
-): Promise<PropertyEnrichmentPatch> {
-  if (options.skipImage) {
-    const ad = await fetchLeboncoinAdById(publication.externalId);
-    if (!ad) return {};
-    return pickDefined(mapLeboncoinAdToEnrichmentPatch(ad));
-  }
-
-  const detail = await fetchLeboncoinDetailById(publication.externalId);
-  if (!detail) return {};
-
-  return pickDefined({
-    ...mapLeboncoinAdToEnrichmentPatch(detail.ad),
-    imageUrl: detail.imageUrl,
-  });
-}
-
-async function enrichFromLogicImmo(
-  publication: PublicationRow,
-  options: EnrichPublicationOptions = {}
-): Promise<PropertyEnrichmentPatch> {
-  const details = await fetchLogicImmoListingDetails(publication.url);
-  return mapClassifiedDetailsToEnrichmentPatch(details, options);
-}
-
-async function enrichFromPublication(
-  publication: PublicationRow,
-  options: EnrichPublicationOptions = {}
-): Promise<PropertyEnrichmentPatch> {
-  const purpose = options.purpose ?? "display";
-  const publicationOptions: EnrichPublicationOptions = {
-    ...options,
-    purpose,
-    skipImage: options.skipImage ?? purpose === "address",
-  };
-
-  let patch: PropertyEnrichmentPatch;
-  switch (publication.source) {
-    case "seloger":
-      patch = await enrichFromSeLoger(publication, publicationOptions);
-      break;
-    case "logicimmo":
-      patch = await enrichFromLogicImmo(publication, publicationOptions);
-      break;
-    case "bienici":
-      patch = await enrichFromBienIci(publication, publicationOptions);
-      break;
-    case "leboncoin":
-      patch = await enrichFromLeboncoin(publication, publicationOptions);
-      break;
-  }
-
-  return pickPatchForPurpose(patch, purpose);
-}
 
 const ENRICHMENT_FIELDS = [
   "description",
@@ -313,7 +133,7 @@ export async function enrichProperty(
             url: property.url,
             isActive: true,
             scrapedAt: property.scrapedAt,
-          },
+          } satisfies PublicationRow,
         ];
 
   const ordered = SOURCE_PRIORITY.flatMap((source) =>
@@ -335,10 +155,7 @@ export async function enrichProperty(
         resolvedImageUrl = patch.imageUrl;
       }
     } catch (error) {
-      if (
-        error instanceof SeLogerAccessBlockedError ||
-        error instanceof LogicImmoAccessBlockedError
-      ) {
+      if (isEnrichmentAccessBlockedError(publication.source, error)) {
         warnings.push(
           `${formatSourceLabel(publication.source)} is blocking enrichment (${publication.url}). Try again later.`
         );
@@ -377,9 +194,19 @@ export async function ensurePropertyEnriched(
   let resultProperty = property;
   if (updatedFields.length > 0) {
     const updated = await repository.applyEnrichment(id, patch);
-    resultProperty = updated ?? property;
+    if (updated.ok) {
+      resultProperty = updated.value;
+    } else {
+      warnings.push(`Database update failed: ${updated.error}`);
+    }
   }
 
   const marked = await repository.markEnrichmentAttempted(id, purpose);
-  return { property: marked ?? resultProperty, warnings };
+  if (marked.ok) {
+    resultProperty = marked.value;
+  } else {
+    warnings.push(`Failed to mark enrichment attempt: ${marked.error}`);
+  }
+
+  return { property: resultProperty, warnings };
 }

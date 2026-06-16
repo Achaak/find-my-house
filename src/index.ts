@@ -10,6 +10,7 @@ import { createScrapers } from "./scrapers/index.js";
 import { formatScrapeErrors } from "./services/formatScrapeSummary.js";
 import { notifyScrapeResults } from "./services/notifyScrapeResults.js";
 import { scheduleEnrichmentBackfill } from "./services/enrichmentBackfill.js";
+import { resetListingCompatibilityCache } from "./services/compatibilityService.js";
 import { ScraperService } from "./services/scraperService.js";
 import { EnrichmentQueue } from "./services/enrichmentQueue.js";
 import { formatVersionLine } from "./version.js";
@@ -32,7 +33,10 @@ async function main(): Promise<void> {
   const scrapers = createScrapers();
   const prisma = getPrisma(scrapeConfig.database.url);
   const repository = new ListingRepository(prisma);
-  const reactionRepository = new ReactionRepository(prisma);
+  const reactionRepository = new ReactionRepository(
+    prisma,
+    resetListingCompatibilityCache
+  );
   const scraperService = new ScraperService(scrapers, repository);
   const enrichmentQueue = new EnrichmentQueue(repository);
 

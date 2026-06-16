@@ -1,6 +1,4 @@
-import { scrapeConfig } from "../config/scrape.js";
-import type { Listing } from "../types/listing.js";
-import { resolveGeoFilter } from "../utils/geo/geoFilter.js";
+import { createClassifiedPortalScraper } from "./classifiedPortalScraper.js";
 import {
   applyLogicImmoSearchMetadata,
   buildLogicImmoLocation,
@@ -9,38 +7,23 @@ import {
   mapLogicImmoCardToListing,
   resolveLogicImmoPlace,
 } from "../utils/logicimmo/index.js";
-import type { Scraper, ScraperOptions } from "./types.js";
 
-export class LogicImmoScraper implements Scraper {
-  readonly name = "logicimmo";
-  readonly supportsTravelTime = true;
-
-  async scrape(options: ScraperOptions): Promise<Listing[]> {
-    const place = await resolveLogicImmoPlace(options.city, options.postalCode);
-    if (!place) {
-      throw new Error(`Unable to geolocate "${options.city}" on Logic-Immo`);
-    }
-
-    const geoFilter = resolveGeoFilter(options, true);
-    const location = await buildLogicImmoLocation(
-      options.city,
-      place,
-      geoFilter,
-      options.postalCode
-    );
-    const searchUrl = buildLogicImmoSearchUrl(options, location);
-    const cards = (
-      await fetchLogicImmoClassifieds(
-        searchUrl,
-        scrapeConfig.scrape.maxPages,
-        place,
-        options.postalCode
-      )
-    ).map(applyLogicImmoSearchMetadata);
-    const scrapedAt = new Date().toISOString();
-
-    return cards.map((card) =>
-      mapLogicImmoCardToListing(card, scrapedAt, place.name)
-    );
+export const logicImmoScraper = createClassifiedPortalScraper(
+  "logicimmo",
+  "Logic-Immo",
+  {
+    resolvePlace: resolveLogicImmoPlace,
+    buildLocation: buildLogicImmoLocation,
+    buildSearchUrl: buildLogicImmoSearchUrl,
+    fetchClassifieds: fetchLogicImmoClassifieds,
+    applySearchMetadata: applyLogicImmoSearchMetadata,
+    mapCardToListing: mapLogicImmoCardToListing,
   }
+);
+
+/** @deprecated Use logicImmoScraper — kept for tests importing the class. */
+export class LogicImmoScraper {
+  readonly name = logicImmoScraper.name;
+  readonly supportsTravelTime = logicImmoScraper.supportsTravelTime;
+  scrape = logicImmoScraper.scrape.bind(logicImmoScraper);
 }

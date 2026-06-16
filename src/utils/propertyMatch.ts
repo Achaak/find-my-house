@@ -79,5 +79,14 @@ export function propertiesMatchFuzzy(
 export function toPropertyMatchInput(
   value: PropertyMatchInput
 ): PropertyMatchInput {
-  return value;
+  return {
+    postalCode: value.postalCode,
+    price: value.price,
+    surface: value.surface,
+    rooms: value.rooms,
+    bedrooms: value.bedrooms,
+    landSurface: value.landSurface,
+    propertyType: value.propertyType,
+    isNewProperty: value.isNewProperty,
+  };
 }

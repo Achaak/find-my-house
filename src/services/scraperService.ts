@@ -11,40 +11,25 @@ import { createLogger } from "../utils/logger.js";
 import { validateListings } from "../utils/listingValidation.js";
 import { resolveScraperGeoFilterLabel } from "../utils/geo/geoFilter.js";
 import { ensureBrowserReady } from "../utils/browser/client.js";
+import { defaultScrapeMutex, type ScrapeMutex } from "./scrapeMutex.js";
 
 export type ScrapeOptions = ScrapeFilters;
 
 const log = createLogger("scraper");
 
-/** Serializes scrape runs so cron, Discord, and scripts do not overlap. */
-let scrapeRunLock: Promise<void> = Promise.resolve();
-let scrapeInProgress = false;
-
 export function isScrapeInProgress(): boolean {
-  return scrapeInProgress;
+  return defaultScrapeMutex.isInProgress;
 }
 
 export class ScraperService {
   constructor(
     private readonly scrapers: Scraper[],
-    private readonly repository: ListingRepository
+    private readonly repository: ListingRepository,
+    private readonly mutex: ScrapeMutex = defaultScrapeMutex
   ) {}
 
   async run(options: ScrapeOptions): Promise<ExtendedScrapeResult> {
-    let releaseLock!: () => void;
-    const waitForLock = scrapeRunLock;
-    scrapeRunLock = new Promise<void>((resolve) => {
-      releaseLock = resolve;
-    });
-    await waitForLock;
-
-    scrapeInProgress = true;
-    try {
-      return await this.runUnlocked(options);
-    } finally {
-      scrapeInProgress = false;
-      releaseLock();
-    }
+    return this.mutex.run(() => this.runUnlocked(options));
   }
 
   private async runUnlocked(

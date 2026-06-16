@@ -48,6 +48,33 @@ function searchOrderBy(
   }
 }
 
+type GeoRankedCandidate = {
+  id: number;
+  distance: number;
+  price: number;
+  firstSeenAt: Date;
+  surface: number | null;
+};
+
+function compareGeoRankedCandidates(
+  a: GeoRankedCandidate,
+  b: GeoRankedCandidate,
+  sort: ListingSearchFilters["sort"]
+): number {
+  const tieBreak = a.distance - b.distance;
+
+  switch (sort) {
+    case "price_desc":
+      return b.price - a.price || tieBreak;
+    case "date_desc":
+      return b.firstSeenAt.getTime() - a.firstSeenAt.getTime() || tieBreak;
+    case "surface_desc":
+      return (b.surface ?? 0) - (a.surface ?? 0) || tieBreak;
+    default:
+      return a.price - b.price || tieBreak;
+  }
+}
+
 function buildPropertySearchWhere(
   filters: ListingSearchFilters,
   useGeoFilter: boolean,
@@ -192,7 +219,14 @@ export class PropertySearchRepository {
 
     const leanRows = await this.prisma.property.findMany({
       where,
-      select: { id: true, latitude: true, longitude: true },
+      select: {
+        id: true,
+        latitude: true,
+        longitude: true,
+        price: true,
+        firstSeenAt: true,
+        surface: true,
+      },
     });
 
     if (!radiusFilter) {
@@ -219,8 +253,11 @@ export class PropertySearchRepository {
           row.latitude,
           row.longitude
         ),
+        price: row.price,
+        firstSeenAt: row.firstSeenAt,
+        surface: row.surface,
       }))
-      .sort((a, b) => a.distance - b.distance);
+      .sort((a, b) => compareGeoRankedCandidates(a, b, filters.sort));
 
     const total = rankedIds.length;
     const pageIds = rankedIds

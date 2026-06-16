@@ -11,10 +11,15 @@ import {
 import { scheduleEnrichmentBackfill } from "./enrichmentBackfill.js";
 import type { EnrichmentQueue } from "./enrichmentQueue.js";
 
-vi.mock("./compatibilityService.js", () => ({
-  resolveListingCompatibilityPreferences: vi.fn(),
-  getListingCompatibilityScore: vi.fn(),
-}));
+vi.mock("./compatibilityService.js", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("./compatibilityService.js")>();
+  return {
+    ...actual,
+    resolveListingCompatibilityPreferences: vi.fn(),
+    getListingCompatibilityScore: vi.fn(),
+  };
+});
 
 const mockResolvePreferences = vi.mocked(
   resolveListingCompatibilityPreferences

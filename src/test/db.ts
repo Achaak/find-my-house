@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { ListingRepository } from "../db/listingRepository.js";
 import { ReactionRepository } from "../db/reactionRepository.js";
 import { PrismaClient } from "../generated/prisma/client.js";
+import { resetListingCompatibilityCache } from "../services/compatibilityService.js";
 
 const projectRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -34,7 +35,10 @@ export function createTestRepository(): {
   const adapter = new PrismaBetterSqlite3({ url: databaseUrl });
   const prisma = new PrismaClient({ adapter });
   const repository = new ListingRepository(prisma);
-  const reactionRepository = new ReactionRepository(prisma);
+  const reactionRepository = new ReactionRepository(
+    prisma,
+    resetListingCompatibilityCache
+  );
 
   return {
     repository,

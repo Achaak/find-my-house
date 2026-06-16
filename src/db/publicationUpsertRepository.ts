@@ -1,0 +1,770 @@
+import {
+  Prisma,
+  type ListingPublication as PrismaPublication,
+  type PrismaClient,
+  type Property as PrismaProperty,
+} from "../generated/prisma/client.js";
+import type {
+  ExtendedScrapeResult,
+  Listing,
+  ListingSource,
+  PropertyRow,
+  ScrapeResult,
+  UpsertStatus,
+} from "../types/listing.js";
+import { parseHighlights, toPropertyRow } from "./listingMapper.js";
+import { propertyInclude } from "./propertyInclude.js";
+import {
+  findPendingPropertyMatch,
+  findPropertyMatchForListing,
+} from "./propertyMatchLookup.js";
+import {
+  type PublicationCreateData,
+  toPublicationCreateData,
+} from "./publicationData.js";
+import { highlightsSetsEqual } from "../utils/listing/amenities.js";
+import { computePropertyKey } from "../utils/propertyKey.js";
+
+const IN_QUERY_BATCH_SIZE = 900;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const batches: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    batches.push(items.slice(i, i + size));
+  }
+  return batches;
+}
+
+function dedupeListings(listings: Listing[]): Listing[] {
+  return [
+    ...new Map(
+      listings.map((listing) => [
+        `${listing.source}:${listing.externalId}`,
+        listing,
+      ])
+    ).values(),
+  ];
+}
+
+function publicationKey(
+  listing: Pick<Listing, "source" | "externalId">
+): string {
+  return `${listing.source}:${listing.externalId}`;
+}
+
+function mergeIntoPendingCreate(
+  pending: PendingPropertyCreate,
+  listing: Listing,
+  scrapedAt: Date
+): void {
+  const listingKey = publicationKey(listing);
+
+  if (listingKey !== publicationKey(pending.listing)) {
+    const alreadyLinked = pending.extraPublications.some(
+      (entry) => publicationKey(entry.listing) === listingKey
+    );
+    if (!alreadyLinked) {
+      pending.extraPublications.push({ listing, scrapedAt });
+    }
+  }
+
+  if (hasPropertyChanges(toPropertyComparableData(pending.listing), listing)) {
+    const previousPrimary = pending.listing;
+    const previousScrapedAt = pending.scrapedAt;
+
+    if (publicationKey(previousPrimary) !== listingKey) {
+      const previousPrimaryLinked = pending.extraPublications.some(
+        (entry) =>
+          publicationKey(entry.listing) === publicationKey(previousPrimary)
+      );
+      if (!previousPrimaryLinked) {
+        pending.extraPublications.push({
+          listing: previousPrimary,
+          scrapedAt: previousScrapedAt,
+        });
+      }
+    }
+
+    pending.listing = listing;
+    pending.scrapedAt = scrapedAt;
+    pending.extraPublications = pending.extraPublications.filter(
+      (entry) => publicationKey(entry.listing) !== listingKey
+    );
+  }
+}
+
+function pendingPublicationsToCreate(
+  pending: PendingPropertyCreate
+): PublicationCreateData[] {
+  const seen = new Set<string>();
+  const publications: PublicationCreateData[] = [];
+
+  const add = (listing: Listing, scrapedAt: Date) => {
+    const key = publicationKey(listing);
+    if (seen.has(key)) return;
+    seen.add(key);
+    publications.push(toPublicationCreateData(listing, scrapedAt));
+  };
+
+  add(pending.listing, pending.scrapedAt);
+  for (const entry of pending.extraPublications) {
+    add(entry.listing, entry.scrapedAt);
+  }
+
+  return publications;
+}
+
+type PropertyWithPublications = PrismaProperty & {
+  publications: PrismaPublication[];
+};
+
+type PublicationWithProperty = PrismaPublication & {
+  property: PropertyWithPublications;
+};
+
+type PendingPropertyCreate = {
+  listing: Listing;
+  scrapedAt: Date;
+  extraPublications: { listing: Listing; scrapedAt: Date }[];
+};
+
+type PropertyScalarData = {
+  title: string;
+  price: number;
+  surface: number | null;
+  landSurface: number | null;
+  rooms: number | null;
+  bedrooms: number | null;
+  isNewProperty: boolean | null;
+  latitude: number | null;
+  longitude: number | null;
+  city: string;
+  postalCode: string | null;
+  description: string | null;
+  imageUrl: string | null;
+  propertyType: string | null;
+  dpeClass: string | null;
+  gesClass: string | null;
+  dpeConsumptionKwhM2: number | null;
+  gesEmissionKgM2: number | null;
+  bathrooms: number | null;
+  constructionYear: number | null;
+  heating: string | null;
+  orientation: string | null;
+  propertyCondition: string | null;
+  parkingSpaces: number | null;
+  highlights: string[] | null;
+};
+
+function toPrismaHighlights(
+  highlights: string[] | null | undefined
+): Prisma.NullableJsonNullValueInput | Prisma.InputJsonValue | undefined {
+  if (highlights === undefined) return undefined;
+  if (highlights === null) return Prisma.DbNull;
+  return highlights;
+}
+
+function toPropertyData(listing: Listing): PropertyScalarData {
+  return {
+    title: listing.title,
+    price: listing.price,
+    surface: listing.surface,
+    landSurface: listing.landSurface,
+    rooms: listing.rooms,
+    bedrooms: listing.bedrooms,
+    isNewProperty: listing.isNewProperty,
+    latitude: listing.latitude,
+    longitude: listing.longitude,
+    city: listing.city,
+    postalCode: listing.postalCode,
+    description: listing.description,
+    imageUrl: listing.imageUrl,
+    propertyType: listing.propertyType,
+    dpeClass: listing.dpeClass,
+    gesClass: listing.gesClass,
+    dpeConsumptionKwhM2: listing.dpeConsumptionKwhM2,
+    gesEmissionKgM2: listing.gesEmissionKgM2,
+    bathrooms: listing.bathrooms,
+    constructionYear: listing.constructionYear,
+    heating: listing.heating,
+    orientation: listing.orientation,
+    propertyCondition: listing.propertyCondition,
+    parkingSpaces: listing.parkingSpaces,
+    highlights: listing.highlights,
+  };
+}
+
+function toPrismaPropertyData(data: PropertyScalarData) {
+  const { highlights, ...rest } = data;
+  return {
+    ...rest,
+    highlights: toPrismaHighlights(highlights),
+  };
+}
+
+function toPropertyComparableData(
+  source: Listing | Pick<PrismaProperty, keyof PropertyScalarData>
+): PropertyScalarData {
+  if ("externalId" in source) {
+    return toPropertyData(source);
+  }
+
+  return {
+    title: source.title,
+    price: source.price,
+    surface: source.surface,
+    landSurface: source.landSurface,
+    rooms: source.rooms,
+    bedrooms: source.bedrooms,
+    isNewProperty: source.isNewProperty,
+    latitude: source.latitude,
+    longitude: source.longitude,
+    city: source.city,
+    postalCode: source.postalCode,
+    description: source.description,
+    imageUrl: source.imageUrl,
+    propertyType: source.propertyType,
+    dpeClass: source.dpeClass,
+    gesClass: source.gesClass,
+    dpeConsumptionKwhM2: source.dpeConsumptionKwhM2,
+    gesEmissionKgM2: source.gesEmissionKgM2,
+    bathrooms: source.bathrooms,
+    constructionYear: source.constructionYear,
+    heating: source.heating,
+    orientation: source.orientation,
+    propertyCondition: source.propertyCondition,
+    parkingSpaces: source.parkingSpaces,
+    highlights: parseHighlights(source.highlights),
+  };
+}
+
+function isPriceDrop(
+  previousPrice: number,
+  newPrice: number,
+  firstPrice: number
+): boolean {
+  return previousPrice !== newPrice && newPrice < firstPrice;
+}
+
+function hasPropertyChanges(
+  existing: PropertyScalarData,
+  listing: Listing
+): boolean {
+  return (
+    existing.price !== listing.price ||
+    existing.title !== listing.title ||
+    existing.surface !== listing.surface ||
+    existing.landSurface !== listing.landSurface ||
+    existing.rooms !== listing.rooms ||
+    existing.bedrooms !== listing.bedrooms ||
+    existing.isNewProperty !== listing.isNewProperty ||
+    existing.latitude !== listing.latitude ||
+    existing.longitude !== listing.longitude ||
+    existing.city !== listing.city ||
+    existing.postalCode !== listing.postalCode ||
+    existing.description !== listing.description ||
+    existing.imageUrl !== listing.imageUrl ||
+    existing.propertyType !== listing.propertyType ||
+    existing.dpeClass !== listing.dpeClass ||
+    existing.gesClass !== listing.gesClass ||
+    existing.dpeConsumptionKwhM2 !== listing.dpeConsumptionKwhM2 ||
+    existing.gesEmissionKgM2 !== listing.gesEmissionKgM2 ||
+    existing.bathrooms !== listing.bathrooms ||
+    existing.constructionYear !== listing.constructionYear ||
+    existing.heating !== listing.heating ||
+    existing.orientation !== listing.orientation ||
+    existing.propertyCondition !== listing.propertyCondition ||
+    existing.parkingSpaces !== listing.parkingSpaces ||
+    !highlightsSetsEqual(existing.highlights, listing.highlights)
+  );
+}
+
+export class PublicationUpsertRepository {
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly refreshByIds: (ids: number[]) => Promise<PropertyRow[]>
+  ) {}
+
+  private async findExistingPublications(
+    listings: Listing[]
+  ): Promise<PublicationWithProperty[]> {
+    const include = { property: { include: propertyInclude } };
+    const byId = new Map<number, PublicationWithProperty>();
+
+    const urls = [...new Set(listings.map((listing) => listing.url))];
+    for (const urlBatch of chunk(urls, IN_QUERY_BATCH_SIZE)) {
+      const rows = await this.prisma.listingPublication.findMany({
+        where: { url: { in: urlBatch } },
+        include,
+      });
+      for (const row of rows) {
+        byId.set(row.id, row);
+      }
+    }
+
+    const externalIdsBySource = new Map<ListingSource, Set<string>>();
+    for (const listing of listings) {
+      const ids = externalIdsBySource.get(listing.source) ?? new Set<string>();
+      ids.add(listing.externalId);
+      externalIdsBySource.set(listing.source, ids);
+    }
+
+    for (const [source, externalIds] of externalIdsBySource) {
+      for (const idBatch of chunk([...externalIds], IN_QUERY_BATCH_SIZE)) {
+        const rows = await this.prisma.listingPublication.findMany({
+          where: { source, externalId: { in: idBatch } },
+          include,
+        });
+        for (const row of rows) {
+          byId.set(row.id, row);
+        }
+      }
+    }
+
+    return [...byId.values()];
+  }
+
+  private async findPropertiesByPostalCodes(
+    postalCodes: string[]
+  ): Promise<PropertyWithPublications[]> {
+    const byId = new Map<number, PropertyWithPublications>();
+
+    for (const postalBatch of chunk(postalCodes, IN_QUERY_BATCH_SIZE)) {
+      const rows = await this.prisma.property.findMany({
+        where: { postalCode: { in: postalBatch } },
+        include: propertyInclude,
+      });
+      for (const row of rows) {
+        byId.set(row.id, row);
+      }
+    }
+
+    return [...byId.values()];
+  }
+
+  private async findPropertiesByKeys(
+    propertyKeys: string[]
+  ): Promise<PropertyWithPublications[]> {
+    const byKey = new Map<string, PropertyWithPublications>();
+
+    for (const keyBatch of chunk(propertyKeys, IN_QUERY_BATCH_SIZE)) {
+      const rows = await this.prisma.property.findMany({
+        where: { propertyKey: { in: keyBatch } },
+        include: propertyInclude,
+      });
+      for (const row of rows) {
+        byKey.set(row.propertyKey, row);
+      }
+    }
+
+    return [...byKey.values()];
+  }
+
+  private async findPropertyForListing(
+    listing: Listing
+  ): Promise<PropertyRow | undefined> {
+    const publication = await this.prisma.listingPublication.findFirst({
+      where: {
+        OR: [
+          { source: listing.source, externalId: listing.externalId },
+          { url: listing.url },
+        ],
+      },
+      include: { property: { include: propertyInclude } },
+    });
+
+    return publication ? toPropertyRow(publication.property) : undefined;
+  }
+
+  async upsert(listing: Listing): Promise<{
+    status: UpsertStatus;
+    row?: PropertyRow;
+    priceDropped?: boolean;
+  }> {
+    const result = await this.upsertMany([listing]);
+
+    if (result.skipped === 1) {
+      return {
+        status: "skipped",
+        row: await this.findPropertyForListing(listing),
+      };
+    }
+
+    if (result.inserted === 1) {
+      return {
+        status: "inserted",
+        row: result.insertedListings[0],
+      };
+    }
+
+    const row = await this.findPropertyForListing(listing);
+    const priceDropped =
+      row !== undefined &&
+      result.priceDropListings.some((property) => property.id === row.id);
+
+    if (result.linked === 1) {
+      return { status: "linked", row, priceDropped: priceDropped || undefined };
+    }
+
+    if (result.updated === 1) {
+      return {
+        status: "updated",
+        row,
+        priceDropped: priceDropped || undefined,
+      };
+    }
+
+    return { status: "skipped" };
+  }
+
+  async upsertMany(listings: Listing[]): Promise<ExtendedScrapeResult> {
+    listings = dedupeListings(listings);
+
+    if (listings.length === 0) {
+      return {
+        found: 0,
+        inserted: 0,
+        linked: 0,
+        updated: 0,
+        skipped: 0,
+        deactivated: 0,
+        insertedListings: [],
+        linkedListings: [],
+        priceDropListings: [],
+        errors: [],
+      };
+    }
+
+    const enriched = listings.map((listing) => ({
+      listing,
+      propertyKey: computePropertyKey(listing),
+      scrapedAt: new Date(listing.scrapedAt),
+    }));
+    const propertyKeys = [
+      ...new Set(enriched.map((entry) => entry.propertyKey)),
+    ];
+
+    const postalCodes = [
+      ...new Set(
+        listings
+          .map((listing) => listing.postalCode)
+          .filter((postalCode): postalCode is string => postalCode !== null)
+      ),
+    ];
+
+    const [existingPublications, existingProperties, propertiesByPostal] =
+      await Promise.all([
+        this.findExistingPublications(listings),
+        this.findPropertiesByKeys(propertyKeys),
+        this.findPropertiesByPostalCodes(postalCodes),
+      ]);
+
+    const publicationBySourceExternalId = new Map<
+      string,
+      PublicationWithProperty
+    >();
+    const publicationByUrl = new Map<string, PublicationWithProperty>();
+    for (const publication of existingPublications) {
+      publicationBySourceExternalId.set(
+        `${publication.source}:${publication.externalId}`,
+        publication
+      );
+      publicationByUrl.set(publication.url, publication);
+    }
+
+    const propertyByKey = new Map(
+      existingProperties.map((property) => [property.propertyKey, property])
+    );
+    const propertiesByPostalCode = new Map<
+      string,
+      PropertyWithPublications[]
+    >();
+    for (const property of propertiesByPostal) {
+      if (!property.postalCode) continue;
+      const bucket = propertiesByPostalCode.get(property.postalCode) ?? [];
+      bucket.push(property);
+      propertiesByPostalCode.set(property.postalCode, bucket);
+    }
+
+    const result: ScrapeResult = {
+      found: listings.length,
+      inserted: 0,
+      linked: 0,
+      updated: 0,
+      skipped: 0,
+      deactivated: 0,
+    };
+    const propertyUpdatesById = new Map<number, Listing>();
+    const publicationScrapedAtById = new Map<number, Date>();
+    const publicationReactivateById = new Set<number>();
+    const pendingPropertyCreates = new Map<string, PendingPropertyCreate>();
+    const linkedPublications: {
+      propertyId: number;
+      listing: Listing;
+      scrapedAt: Date;
+    }[] = [];
+    const linkedPropertyIds = new Set<number>();
+    const insertedPropertyIds: number[] = [];
+    const priceDropPropertyIds = new Set<number>();
+
+    const findExistingPublication = (
+      listing: Listing
+    ): PublicationWithProperty | undefined =>
+      publicationBySourceExternalId.get(
+        `${listing.source}:${listing.externalId}`
+      ) ?? publicationByUrl.get(listing.url);
+
+    for (const { listing, propertyKey, scrapedAt } of enriched) {
+      const existingPublication = findExistingPublication(listing);
+
+      if (existingPublication) {
+        const property = existingPublication.property;
+        const propertyChanged = hasPropertyChanges(
+          toPropertyComparableData(property),
+          listing
+        );
+        const needsReactivation = !existingPublication.isActive;
+
+        if (needsReactivation) {
+          publicationReactivateById.add(existingPublication.id);
+        }
+
+        publicationScrapedAtById.set(existingPublication.id, scrapedAt);
+
+        if (!propertyChanged && !needsReactivation) {
+          result.skipped++;
+          continue;
+        }
+
+        if (propertyChanged) {
+          propertyUpdatesById.set(property.id, listing);
+          if (isPriceDrop(property.price, listing.price, property.firstPrice)) {
+            priceDropPropertyIds.add(property.id);
+          }
+        }
+
+        result.updated++;
+        continue;
+      }
+
+      const pendingCreate = pendingPropertyCreates.get(propertyKey);
+      if (pendingCreate) {
+        mergeIntoPendingCreate(pendingCreate, listing, scrapedAt);
+        result.linked++;
+        continue;
+      }
+
+      const fuzzyPendingCreate = findPendingPropertyMatch(
+        listing,
+        pendingPropertyCreates.values()
+      );
+      if (fuzzyPendingCreate) {
+        mergeIntoPendingCreate(fuzzyPendingCreate, listing, scrapedAt);
+        result.linked++;
+        continue;
+      }
+
+      const existingProperty = propertyByKey.get(propertyKey);
+      if (existingProperty) {
+        linkedPropertyIds.add(existingProperty.id);
+        linkedPublications.push({
+          propertyId: existingProperty.id,
+          listing,
+          scrapedAt,
+        });
+
+        if (
+          hasPropertyChanges(
+            toPropertyComparableData(existingProperty),
+            listing
+          )
+        ) {
+          propertyUpdatesById.set(existingProperty.id, listing);
+          if (
+            isPriceDrop(
+              existingProperty.price,
+              listing.price,
+              existingProperty.firstPrice
+            )
+          ) {
+            priceDropPropertyIds.add(existingProperty.id);
+          }
+        }
+
+        result.linked++;
+        continue;
+      }
+
+      const postalCandidates = listing.postalCode
+        ? (propertiesByPostalCode.get(listing.postalCode) ?? [])
+        : [];
+      const matchedProperty = findPropertyMatchForListing(
+        listing,
+        postalCandidates
+      );
+      if (matchedProperty) {
+        linkedPropertyIds.add(matchedProperty.id);
+        linkedPublications.push({
+          propertyId: matchedProperty.id,
+          listing,
+          scrapedAt,
+        });
+
+        if (
+          hasPropertyChanges(toPropertyComparableData(matchedProperty), listing)
+        ) {
+          propertyUpdatesById.set(matchedProperty.id, listing);
+          if (
+            isPriceDrop(
+              matchedProperty.price,
+              listing.price,
+              matchedProperty.firstPrice
+            )
+          ) {
+            priceDropPropertyIds.add(matchedProperty.id);
+          }
+        }
+
+        result.linked++;
+        continue;
+      }
+
+      pendingPropertyCreates.set(propertyKey, {
+        listing,
+        scrapedAt,
+        extraPublications: [],
+      });
+      result.inserted++;
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const [propertyId, listing] of propertyUpdatesById) {
+        const existing = await tx.property.findUnique({
+          where: { id: propertyId },
+          select: { firstPrice: true },
+        });
+        if (!existing) continue;
+
+        await tx.property.update({
+          where: { id: propertyId },
+          data: {
+            ...toPrismaPropertyData(toPropertyData(listing)),
+            hasPriceDrop: listing.price < existing.firstPrice,
+          },
+        });
+      }
+
+      for (const publicationId of publicationReactivateById) {
+        await tx.listingPublication.update({
+          where: { id: publicationId },
+          data: { isActive: true },
+        });
+      }
+
+      for (const [publicationId, nextScrapedAt] of publicationScrapedAtById) {
+        await tx.listingPublication.update({
+          where: { id: publicationId },
+          data: { scrapedAt: nextScrapedAt },
+        });
+      }
+
+      for (const [propertyKey, pending] of pendingPropertyCreates) {
+        const row = await tx.property.create({
+          data: {
+            propertyKey,
+            ...toPrismaPropertyData(toPropertyData(pending.listing)),
+            firstPrice: pending.listing.price,
+            hasPriceDrop: false,
+            firstSeenAt: pending.scrapedAt,
+            publications: {
+              create: pendingPublicationsToCreate(pending),
+            },
+          },
+        });
+        insertedPropertyIds.push(row.id);
+      }
+
+      for (const link of linkedPublications) {
+        await tx.listingPublication.create({
+          data: {
+            propertyId: link.propertyId,
+            ...toPublicationCreateData(link.listing, link.scrapedAt),
+          },
+        });
+        await tx.property.update({
+          where: { id: link.propertyId },
+          data: {
+            displayEnrichedAt: null,
+            addressEnrichedAt: null,
+          },
+        });
+      }
+    });
+
+    const idsToRefresh = [
+      ...new Set([
+        ...insertedPropertyIds,
+        ...priceDropPropertyIds,
+        ...linkedPropertyIds,
+      ]),
+    ];
+    const refreshedById = new Map(
+      (idsToRefresh.length > 0
+        ? await this.refreshByIds(idsToRefresh)
+        : []
+      ).map((row) => [row.id, row])
+    );
+
+    return {
+      ...result,
+      insertedListings: insertedPropertyIds
+        .map((id) => refreshedById.get(id))
+        .filter((row): row is PropertyRow => row !== undefined),
+      linkedListings: [...linkedPropertyIds]
+        .map((id) => refreshedById.get(id))
+        .filter((row): row is PropertyRow => row !== undefined),
+      priceDropListings: [...priceDropPropertyIds]
+        .map((id) => refreshedById.get(id))
+        .filter((row): row is PropertyRow => row !== undefined),
+      errors: [],
+    };
+  }
+
+  async deactivateMissingPublications(
+    source: ListingSource,
+    listings: Pick<Listing, "source" | "externalId" | "url">[]
+  ): Promise<number> {
+    const activeKeys = new Set(
+      listings.map((listing) => publicationKey(listing))
+    );
+    const activeUrls = new Set(listings.map((listing) => listing.url));
+
+    const publications = await this.prisma.listingPublication.findMany({
+      where: { source, isActive: true },
+      select: { id: true, externalId: true, url: true },
+    });
+
+    const idsToDeactivate = publications
+      .filter(
+        (publication) =>
+          !activeKeys.has(`${source}:${publication.externalId}`) &&
+          !activeUrls.has(publication.url)
+      )
+      .map((publication) => publication.id);
+
+    if (idsToDeactivate.length === 0) {
+      return 0;
+    }
+
+    let deactivated = 0;
+    for (const idBatch of chunk(idsToDeactivate, IN_QUERY_BATCH_SIZE)) {
+      const result = await this.prisma.listingPublication.updateMany({
+        where: { id: { in: idBatch } },
+        data: { isActive: false },
+      });
+      deactivated += result.count;
+    }
+
+    return deactivated;
+  }
+}

@@ -15,10 +15,7 @@ import type { ApiContext } from "./types.js";
 import { fetchStatsSection } from "../services/statsService.js";
 import { scrapeConfig } from "../config/scrape.js";
 import { getPrisma } from "../db/prisma.js";
-import {
-  resetListingCompatibilityCache,
-  resolveListingCompatibilityPreferences,
-} from "../services/compatibilityService.js";
+import { resolveListingCompatibilityPreferences } from "../services/compatibilityService.js";
 import { reconcileProperties } from "../services/reconcileService.js";
 import { scheduleEnrichmentBackfill } from "../services/enrichmentBackfill.js";
 import {
@@ -83,6 +80,13 @@ async function serializeBrowseResponse(
 
 export function createApiApp(ctx: ApiContext) {
   const app = new Hono<{ Variables: AuthVariables }>();
+
+  app.onError((error, c) => {
+    log.error("Unhandled API error:", error);
+    const message =
+      error instanceof Error ? error.message : "Internal server error";
+    return c.json({ error: message }, 500);
+  });
 
   app.get("/api/health", (c) => c.json({ status: "ok" }));
 
@@ -248,7 +252,6 @@ export function createApiApp(ctx: ApiContext) {
     }
 
     await ctx.reactionRepository.add(propertyId, action);
-    resetListingCompatibilityCache();
 
     const state = await advanceBrowseSession(
       ctx.repository,
@@ -301,7 +304,6 @@ export function createApiApp(ctx: ApiContext) {
     }
 
     const result = await ctx.reactionRepository.add(propertyId, type);
-    resetListingCompatibilityCache();
     return c.json({ status: result });
   });
 
@@ -317,7 +319,6 @@ export function createApiApp(ctx: ApiContext) {
     }
 
     const removed = await ctx.reactionRepository.remove(propertyId, type);
-    resetListingCompatibilityCache();
     return c.json({ removed });
   });
 
@@ -534,7 +535,15 @@ export function createApiApp(ctx: ApiContext) {
       return c.json({ error: "DPE record not found" }, 404);
     }
 
-    await ctx.repository.updateAddress(id, dpe.address, body.numeroDpe.trim());
+    const updated = await ctx.repository.updateAddress(
+      id,
+      dpe.address,
+      body.numeroDpe.trim()
+    );
+    if (!updated.ok) {
+      return c.json({ error: updated.error }, 500);
+    }
+
     return c.json({ address: dpe.address, dpeNumero: body.numeroDpe.trim() });
   });
 

@@ -1,6 +1,4 @@
-import { scrapeConfig } from "../config/scrape.js";
-import type { Listing } from "../types/listing.js";
-import { resolveGeoFilter } from "../utils/geo/geoFilter.js";
+import { createClassifiedPortalScraper } from "./classifiedPortalScraper.js";
 import {
   applySeLogerSearchMetadata,
   buildSeLogerLocation,
@@ -9,38 +7,23 @@ import {
   mapSeLogerCardToListing,
   resolveSeLogerPlace,
 } from "../utils/seloger/index.js";
-import type { Scraper, ScraperOptions } from "./types.js";
 
-export class SeLogerScraper implements Scraper {
-  readonly name = "seloger";
-  readonly supportsTravelTime = true;
-
-  async scrape(options: ScraperOptions): Promise<Listing[]> {
-    const place = await resolveSeLogerPlace(options.city, options.postalCode);
-    if (!place) {
-      throw new Error(`Unable to geolocate "${options.city}" on SeLoger`);
-    }
-
-    const geoFilter = resolveGeoFilter(options, true);
-    const location = await buildSeLogerLocation(
-      options.city,
-      place,
-      geoFilter,
-      options.postalCode
-    );
-    const searchUrl = buildSeLogerSearchUrl(options, location);
-    const cards = (
-      await fetchSeLogerClassifieds(
-        searchUrl,
-        scrapeConfig.scrape.maxPages,
-        place,
-        options.postalCode
-      )
-    ).map(applySeLogerSearchMetadata);
-    const scrapedAt = new Date().toISOString();
-
-    return cards.map((card) =>
-      mapSeLogerCardToListing(card, scrapedAt, place.name)
-    );
+export const seLogerScraper = createClassifiedPortalScraper(
+  "seloger",
+  "SeLoger",
+  {
+    resolvePlace: resolveSeLogerPlace,
+    buildLocation: buildSeLogerLocation,
+    buildSearchUrl: buildSeLogerSearchUrl,
+    fetchClassifieds: fetchSeLogerClassifieds,
+    applySearchMetadata: applySeLogerSearchMetadata,
+    mapCardToListing: mapSeLogerCardToListing,
   }
+);
+
+/** @deprecated Use seLogerScraper — kept for tests importing the class. */
+export class SeLogerScraper {
+  readonly name = seLogerScraper.name;
+  readonly supportsTravelTime = seLogerScraper.supportsTravelTime;
+  scrape = seLogerScraper.scrape.bind(seLogerScraper);
 }

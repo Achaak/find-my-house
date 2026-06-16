@@ -1,8 +1,12 @@
 import type { PrismaClient } from "../generated/prisma/client.js";
 import type { ReconcileResult } from "@find-my-house/api-types";
 import { mergePropertiesIntoCanonical } from "../db/propertyMerge.js";
+import {
+  groupByFuzzyPropertyMatch,
+  groupByStrictPropertyKey,
+  toPropertyMatchInput,
+} from "../domain/propertyDedup.js";
 import { parseBieniciAgency } from "../utils/bienici/agency.js";
-import { propertiesMatchFuzzy } from "../utils/propertyMatch.js";
 import { computePropertyKey } from "../utils/propertyKey.js";
 
 type PropertyRecord = Awaited<
@@ -13,8 +17,8 @@ type PropertyRecord = Awaited<
   >;
 };
 
-function toMatchInput(property: PropertyRecord) {
-  return {
+function propertyToMatchInput(property: PropertyRecord) {
+  return toPropertyMatchInput({
     postalCode: property.postalCode,
     price: property.price,
     surface: property.surface,
@@ -23,77 +27,7 @@ function toMatchInput(property: PropertyRecord) {
     landSurface: property.landSurface,
     propertyType: property.propertyType,
     isNewProperty: property.isNewProperty,
-  };
-}
-
-function buildStrictGroups(
-  properties: PropertyRecord[]
-): Map<string, PropertyRecord[]> {
-  const groups = new Map<string, PropertyRecord[]>();
-
-  for (const property of properties) {
-    const key = computePropertyKey(toMatchInput(property));
-    const group = groups.get(key) ?? [];
-    group.push(property);
-    groups.set(key, group);
-  }
-
-  return groups;
-}
-
-function findUnionParent(parents: Map<number, number>, id: number): number {
-  const current = parents.get(id);
-  if (current === undefined || current === id) return id;
-
-  const root = findUnionParent(parents, current);
-  parents.set(id, root);
-  return root;
-}
-
-function unionIds(parents: Map<number, number>, a: number, b: number): void {
-  const rootA = findUnionParent(parents, a);
-  const rootB = findUnionParent(parents, b);
-  if (rootA !== rootB) {
-    parents.set(rootB, rootA);
-  }
-}
-
-function buildFuzzyGroups(properties: PropertyRecord[]): PropertyRecord[][] {
-  const byPostal = new Map<string, PropertyRecord[]>();
-
-  for (const property of properties) {
-    if (!property.postalCode) continue;
-    const group = byPostal.get(property.postalCode) ?? [];
-    group.push(property);
-    byPostal.set(property.postalCode, group);
-  }
-
-  const parents = new Map<number, number>(
-    properties.map((property) => [property.id, property.id])
-  );
-
-  for (const group of byPostal.values()) {
-    for (let i = 0; i < group.length; i++) {
-      for (let j = i + 1; j < group.length; j++) {
-        const left = group[i];
-        const right = group[j];
-
-        if (propertiesMatchFuzzy(toMatchInput(left), toMatchInput(right))) {
-          unionIds(parents, left.id, right.id);
-        }
-      }
-    }
-  }
-
-  const grouped = new Map<number, PropertyRecord[]>();
-  for (const property of properties) {
-    const root = findUnionParent(parents, property.id);
-    const bucket = grouped.get(root) ?? [];
-    bucket.push(property);
-    grouped.set(root, bucket);
-  }
-
-  return [...grouped.values()].filter((group) => group.length > 1);
+  });
 }
 
 async function mergePropertyGroup(
@@ -185,7 +119,10 @@ export async function reconcileProperties(
     orderBy: { firstSeenAt: "asc" },
   });
 
-  const strictGroups = buildStrictGroups(properties);
+  const strictGroups = groupByStrictPropertyKey(
+    properties,
+    propertyToMatchInput
+  );
 
   for (const group of strictGroups.values()) {
     if (group.length <= 1) continue;
@@ -197,7 +134,10 @@ export async function reconcileProperties(
     orderBy: { firstSeenAt: "asc" },
   });
 
-  for (const group of buildFuzzyGroups(properties)) {
+  for (const group of groupByFuzzyPropertyMatch(
+    properties,
+    propertyToMatchInput
+  )) {
     fuzzyMerged += await mergePropertyGroup(prisma, group);
   }
 

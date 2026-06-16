@@ -7,7 +7,14 @@ export type { ReactionType };
 const propertyInclude = { publications: true } as const;
 
 export class ReactionRepository {
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly onMutation?: () => void
+  ) {}
+
+  private notifyMutation(): void {
+    this.onMutation?.();
+  }
 
   async add(
     propertyId: number,
@@ -23,6 +30,7 @@ export class ReactionRepository {
           where: { propertyId },
           data: { archivedAt: null },
         });
+        this.notifyMutation();
         return "added";
       }
       return "already_exists";
@@ -34,6 +42,7 @@ export class ReactionRepository {
       update: { type, archivedAt: null },
     });
 
+    this.notifyMutation();
     return "added";
   }
 
@@ -41,6 +50,9 @@ export class ReactionRepository {
     const result = await this.prisma.listingReaction.deleteMany({
       where: { propertyId, type },
     });
+    if (result.count > 0) {
+      this.notifyMutation();
+    }
     return result.count > 0;
   }
 
@@ -56,6 +68,7 @@ export class ReactionRepository {
       await this.prisma.listingReaction.delete({
         where: { propertyId },
       });
+      this.notifyMutation();
       return "removed";
     }
 
@@ -65,6 +78,7 @@ export class ReactionRepository {
       update: { type, archivedAt: null },
     });
 
+    this.notifyMutation();
     return "added";
   }
 

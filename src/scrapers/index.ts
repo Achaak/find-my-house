@@ -2,8 +2,8 @@ import { scrapeConfig } from "../config/scrape.js";
 import { createLogger } from "../utils/logger.js";
 import { BienIciScraper } from "./bienici.js";
 import { LeboncoinScraper } from "./leboncoin.js";
-import { LogicImmoScraper } from "./logicimmo.js";
-import { SeLogerScraper } from "./seloger.js";
+import { logicImmoScraper } from "./logicimmo.js";
+import { seLogerScraper } from "./seloger.js";
 import type { Scraper } from "./types.js";
 
 const log = createLogger("scraper");
@@ -11,8 +11,8 @@ const log = createLogger("scraper");
 const ALL_SCRAPERS = (): Scraper[] => [
   new BienIciScraper(),
   new LeboncoinScraper(),
-  new SeLogerScraper(),
-  new LogicImmoScraper(),
+  seLogerScraper,
+  logicImmoScraper,
 ];
 
 export function createScrapers(): Scraper[] {
