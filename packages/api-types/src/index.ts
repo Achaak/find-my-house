@@ -62,6 +62,28 @@ export type Property = {
   archived?: boolean;
 };
 
+export type PropertyCard = Pick<
+  Property,
+  | "id"
+  | "title"
+  | "price"
+  | "firstPrice"
+  | "surface"
+  | "landSurface"
+  | "rooms"
+  | "bedrooms"
+  | "city"
+  | "postalCode"
+  | "imageUrl"
+  | "url"
+  | "source"
+  | "compatibilityScore"
+  | "reaction"
+  | "archived"
+>;
+
+export type PropertyDetail = Property;
+
 export type EnrichmentStatus = "pending" | "complete";
 
 export type ListingDetailResponse = {
@@ -237,7 +259,7 @@ export type VersionResponse = {
 };
 
 export type ListingsResponse = {
-  items: Property[];
+  items: PropertyCard[];
   total: number;
   zone?: string;
 };
@@ -287,7 +309,105 @@ export type PropertyMatchDiagnosticItem = {
   createdAt: string;
 };
 
+export type AdminDiagnosticItem = PropertyMatchDiagnosticItem;
+
 export type PropertyMatchDiagnosticsPage = {
-  items: PropertyMatchDiagnosticItem[];
+  items: AdminDiagnosticItem[];
   nextBeforeId: number | null;
 };
+
+export type DiagnosticsQuery = {
+  limit?: number;
+  source?: ListingSource;
+  postalCode?: string;
+  bestVeto?: string;
+  from?: string;
+  to?: string;
+  beforeId?: number;
+};
+
+const DIAGNOSTIC_SOURCES: ListingSource[] = [
+  "bienici",
+  "seloger",
+  "leboncoin",
+  "logicimmo",
+];
+
+export function serializeDiagnosticsQuery(
+  filters: DiagnosticsQuery = {}
+): string {
+  const params = new URLSearchParams();
+  if (filters.limit !== undefined) params.set("limit", String(filters.limit));
+  if (filters.source) params.set("source", filters.source);
+  if (filters.postalCode) params.set("postalCode", filters.postalCode);
+  if (filters.bestVeto) params.set("bestVeto", filters.bestVeto);
+  if (filters.from) params.set("from", filters.from);
+  if (filters.to) params.set("to", filters.to);
+  if (filters.beforeId !== undefined) {
+    params.set("beforeId", String(filters.beforeId));
+  }
+  return params.toString();
+}
+
+export function parseDiagnosticsQuery(input: {
+  limit?: string;
+  source?: string;
+  postalCode?: string;
+  bestVeto?: string;
+  from?: string;
+  to?: string;
+  beforeId?: string;
+}): { value?: DiagnosticsQuery; error?: string } {
+  const sourceRaw = input.source?.trim();
+  if (sourceRaw && !DIAGNOSTIC_SOURCES.includes(sourceRaw as ListingSource)) {
+    return { error: "Invalid source" };
+  }
+
+  const limitRaw = input.limit?.trim();
+  let limit: number | undefined;
+  if (limitRaw) {
+    const parsed = Number.parseInt(limitRaw, 10);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      return { error: "Invalid limit" };
+    }
+    limit = parsed;
+  }
+
+  const beforeIdRaw = input.beforeId?.trim();
+  let beforeId: number | undefined;
+  if (beforeIdRaw) {
+    const parsed = Number.parseInt(beforeIdRaw, 10);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      return { error: "Invalid beforeId" };
+    }
+    beforeId = parsed;
+  }
+
+  const from = input.from?.trim();
+  if (from) {
+    const parsed = new Date(from);
+    if (Number.isNaN(parsed.getTime())) {
+      return { error: "Invalid from timestamp" };
+    }
+  }
+
+  const to = input.to?.trim();
+  if (to) {
+    const parsed = new Date(to);
+    if (Number.isNaN(parsed.getTime())) {
+      return { error: "Invalid to timestamp" };
+    }
+  }
+
+  return {
+    value: {
+      limit,
+      source: sourceRaw as ListingSource | undefined,
+      postalCode: input.postalCode?.trim() || undefined,
+      bestVeto: input.bestVeto?.trim() || undefined,
+      from: from || undefined,
+      to: to || undefined,
+      beforeId,
+    },
+  };
+}

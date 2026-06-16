@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { QueryClient } from "@tanstack/react-query";
 import { findCachedListing } from "./listing-cache";
 import { queryKeys } from "./api";
-import type { BrowseState, Property } from "./types";
+import type { BrowseState, Property } from "@find-my-house/api-types";
 
 function makeProperty(id: number): Property {
   return {

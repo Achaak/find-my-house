@@ -28,6 +28,7 @@ import {
   LoggerPropertyMatchDiagnosticsSink,
   PrismaPropertyMatchDiagnosticsSink,
 } from "./propertyMatchDiagnostics.js";
+import type { ListingRepositoryRoles } from "./listingRepository.roles.js";
 
 const log = createLogger("db");
 
@@ -35,7 +36,7 @@ function toPrismaEnrichmentPatch(patch: PropertyEnrichmentPatch) {
   return toPrismaPropertyPatch(patch);
 }
 
-export class ListingRepository {
+export class ListingRepository implements ListingRepositoryRoles {
   private readonly searchRepo: PropertySearchRepository;
   private readonly statsRepo: PropertyStatsRepository;
   private readonly upsertRepo: PublicationUpsertRepository;
@@ -288,4 +289,10 @@ export class ListingRepository {
 
     return reconcileProperties(this.prisma);
   }
+}
+
+export function createListingRepository(
+  prisma: PrismaClient
+): ListingRepository {
+  return new ListingRepository(prisma);
 }

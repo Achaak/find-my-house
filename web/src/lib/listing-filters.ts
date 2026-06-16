@@ -1,4 +1,4 @@
-import type { ListingSearchFilters } from "@/lib/types";
+import type { ListingSearchFilters } from "@find-my-house/api-types";
 import { parseOptionalNumber } from "@/lib/utils";
 
 export function filtersToSearchParams(

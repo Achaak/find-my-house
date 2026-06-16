@@ -1,5 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
-import type { BrowseState, Property } from "@/lib/types";
+import type { BrowseState, Property } from "@find-my-house/api-types";
 import { queryKeys } from "@/lib/api";
 
 function findInPropertyLists(

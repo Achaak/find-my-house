@@ -34,6 +34,7 @@ import {
   toPropertyScalarData,
   type PropertyScalarData,
 } from "./propertyFieldManifest.js";
+import { DedupEngine } from "./dedupEngine.js";
 
 const IN_QUERY_BATCH_SIZE = 900;
 
@@ -177,8 +178,7 @@ function toPrismaPropertyProjectionDataFromListing(
 
 export class PublicationUpsertRepository {
   private readonly projectionUpdater: ProjectionUpdater;
-  private readonly propertyMatchPolicy: PropertyMatchPolicy;
-  private readonly diagnosticsSink: PropertyMatchDiagnosticsSink;
+  private readonly dedupEngine: DedupEngine;
 
   constructor(
     private readonly prisma: PrismaClient,
@@ -187,8 +187,7 @@ export class PublicationUpsertRepository {
     diagnosticsSink: PropertyMatchDiagnosticsSink = new LoggerPropertyMatchDiagnosticsSink()
   ) {
     this.projectionUpdater = new ProjectionUpdater(prisma);
-    this.propertyMatchPolicy = propertyMatchPolicy;
-    this.diagnosticsSink = diagnosticsSink;
+    this.dedupEngine = new DedupEngine(propertyMatchPolicy, diagnosticsSink);
   }
 
   private async findExistingPublications(
@@ -460,7 +459,7 @@ export class PublicationUpsertRepository {
         continue;
       }
 
-      const fuzzyPendingCreate = this.propertyMatchPolicy.findPendingMatch(
+      const fuzzyPendingCreate = this.dedupEngine.findPendingMatch(
         listing,
         pendingPropertyCreates.values()
       );
@@ -496,7 +495,7 @@ export class PublicationUpsertRepository {
       const postalCandidates = listing.postalCode
         ? (propertiesByPostalCode.get(listing.postalCode) ?? [])
         : [];
-      const matchedProperty = this.propertyMatchPolicy.findCandidateMatch(
+      const matchedProperty = this.dedupEngine.findCandidateMatch(
         listing,
         postalCandidates
       );
@@ -521,13 +520,7 @@ export class PublicationUpsertRepository {
         result.linked++;
         continue;
       }
-      if (postalCandidates.length > 0) {
-        const diagnostics = this.propertyMatchPolicy.collectDiagnostics(
-          listing,
-          postalCandidates
-        );
-        await this.diagnosticsSink.recordCandidateMiss(listing, diagnostics);
-      }
+      await this.dedupEngine.recordCandidateMiss(listing, postalCandidates);
 
       pendingPropertyCreates.set(propertyKey, {
         listing,

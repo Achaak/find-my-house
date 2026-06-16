@@ -1,19 +1,20 @@
 import type { PrismaClient } from "../generated/prisma/client.js";
 import { Prisma } from "../generated/prisma/client.js";
 import type {
+  AdminDiagnosticItem,
+  DiagnosticsQuery,
   ListingSource,
-  PropertyMatchDiagnosticItem,
   PropertyMatchDiagnosticsPage,
   PropertyMatchNearMiss,
 } from "@find-my-house/api-types";
 
-export type PropertyMatchDiagnosticsFilters = {
+export type PropertyMatchDiagnosticsFilters = Omit<
+  DiagnosticsQuery,
+  "limit" | "from" | "to"
+> & {
   source?: ListingSource;
-  postalCode?: string;
   from?: Date;
   to?: Date;
-  bestVeto?: string;
-  beforeId?: number;
 };
 
 export class PropertyMatchDiagnosticsRepository {
@@ -52,7 +53,7 @@ export class PropertyMatchDiagnosticsRepository {
       throw error;
     }
     const pagedRows = rows.slice(0, clampedLimit);
-    const items: PropertyMatchDiagnosticItem[] = pagedRows.map((row) => ({
+    const items: AdminDiagnosticItem[] = pagedRows.map((row) => ({
       id: row.id,
       listingSource: row.listingSource,
       listingExternalId: row.listingExternalId,

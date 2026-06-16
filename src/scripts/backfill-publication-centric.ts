@@ -2,7 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { scrapeConfig } from "../config/scrape.js";
 import { disconnectPrisma, getPrisma } from "../db/prisma.js";
-import { ListingRepository } from "../db/listingRepository.js";
+import { createListingRepository } from "../db/listingRepository.js";
 import { createLogger } from "../utils/logger.js";
 
 const log = createLogger("backfill-publications");
@@ -10,7 +10,7 @@ const BATCH_SIZE = 200;
 
 async function main(): Promise<void> {
   const prisma = getPrisma(scrapeConfig.database.url);
-  const repository = new ListingRepository(prisma);
+  const repository = createListingRepository(prisma);
   let offset = 0;
   let processed = 0;
 

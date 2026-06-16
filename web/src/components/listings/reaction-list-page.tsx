@@ -1,7 +1,7 @@
 import type { UseQueryResult } from "@tanstack/react-query";
 import { PropertyCard } from "@/components/listings/property-card";
 import { getErrorMessage } from "@/lib/error-message";
-import type { Property } from "@/lib/types";
+import type { Property } from "@find-my-house/api-types";
 
 export function ReactionListPage({
   title,

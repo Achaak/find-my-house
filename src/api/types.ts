@@ -16,14 +16,18 @@ export type ApiContext = {
 };
 
 export type {
+  AdminDiagnosticItem,
   ApiUser,
   BrowseState,
+  DiagnosticsQuery,
   DpeCandidate,
   EnrichmentStatus,
   ListingDetailResponse,
   ListingSearchFilters,
   ListingSearchSort,
   ListingSource,
+  PropertyCard,
+  PropertyDetail,
   Property,
   PropertyAddressSearchResponse,
   PropertyReactionState,

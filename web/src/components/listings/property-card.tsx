@@ -15,7 +15,7 @@ import {
 import { api, queryKeys } from "@/lib/api";
 import { getErrorMessage } from "@/lib/error-message";
 import { formatPriceDrop } from "@/lib/price-drop";
-import type { Property } from "@/lib/types";
+import type { Property } from "@find-my-house/api-types";
 import { PropertyImageSkeleton } from "@/components/listings/listing-detail-skeleton";
 import { cn, formatPrice, formatSource } from "@/lib/utils";
 

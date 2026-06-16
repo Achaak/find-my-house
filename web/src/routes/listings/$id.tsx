@@ -12,7 +12,7 @@ import { api, queryKeys } from "@/lib/api";
 import { getErrorMessage } from "@/lib/error-message";
 import { findCachedListing } from "@/lib/listing-cache";
 import { googleMapsSearchUrl } from "@/lib/map-utils";
-import type { Property } from "@/lib/types";
+import type { Property } from "@find-my-house/api-types";
 import { cn, formatPrice, formatSource } from "@/lib/utils";
 
 export const Route = createFileRoute("/listings/$id")({

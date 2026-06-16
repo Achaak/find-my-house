@@ -11,7 +11,10 @@ import {
   normalizeListingFilters,
   searchParamsToFilters,
 } from "@/lib/listing-filters";
-import type { ListingSearchSort, ListingSource } from "@/lib/types";
+import type {
+  ListingSearchSort,
+  ListingSource,
+} from "@find-my-house/api-types";
 import { parseOptionalNumber } from "@/lib/utils";
 
 export const Route = createFileRoute("/listings/")({

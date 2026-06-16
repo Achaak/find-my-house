@@ -9,6 +9,7 @@ import type {
   ListingDetailResponse,
   ListingSearchFilters,
   NotificationDigest,
+  Property,
   PropertyAddressSearchResponse,
   ReactionMutationResponse,
   ReactionsResponse,
@@ -18,8 +19,14 @@ import type {
   StatsResponseMap,
   StatsSection,
   PropertyMatchDiagnosticsPage,
+  DiagnosticsQuery,
   VersionResponse,
-} from "./types";
+} from "@find-my-house/api-types";
+import { serializeDiagnosticsQuery } from "@find-my-house/api-types";
+
+type ListingsWithPropertyResponse = Omit<ListingsResponse, "items"> & {
+  items: Property[];
+};
 
 function searchParams(filters: ListingSearchFilters): string {
   const params = new URLSearchParams();
@@ -33,7 +40,7 @@ function searchParams(filters: ListingSearchFilters): string {
 async function fetchAllListings(filters: ListingSearchFilters = {}) {
   const pageLimit = 100;
   const query = searchParams({ ...filters, offset: 0, limit: pageLimit });
-  const first = await apiFetch<ListingsResponse>(
+  const first = await apiFetch<ListingsWithPropertyResponse>(
     `/api/listings${query ? `?${query}` : ""}`
   );
   const items = [...first.items];
@@ -45,7 +52,9 @@ async function fetchAllListings(filters: ListingSearchFilters = {}) {
       offset,
       limit: pageLimit,
     });
-    const page = await apiFetch<ListingsResponse>(`/api/listings?${pageQuery}`);
+    const page = await apiFetch<ListingsWithPropertyResponse>(
+      `/api/listings?${pageQuery}`
+    );
     if (page.items.length === 0) break;
     items.push(...page.items);
     offset += page.items.length;
@@ -61,7 +70,7 @@ export const api = {
 
   listings: (filters: ListingSearchFilters = {}) => {
     const query = searchParams(filters);
-    return apiFetch<ListingsResponse>(
+    return apiFetch<ListingsWithPropertyResponse>(
       `/api/listings${query ? `?${query}` : ""}`
     );
   },
@@ -162,24 +171,8 @@ export const api = {
   enrich: () =>
     apiFetch<EnrichmentBackfillResult>("/api/admin/enrich", { method: "POST" }),
 
-  propertyMatchDiagnostics: (filters?: {
-    limit?: number;
-    source?: string;
-    postalCode?: string;
-    bestVeto?: string;
-    from?: string;
-    to?: string;
-    beforeId?: number;
-  }) => {
-    const params = new URLSearchParams();
-    if (filters?.limit) params.set("limit", String(filters.limit));
-    if (filters?.source) params.set("source", filters.source);
-    if (filters?.postalCode) params.set("postalCode", filters.postalCode);
-    if (filters?.bestVeto) params.set("bestVeto", filters.bestVeto);
-    if (filters?.from) params.set("from", filters.from);
-    if (filters?.to) params.set("to", filters.to);
-    if (filters?.beforeId) params.set("beforeId", String(filters.beforeId));
-    const query = params.toString();
+  propertyMatchDiagnostics: (filters?: DiagnosticsQuery) => {
+    const query = serializeDiagnosticsQuery(filters);
     return apiFetch<PropertyMatchDiagnosticsPage>(
       `/api/admin/property-match-diagnostics${query ? `?${query}` : ""}`
     );

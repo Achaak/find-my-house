@@ -1,5 +1,6 @@
 import type { Listing } from "../types/listing.js";
 import { highlightsSetsEqual } from "../utils/listing/amenities.js";
+import type { PropertyProjectionShape } from "../domain/propertyFieldManifest.js";
 
 export const PROPERTY_COMPARABLE_FIELDS = [
   "title",
@@ -31,7 +32,11 @@ export const PROPERTY_COMPARABLE_FIELDS = [
 
 export type PropertyComparableField =
   (typeof PROPERTY_COMPARABLE_FIELDS)[number];
-export type PropertyScalarData = Pick<Listing, PropertyComparableField>;
+export type PropertyScalarData = Pick<
+  Listing,
+  Exclude<PropertyComparableField, "address" | "dpeNumero">
+> &
+  Pick<PropertyProjectionShape, "highlights">;
 
 export function toPropertyScalarData(listing: Listing): PropertyScalarData {
   return Object.fromEntries(

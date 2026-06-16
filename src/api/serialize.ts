@@ -9,7 +9,13 @@ import {
   resolveListingCompatibilityPreferences,
 } from "../services/compatibilityService.js";
 import type { RankedDpeSearchResult } from "../utils/energy/dpePropertyMatch.js";
-import type { DpeCandidate, Property, PropertyReactionState } from "./types.js";
+import type {
+  DpeCandidate,
+  Property,
+  PropertyCard,
+  PropertyDetail,
+  PropertyReactionState,
+} from "./types.js";
 
 type ReactionSnapshot = { type: ReactionType; archivedAt: Date | null };
 
@@ -108,7 +114,7 @@ export async function serializeProperty(
   property: PropertyRow,
   reactionRepository: ReactionRepository,
   options?: { includeCompatibility?: boolean }
-): Promise<Property> {
+): Promise<PropertyDetail> {
   const includeCompatibility = options?.includeCompatibility !== false;
   const [preferences, reaction] = await Promise.all([
     includeCompatibility
@@ -128,7 +134,7 @@ export async function serializeProperties(
   properties: PropertyRow[],
   reactionRepository: ReactionRepository,
   options?: { includeCompatibility?: boolean }
-): Promise<Property[]> {
+): Promise<PropertyCard[]> {
   if (properties.length === 0) {
     return [];
   }

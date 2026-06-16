@@ -1,4 +1,4 @@
-import type { Property } from "@/lib/types";
+import type { Property } from "@find-my-house/api-types";
 import { formatPrice } from "@/lib/utils";
 
 export function hasPriceDrop(

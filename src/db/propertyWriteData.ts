@@ -1,6 +1,6 @@
 import { Prisma } from "../generated/prisma/client.js";
 import type { PropertyEnrichmentPatch } from "../types/enrichment.js";
-import type { PropertyProjection } from "../domain/propertyProjection.js";
+import type { PropertyProjectionShape } from "../domain/propertyFieldManifest.js";
 
 export function toPrismaHighlights(
   highlights: string[] | null | undefined
@@ -20,7 +20,7 @@ export function toPrismaPropertyPatch(patch: PropertyEnrichmentPatch) {
   };
 }
 
-export function toPrismaProjectionData(projection: PropertyProjection) {
+export function toPrismaProjectionData(projection: PropertyProjectionShape) {
   const { highlights, ...rest } = projection;
   return {
     ...rest,

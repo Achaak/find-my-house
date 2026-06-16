@@ -1,6 +1,6 @@
 import { withBasePath } from "@/lib/base-path";
 import { formatPriceDrop, hasPriceDrop } from "@/lib/price-drop";
-import type { Property } from "@/lib/types";
+import type { Property } from "@find-my-house/api-types";
 import { formatPrice, formatSource } from "@/lib/utils";
 
 export function escapeHtml(text: string): string {

@@ -10,7 +10,10 @@ import {
   diagnosticsEmptyMessage,
   type DiagnosticsPreset,
 } from "@/lib/property-match-diagnostics-ui";
-import type { PropertyMatchDiagnosticItem } from "@/lib/types";
+import type {
+  ListingSource,
+  PropertyMatchDiagnosticItem,
+} from "@find-my-house/api-types";
 
 export const Route = createFileRoute("/admin")({
   beforeLoad: async ({ context }) => {
@@ -40,6 +43,18 @@ function AdminPage() {
   const [beforeId, setBeforeId] = useState<number | undefined>(undefined);
   const [hasLoadedDiagnostics, setHasLoadedDiagnostics] = useState(false);
   const [activePreset, setActivePreset] = useState<DiagnosticsPreset>(null);
+  const toListingSource = (value: string): ListingSource | undefined => {
+    if (!value) return undefined;
+    const allowed: ListingSource[] = [
+      "bienici",
+      "seloger",
+      "leboncoin",
+      "logicimmo",
+    ];
+    return allowed.includes(value as ListingSource)
+      ? (value as ListingSource)
+      : undefined;
+  };
   const diagnosticsMutation = useMutation({
     mutationFn: ({
       cursor,
@@ -56,7 +71,7 @@ function AdminPage() {
     }) =>
       api.propertyMatchDiagnostics({
         limit: 20,
-        source: (overrides?.source ?? source) || undefined,
+        source: toListingSource((overrides?.source ?? source) || ""),
         postalCode: (overrides?.postalCode ?? postalCode) || undefined,
         bestVeto: (overrides?.bestVeto ?? bestVeto) || undefined,
         from: (overrides?.from ?? from) || undefined,

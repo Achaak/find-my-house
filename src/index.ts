@@ -2,7 +2,7 @@ import cron from "node-cron";
 import "./config/app.js";
 import { discordConfig } from "./config/discord.js";
 import { buildScrapeFilters, scrapeConfig } from "./config/scrape.js";
-import { ListingRepository } from "./db/listingRepository.js";
+import { createListingRepository } from "./db/listingRepository.js";
 import { ReactionRepository } from "./db/reactionRepository.js";
 import { disconnectPrisma, getPrisma } from "./db/prisma.js";
 import { startDiscordBot } from "./discord/bot.js";
@@ -32,7 +32,7 @@ async function shutdown(): Promise<void> {
 async function main(): Promise<void> {
   const scrapers = createScrapers();
   const prisma = getPrisma(scrapeConfig.database.url);
-  const repository = new ListingRepository(prisma);
+  const repository = createListingRepository(prisma);
   const reactionRepository = new ReactionRepository(
     prisma,
     resetListingCompatibilityCache

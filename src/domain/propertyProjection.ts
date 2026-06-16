@@ -1,6 +1,7 @@
 import type { ListingSource } from "@find-my-house/api-types";
 import type { ListingPublication } from "../generated/prisma/client.js";
 import { mergeHighlights } from "../utils/listing/amenities.js";
+import type { PropertyProjectionShape } from "./propertyFieldManifest.js";
 
 const SOURCE_PRIORITY: ListingSource[] = [
   "bienici",
@@ -44,35 +45,7 @@ type PublicationLike = Pick<
   | "highlights"
 >;
 
-export type PropertyProjection = {
-  title: string;
-  price: number;
-  surface: number | null;
-  landSurface: number | null;
-  rooms: number | null;
-  bedrooms: number | null;
-  isNewProperty: boolean | null;
-  latitude: number | null;
-  longitude: number | null;
-  city: string;
-  postalCode: string | null;
-  address: string | null;
-  dpeNumero: string | null;
-  description: string | null;
-  imageUrl: string | null;
-  propertyType: string | null;
-  dpeClass: string | null;
-  gesClass: string | null;
-  dpeConsumptionKwhM2: number | null;
-  gesEmissionKgM2: number | null;
-  bathrooms: number | null;
-  constructionYear: number | null;
-  heating: string | null;
-  orientation: string | null;
-  propertyCondition: string | null;
-  parkingSpaces: number | null;
-  highlights: string[] | null;
-};
+export type PropertyProjection = PropertyProjectionShape;
 
 function getSourceRank(source: ListingSource): number {
   const index = SOURCE_PRIORITY.indexOf(source);

@@ -10,7 +10,7 @@ import {
   ThumbsDown,
 } from "lucide-react";
 import { NotificationWatcher } from "@/components/layout/notification-watcher";
-import type { ApiUser } from "@/lib/types";
+import type { ApiUser } from "@find-my-house/api-types";
 import { cn } from "@/lib/utils";
 
 const navItems = [

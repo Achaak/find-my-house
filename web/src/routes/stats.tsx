@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import type { StatsSection } from "@/lib/types";
+import type { StatsSection } from "@find-my-house/api-types";
 import { StatsPanel } from "@/components/stats/stats-panels";
 import { Button } from "@/components/ui/button";
 import { api, queryKeys } from "@/lib/api";
