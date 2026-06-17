@@ -101,16 +101,22 @@ export const CLASSIFIED_TRAVEL_MINUTE_OPTIONS = [
   5, 10, 15, 20, 25, 30, 45, 60,
 ] as const;
 
-/** Map a requested duration to the nearest portal-supported travel time. */
-export function snapClassifiedTravelMinutes(minutes: number): number {
+/** Smallest portal-supported travel time >= requested (for search radius). */
+export function ceilClassifiedTravelMinutes(minutes: number): number {
   if (
     (CLASSIFIED_TRAVEL_MINUTE_OPTIONS as readonly number[]).includes(minutes)
   ) {
     return minutes;
   }
 
-  return CLASSIFIED_TRAVEL_MINUTE_OPTIONS.reduce((best, option) =>
-    Math.abs(option - minutes) < Math.abs(best - minutes) ? option : best
+  const ceiling = CLASSIFIED_TRAVEL_MINUTE_OPTIONS.find(
+    (option) => option >= minutes
+  );
+  return (
+    ceiling ??
+    CLASSIFIED_TRAVEL_MINUTE_OPTIONS[
+      CLASSIFIED_TRAVEL_MINUTE_OPTIONS.length - 1
+    ]
   );
 }
 
@@ -118,7 +124,7 @@ export function buildClassifiedTravelLocation(
   strtPlaceId: string,
   durationMinutes: number
 ): string {
-  const duration = snapClassifiedTravelMinutes(durationMinutes);
+  const duration = ceilClassifiedTravelMinutes(durationMinutes);
   return encodeClassifiedLocation({
     placeIds: [strtPlaceId],
     duration: String(duration),
@@ -156,7 +162,9 @@ export function resolveClassifiedLocation(
 
     return buildClassifiedRadiusLocation(
       place,
-      travelTimeRadiusKm(geoFilter.maxTravelMinutes),
+      travelTimeRadiusKm(
+        ceilClassifiedTravelMinutes(geoFilter.maxTravelMinutes)
+      ),
       options.origin
     );
   }
@@ -192,17 +200,22 @@ export async function buildClassifiedLocation(
       : null;
 
   if (geoFilter.mode === "travel" && !strtPlaceId) {
-    const radiusKm = travelTimeRadiusKm(geoFilter.maxTravelMinutes);
+    const searchMinutes = ceilClassifiedTravelMinutes(
+      geoFilter.maxTravelMinutes
+    );
+    const radiusKm = travelTimeRadiusKm(searchMinutes);
     log.warn(
       `STRT place unavailable for "${city}", falling back to estimated radius (~${String(Math.round(radiusKm))} km)`
     );
   }
 
   if (geoFilter.mode === "travel" && strtPlaceId) {
-    const snapped = snapClassifiedTravelMinutes(geoFilter.maxTravelMinutes);
-    if (snapped !== geoFilter.maxTravelMinutes) {
+    const searchMinutes = ceilClassifiedTravelMinutes(
+      geoFilter.maxTravelMinutes
+    );
+    if (searchMinutes !== geoFilter.maxTravelMinutes) {
       log.info(
-        `${String(geoFilter.maxTravelMinutes)} min requested → ${String(snapped)} min (${portal.label}: ${CLASSIFIED_TRAVEL_MINUTE_OPTIONS.join(", ")})`
+        `${String(geoFilter.maxTravelMinutes)} min filter → ${String(searchMinutes)} min search (${portal.label}: ${CLASSIFIED_TRAVEL_MINUTE_OPTIONS.join(", ")})`
       );
     }
   }

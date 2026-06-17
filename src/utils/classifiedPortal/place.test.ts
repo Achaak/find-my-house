@@ -4,9 +4,9 @@ import {
   buildClassifiedRadiusLocation,
   buildClassifiedSeoSearchUrl,
   buildClassifiedTravelLocation,
+  ceilClassifiedTravelMinutes,
   departmentFromClassifiedLocationCode,
   resolveClassifiedLocation,
-  snapClassifiedTravelMinutes,
 } from "./place.js";
 import { SELOGER_PORTAL } from "./config.js";
 import type { ClassifiedPlace } from "./types.js";
@@ -45,10 +45,11 @@ describe("resolveClassifiedLocation", () => {
     expect(location).toBe(buildClassifiedTravelLocation("STRTFR123", 40));
   });
 
-  it("snaps unsupported travel durations to the nearest SeLoger option", () => {
-    expect(snapClassifiedTravelMinutes(40)).toBe(45);
-    expect(snapClassifiedTravelMinutes(32)).toBe(30);
-    expect(snapClassifiedTravelMinutes(30)).toBe(30);
+  it("ceil unsupported travel durations to the next SeLoger option for search", () => {
+    expect(ceilClassifiedTravelMinutes(40)).toBe(45);
+    expect(ceilClassifiedTravelMinutes(32)).toBe(45);
+    expect(ceilClassifiedTravelMinutes(30)).toBe(30);
+    expect(ceilClassifiedTravelMinutes(61)).toBe(60);
 
     const encoded = buildClassifiedTravelLocation("STRTFR123", 40);
     expect(decodeTravelDuration(encoded)).toBe("45");
@@ -66,7 +67,11 @@ describe("resolveClassifiedLocation", () => {
     );
 
     expect(location).toBe(
-      buildClassifiedRadiusLocation(samplePlace, travelTimeRadiusKm(40), origin)
+      buildClassifiedRadiusLocation(
+        samplePlace,
+        travelTimeRadiusKm(ceilClassifiedTravelMinutes(40)),
+        origin
+      )
     );
   });
 

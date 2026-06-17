@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  filterByTravelTimeRadius,
   geoFilterLabel,
   resolveGeoFilter,
   resolveRadiusSearchFilter,
@@ -63,5 +64,28 @@ describe("geoFilterLabel", () => {
     expect(geoFilterLabel({ mode: "radius", radiusKm: 15 })).toBe(
       "15 km radius"
     );
+  });
+});
+
+describe("filterByTravelTimeRadius", () => {
+  const center = { lat: 48.8566, lng: 2.3522 };
+
+  it("keeps items within the estimated driving radius", () => {
+    const nearby = { latitude: 48.86, longitude: 2.36 };
+    const far = { latitude: 49.5, longitude: 3.0 };
+
+    expect(filterByTravelTimeRadius([nearby, far], center, 30)).toEqual([
+      nearby,
+    ]);
+  });
+
+  it("drops items without coordinates", () => {
+    expect(
+      filterByTravelTimeRadius(
+        [{ latitude: null, longitude: null }, { latitude: 48.86 }],
+        center,
+        30
+      )
+    ).toEqual([]);
   });
 });

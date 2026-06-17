@@ -1,5 +1,5 @@
 import type { ScrapeFilters } from "../../types/listing.js";
-import type { GeoPoint } from "./geo.js";
+import { isWithinRadiusKm, type GeoPoint } from "./geo.js";
 
 export type GeoFilterMode = "travel" | "radius" | "city";
 
@@ -82,6 +82,23 @@ export function resolveRadiusSearchFilter(
 export function travelTimeRadiusKm(travelMinutes: number): number {
   const AVG_SPEED_KMH = 50;
   return (travelMinutes / 60) * AVG_SPEED_KMH;
+}
+
+type GeoCoords = { latitude?: number | null; longitude?: number | null };
+
+/** Keep items with coordinates within an estimated driving-time radius. */
+export function filterByTravelTimeRadius<T extends GeoCoords>(
+  items: T[],
+  center: GeoPoint,
+  maxTravelMinutes: number
+): T[] {
+  const radiusKm = travelTimeRadiusKm(maxTravelMinutes);
+  return items.filter((item) => {
+    const lat = item.latitude;
+    const lng = item.longitude;
+    if (lat == null || lng == null) return false;
+    return isWithinRadiusKm({ lat, lng }, center, radiusKm);
+  });
 }
 
 export function geoFilterLabel(filter: GeoFilter): string {

@@ -1,6 +1,11 @@
 import { scrapeConfig } from "../config/scrape.js";
 import type { Listing, ListingSource } from "../types/listing.js";
-import { resolveGeoFilter } from "../utils/geo/geoFilter.js";
+import { resolveBienIciTravelOrigin } from "../utils/bienici/place.js";
+import {
+  filterByTravelTimeRadius,
+  resolveGeoFilter,
+} from "../utils/geo/geoFilter.js";
+import { createLogger } from "../utils/logger.js";
 import type {
   ClassifiedCard,
   ClassifiedPlace,
@@ -57,7 +62,7 @@ export function createClassifiedPortalScraper(
         options.postalCode
       );
       const searchUrl = deps.buildSearchUrl(options, location);
-      const cards = (
+      let cards = (
         await deps.fetchClassifieds(
           searchUrl,
           scrapeConfig.scrape.maxPages,
@@ -65,6 +70,29 @@ export function createClassifiedPortalScraper(
           options.postalCode
         )
       ).map(deps.applySearchMetadata);
+
+      if (geoFilter.mode === "travel") {
+        const origin = (await resolveBienIciTravelOrigin(
+          options.city,
+          options.postalCode
+        )) ?? {
+          address: place.name,
+          center: place.center,
+        };
+        const before = cards.length;
+        cards = filterByTravelTimeRadius(
+          cards,
+          origin.center,
+          geoFilter.maxTravelMinutes
+        );
+        const dropped = before - cards.length;
+        if (dropped > 0) {
+          createLogger(name).info(
+            `${String(dropped)} listing(s) outside ${String(geoFilter.maxTravelMinutes)} min drive — dropped`
+          );
+        }
+      }
+
       const scrapedAt = new Date().toISOString();
 
       return cards.map((card) =>
