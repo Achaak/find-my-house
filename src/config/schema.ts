@@ -113,7 +113,29 @@ const optionalNonEmptyString = z.preprocess((value) => {
   return value;
 }, z.string().min(1).optional());
 
+export const notificationsEnvSchema = z
+  .object({
+    NOTIFICATIONS_ENABLED: z.preprocess((value) => {
+      if (value === "true") return true;
+      if (value === "false") return false;
+      return undefined;
+    }, z.boolean().optional()),
+    NOTIFY_SERVICE: z.string().min(1).default("persistent_notification.create"),
+    NOTIFICATIONS_MAX: z.coerce.number().int().positive().default(5),
+    HOME_ASSISTANT_TOKEN: optionalNonEmptyString,
+  })
+  .transform((env) => ({
+    notifications: {
+      enabled:
+        env.NOTIFICATIONS_ENABLED ?? Boolean(process.env.SUPERVISOR_TOKEN),
+      notifyService: env.NOTIFY_SERVICE,
+      maxNotifications: env.NOTIFICATIONS_MAX,
+      token: env.HOME_ASSISTANT_TOKEN,
+    },
+  }));
+
 export type ScrapeConfig = z.infer<typeof scrapeEnvSchema>;
+export type NotificationsConfig = z.infer<typeof notificationsEnvSchema>;
 export type AppConfig = z.infer<typeof appEnvSchema>;
 
 export const browserEnvSchema = z
@@ -168,6 +190,14 @@ export function parseBrowserConfig(env: NodeJS.ProcessEnv = process.env) {
   const result = browserEnvSchema.safeParse(env);
   if (!result.success) {
     throw new Error(formatConfigError(result.error, "browser"));
+  }
+  return result.data;
+}
+
+export function parseNotificationsConfig(env: NodeJS.ProcessEnv = process.env) {
+  const result = notificationsEnvSchema.safeParse(env);
+  if (!result.success) {
+    throw new Error(formatConfigError(result.error, "notifications"));
   }
   return result.data;
 }

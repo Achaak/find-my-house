@@ -15,6 +15,7 @@ import {
 import type { ApiContext } from "./types.js";
 import { fetchStatsSection } from "../services/statsService.js";
 import { scrapeConfig } from "../config/scrape.js";
+import { notificationsConfig } from "../config/notifications.js";
 import { getPrisma } from "../db/prisma.js";
 import {
   resolveCompatibilityModel,
@@ -49,6 +50,8 @@ import { createLogger } from "../utils/logger.js";
 import { getBrowserReadiness } from "../utils/browser/client.js";
 import { isScrapeInProgress } from "../services/scraperService.js";
 import { scrapeFiltersToSearch } from "../utils/listing/scrapeFilters.js";
+import { sendTestNotification } from "../homeAssistant/notifications.js";
+import { resolveHaApiToken } from "../homeAssistant/client.js";
 import { PropertyMatchDiagnosticsRepository } from "../db/propertyMatchDiagnosticsRepository.js";
 import { parseDiagnosticsQuery } from "@find-my-house/api-types";
 
@@ -399,6 +402,28 @@ export function createApiApp(ctx: ApiContext) {
     });
   });
 
+  app.get("/api/notifications/preferences", async (c) => {
+    const user = getUser(c);
+    const enabled = await ctx.notificationPreferenceRepository.getEnabled(
+      user.id
+    );
+    return c.json({ enabled });
+  });
+
+  app.put("/api/notifications/preferences", async (c) => {
+    const user = getUser(c);
+    const body = await c.req.json<{ enabled?: unknown }>().catch(() => null);
+    if (!body || typeof body.enabled !== "boolean") {
+      return c.json({ error: "enabled must be a boolean" }, 400);
+    }
+
+    const enabled = await ctx.notificationPreferenceRepository.setEnabled(
+      user.id,
+      body.enabled
+    );
+    return c.json({ enabled });
+  });
+
   app.get("/api/stats/:section", async (c) => {
     const section = c.req.param("section");
     const validSections = [
@@ -577,7 +602,7 @@ export function createApiApp(ctx: ApiContext) {
 
   app.post("/api/admin/scrape", requireAdmin(), async (c) => {
     const result = await ctx.scraperService.run(ctx.scrapeDefaults);
-    ctx.enrichmentQueue.scheduleScrapeResults(result);
+    await ctx.notifyScrapeResults(result);
 
     const scrapeGeoFilter = resolveGeoFilter(
       { maxTravelMinutes: ctx.scrapeDefaults.maxTravelMinutes },
@@ -619,6 +644,31 @@ export function createApiApp(ctx: ApiContext) {
       }
     );
     return c.json({ queued });
+  });
+
+  app.post("/api/admin/notifications/test", requireAdmin(), async (c) => {
+    const { notifications } = notificationsConfig;
+
+    if (!notifications.enabled) {
+      return c.json(
+        { error: "Notifications are disabled in configuration" },
+        503
+      );
+    }
+
+    if (!resolveHaApiToken()) {
+      return c.json({ error: "No Home Assistant token available" }, 503);
+    }
+
+    const sent = await sendTestNotification(notifications.notifyService);
+    if (!sent) {
+      return c.json({ error: "Failed to send test notification" }, 502);
+    }
+
+    return c.json({
+      sent: true,
+      notifyService: notifications.notifyService,
+    });
   });
 
   app.get(

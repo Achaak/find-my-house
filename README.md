@@ -117,14 +117,17 @@ The web UI authenticates via your Home Assistant session (Ingress). Admin action
 
 **Web UI options (Home Assistant add-on only — set in the add-on UI or `home-assistant/config.yaml`, not in `.env`):**
 
-| Option            | Description                                                             |
-| ----------------- | ----------------------------------------------------------------------- |
-| `web_enabled`     | Enable web UI + REST API (default `true`)                               |
-| `web_admin_users` | Comma-separated HA usernames allowed to scrape/reconcile via the web UI |
+| Option                  | Description                                                                       |
+| ----------------------- | --------------------------------------------------------------------------------- |
+| `web_enabled`           | Enable web UI + REST API (default `true`)                                         |
+| `web_admin_users`       | Comma-separated HA usernames allowed to scrape/reconcile via the web UI           |
+| `notifications_enabled` | Send HA alerts after each scrape (default `true`)                                 |
+| `notify_service`        | HA notify service, e.g. `persistent_notification.create` or `notify.mobile_app_*` |
+| `notifications_max`     | Max listings notified per scrape run (default `5`)                                |
 
 Ingress is configured in `home-assistant/config.yaml` (`ingress_port: 8099`). Runtime env vars (`HOME_ASSISTANT_URL`, `WEB_PORT`, …) are injected by `home-assistant/run.sh`.
 
-Add-on scrape options mirror `.env` / `.env.local`, plus `web_enabled`, `web_admin_users`, and `log_level` (`debug`, `info`, `warn`, `error`).
+Add-on scrape options mirror `.env` / `.env.local`, plus `web_enabled`, `web_admin_users`, notification options (`notifications_enabled`, `notify_service`, `notifications_max`), and `log_level` (`debug`, `info`, `warn`, `error`).
 
 **Updates**: run `pnpm release:patch` (or `minor` / `major`) — release-it bumps, syncs `config.yaml`, pushes, and creates the GitHub release. Wait for the Actions build, then **Apps → Update** (or Rebuild → Restart).
 

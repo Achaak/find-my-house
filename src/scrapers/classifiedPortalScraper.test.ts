@@ -12,10 +12,12 @@ const place: ClassifiedPlace = {
 };
 
 vi.mock("../utils/bienici/place.js", () => ({
-  resolveBienIciTravelOrigin: vi.fn(async () => ({
-    address: "Paris",
-    center: { lat: 48.8566, lng: 2.3522 },
-  })),
+  resolveBienIciTravelOrigin: vi.fn(() =>
+    Promise.resolve({
+      address: "Paris",
+      center: { lat: 48.8566, lng: 2.3522 },
+    })
+  ),
 }));
 
 describe("createClassifiedPortalScraper", () => {
@@ -34,10 +36,10 @@ describe("createClassifiedPortalScraper", () => {
     };
 
     const scraper = createClassifiedPortalScraper("seloger", "SeLoger", {
-      resolvePlace: async () => place,
-      buildLocation: async () => "travel-location",
+      resolvePlace: () => Promise.resolve(place),
+      buildLocation: () => Promise.resolve("travel-location"),
       buildSearchUrl: () => "https://example.test/search",
-      fetchClassifieds: async () => [nearby, far],
+      fetchClassifieds: () => Promise.resolve([nearby, far]),
       applySearchMetadata: (card) => card,
       mapCardToListing: (card, scrapedAt) => ({
         externalId: card.id,
@@ -53,7 +55,7 @@ describe("createClassifiedPortalScraper", () => {
         longitude: card.longitude ?? null,
         city: "Paris",
         postalCode: null,
-        url: `https://example.test/${card.id}`,
+        url: `https://example.test/${String(card.id)}`,
         description: null,
         imageUrl: null,
         propertyType: null,

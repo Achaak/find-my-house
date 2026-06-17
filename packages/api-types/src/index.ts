@@ -277,6 +277,10 @@ export type NotificationDigest = {
   lastScrapedAt: string | null;
 };
 
+export type NotificationPreferences = {
+  enabled: boolean;
+};
+
 export type ApiUser = {
   id: string;
   username: string;
@@ -352,6 +356,11 @@ export type AddressConfirmResponse = {
 export type AdminScrapeResponse = {
   summary: string;
   result: unknown;
+};
+
+export type AdminNotificationTestResponse = {
+  sent: true;
+  notifyService: string;
 };
 
 export type PropertyMatchNearMiss = {

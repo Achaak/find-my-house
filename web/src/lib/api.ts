@@ -3,12 +3,14 @@ import type {
   ApiUser,
   AddressConfirmResponse,
   AdminScrapeResponse,
+  AdminNotificationTestResponse,
   CompatibilityProfileResponse,
   BrowseState,
   ListingsResponse,
   ListingDetailResponse,
   ListingSearchFilters,
   NotificationDigest,
+  NotificationPreferences,
   Property,
   PropertyAddressSearchResponse,
   ReactionMutationResponse,
@@ -149,6 +151,15 @@ export const api = {
     return apiFetch<NotificationDigest>(`/api/notifications/digest${query}`);
   },
 
+  notificationPreferences: () =>
+    apiFetch<NotificationPreferences>("/api/notifications/preferences"),
+
+  updateNotificationPreferences: (enabled: boolean) =>
+    apiFetch<NotificationPreferences>("/api/notifications/preferences", {
+      method: "PUT",
+      body: JSON.stringify({ enabled }),
+    }),
+
   addressSearch: (propertyId: number) =>
     apiFetch<PropertyAddressSearchResponse>(
       `/api/properties/${String(propertyId)}/address`
@@ -174,6 +185,11 @@ export const api = {
   enrich: () =>
     apiFetch<EnrichmentBackfillResult>("/api/admin/enrich", { method: "POST" }),
 
+  testNotification: () =>
+    apiFetch<AdminNotificationTestResponse>("/api/admin/notifications/test", {
+      method: "POST",
+    }),
+
   propertyMatchDiagnostics: (filters?: DiagnosticsQuery) => {
     const query = serializeDiagnosticsQuery(filters);
     return apiFetch<PropertyMatchDiagnosticsPage>(
@@ -195,6 +211,7 @@ export const queryKeys = {
   stats: (section: StatsSection) => ["stats", section] as const,
   address: (id: number) => ["address", id] as const,
   compatibilityProfile: ["compatibility-profile"] as const,
+  notificationPreferences: ["notification-preferences"] as const,
   notifications: (since?: string) =>
     ["notifications", since ?? "default"] as const,
 };

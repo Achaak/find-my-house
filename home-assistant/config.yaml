@@ -37,6 +37,9 @@ options:
   log_level: info
   web_enabled: true
   web_admin_users: ""
+  notifications_enabled: true
+  notify_service: persistent_notification.create
+  notifications_max: 5
 schema:
   scrape_scrapers: str?
   scrape_cron: str?
@@ -58,3 +61,6 @@ schema:
   log_level: str?
   web_enabled: bool?
   web_admin_users: str?
+  notifications_enabled: bool?
+  notify_service: str?
+  notifications_max: int?

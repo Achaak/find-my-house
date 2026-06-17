@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   parseAppConfig,
   parseBrowserConfig,
+  parseNotificationsConfig,
   parseScrapeConfig,
 } from "./schema.js";
 
@@ -70,6 +71,52 @@ describe("parseScrapeConfig", () => {
     const config = parseScrapeConfig({ ENRICHMENT_DISABLED: "true" });
 
     expect(config.enrichment.enabled).toBe(false);
+  });
+});
+
+describe("parseNotificationsConfig", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("defaults notifications to disabled without supervisor token", () => {
+    const config = parseNotificationsConfig({});
+
+    expect(config.notifications.enabled).toBe(false);
+    expect(config.notifications.notifyService).toBe(
+      "persistent_notification.create"
+    );
+    expect(config.notifications.maxNotifications).toBe(5);
+  });
+
+  it("enables notifications by default when SUPERVISOR_TOKEN is set", () => {
+    vi.stubEnv("SUPERVISOR_TOKEN", "supervisor-token");
+
+    const config = parseNotificationsConfig({});
+
+    expect(config.notifications.enabled).toBe(true);
+  });
+
+  it("allows explicit disable even with supervisor token", () => {
+    vi.stubEnv("SUPERVISOR_TOKEN", "supervisor-token");
+
+    const config = parseNotificationsConfig({
+      NOTIFICATIONS_ENABLED: "false",
+    });
+
+    expect(config.notifications.enabled).toBe(false);
+  });
+
+  it("parses notify service and max notifications", () => {
+    const config = parseNotificationsConfig({
+      NOTIFICATIONS_ENABLED: "true",
+      NOTIFY_SERVICE: "notify.mobile_app_iphone",
+      NOTIFICATIONS_MAX: "3",
+    });
+
+    expect(config.notifications.enabled).toBe(true);
+    expect(config.notifications.notifyService).toBe("notify.mobile_app_iphone");
+    expect(config.notifications.maxNotifications).toBe(3);
   });
 });
 

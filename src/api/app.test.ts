@@ -23,6 +23,7 @@ import { makeListing } from "../test/listingFixtures.js";
 import { clearBrowseSession } from "../services/browseSession.js";
 import type { EnrichmentQueue } from "../services/enrichmentQueue.js";
 import type { ScraperService } from "../services/scraperService.js";
+import { NotificationPreferenceRepository } from "../db/notificationPreferenceRepository.js";
 
 vi.mock("../config/web.js", () => ({
   webConfig: {
@@ -38,6 +39,28 @@ vi.mock("../config/web.js", () => ({
 vi.mock("../utils/energy/ademeDpeApi.js", () => ({
   searchDpeForProperty: vi.fn(),
   fetchDpeByNumero: vi.fn(),
+}));
+
+vi.mock("../config/notifications.js", () => ({
+  notificationsConfig: {
+    notifications: {
+      enabled: true,
+      notifyService: "persistent_notification.create",
+      maxNotifications: 5,
+    },
+  },
+}));
+
+const sendTestNotification = vi.fn(() => Promise.resolve(true));
+
+vi.mock("../homeAssistant/notifications.js", () => ({
+  sendTestNotification: (...args: unknown[]) => sendTestNotification(...args),
+  sendNewListingNotifications: vi.fn(),
+  sendPriceDropNotifications: vi.fn(),
+}));
+
+vi.mock("../homeAssistant/client.js", () => ({
+  resolveHaApiToken: () => "test-token",
 }));
 
 function createMockEnrichmentQueue(): EnrichmentQueue {
@@ -68,6 +91,9 @@ describe("createApiApp", () => {
     ctx = {
       repository: testDb.repository,
       reactionRepository: testDb.reactionRepository,
+      notificationPreferenceRepository: new NotificationPreferenceRepository(
+        testDb.prisma
+      ),
       scraperService: createMockScraperService(),
       enrichmentQueue: createMockEnrichmentQueue(),
       scrapeDefaults: {
@@ -76,6 +102,7 @@ describe("createApiApp", () => {
         maxPrice: 500_000,
         minSurface: 50,
       },
+      notifyScrapeResults: vi.fn(() => Promise.resolve()),
     };
 
     app = createApiApp(ctx);
@@ -254,5 +281,51 @@ describe("createApiApp", () => {
       "/api/admin/property-match-diagnostics?source=unknown"
     );
     expect(badSource.status).toBe(400);
+  });
+
+  it("GET /api/notifications/preferences returns enabled by default", async () => {
+    const response = await app.request("/api/notifications/preferences");
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ enabled: true });
+  });
+
+  it("PUT /api/notifications/preferences updates the current user preference", async () => {
+    const disable = await app.request("/api/notifications/preferences", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: false }),
+    });
+    expect(disable.status).toBe(200);
+    await expect(disable.json()).resolves.toEqual({ enabled: false });
+
+    const read = await app.request("/api/notifications/preferences");
+    expect(read.status).toBe(200);
+    await expect(read.json()).resolves.toEqual({ enabled: false });
+  });
+
+  it("PUT /api/notifications/preferences validates body", async () => {
+    const response = await app.request("/api/notifications/preferences", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: "no" }),
+    });
+    expect(response.status).toBe(400);
+  });
+
+  it("POST /api/admin/notifications/test sends a test notification", async () => {
+    sendTestNotification.mockClear();
+
+    const response = await app.request("/api/admin/notifications/test", {
+      method: "POST",
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      sent: true,
+      notifyService: "persistent_notification.create",
+    });
+    expect(sendTestNotification).toHaveBeenCalledWith(
+      "persistent_notification.create"
+    );
   });
 });

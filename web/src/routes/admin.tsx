@@ -34,6 +34,9 @@ function AdminPage() {
   const scrapeMutation = useMutation({ mutationFn: api.scrape });
   const reconcileMutation = useMutation({ mutationFn: api.reconcile });
   const enrichMutation = useMutation({ mutationFn: api.enrich });
+  const notificationTestMutation = useMutation({
+    mutationFn: api.testNotification,
+  });
   const [source, setSource] = useState("");
   const [postalCode, setPostalCode] = useState("");
   const [bestVeto, setBestVeto] = useState("");
@@ -222,6 +225,39 @@ function AdminPage() {
             {enrichMutation.error ? (
               <p className="text-sm text-destructive">
                 {getErrorMessage(enrichMutation.error)}
+              </p>
+            ) : null}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>{m.admin_notifications_title()}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              {m.admin_notifications_desc()}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => notificationTestMutation.mutate()}
+              disabled={notificationTestMutation.isPending}
+            >
+              {notificationTestMutation.isPending
+                ? m.common_running()
+                : m.admin_notifications_run()}
+            </Button>
+            {notificationTestMutation.data ? (
+              <p className="text-sm text-muted-foreground">
+                {m.admin_notifications_success({
+                  service: notificationTestMutation.data.notifyService,
+                })}
+              </p>
+            ) : null}
+            {notificationTestMutation.error ? (
+              <p className="text-sm text-destructive">
+                {getErrorMessage(notificationTestMutation.error)}
               </p>
             ) : null}
           </CardContent>

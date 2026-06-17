@@ -1,11 +1,14 @@
 import cron from "node-cron";
 import "./config/app.js";
 import { buildScrapeFilters, scrapeConfig } from "./config/scrape.js";
+import { notificationsConfig } from "./config/notifications.js";
 import { createListingRepository } from "./db/listingRepository.js";
+import { NotificationPreferenceRepository } from "./db/notificationPreferenceRepository.js";
 import { ReactionRepository } from "./db/reactionRepository.js";
 import { disconnectPrisma, getPrisma } from "./db/prisma.js";
 import { createScrapers } from "./scrapers/index.js";
 import { formatScrapeErrors } from "./services/formatScrapeSummary.js";
+import { notifyScrapeResults } from "./services/notifyScrapeResults.js";
 import { scheduleEnrichmentBackfill } from "./services/enrichmentBackfill.js";
 import { resetListingCompatibilityCache } from "./services/compatibilityService.js";
 import { ScraperService } from "./services/scraperService.js";
@@ -34,11 +37,15 @@ async function main(): Promise<void> {
     prisma,
     resetListingCompatibilityCache
   );
+  const notificationPreferenceRepository = new NotificationPreferenceRepository(
+    prisma
+  );
   const scraperService = new ScraperService(scrapers, repository);
   const enrichmentQueue = new EnrichmentQueue(repository);
 
   const scrapeOptions = buildScrapeFilters();
   const geoFilter = resolveGeoFilter(scrapeOptions, true);
+  const { notifications } = notificationsConfig;
 
   log.info(`Starting Find My House ${formatVersionLine()}...`);
   log.info(`Database: ${scrapeConfig.database.url}`);
@@ -46,6 +53,11 @@ async function main(): Promise<void> {
     `Active scrapers: ${scrapers.map((s) => s.name).join(", ") || "none"}`
   );
   log.info(`Search area: ${scrapeOptions.city} (${geoFilterLabel(geoFilter)})`);
+  if (notifications.enabled) {
+    log.info(
+      `Notifications: enabled via ${notifications.notifyService} (max ${String(notifications.maxNotifications)})`
+    );
+  }
 
   startBrowserWarmUp();
 
@@ -61,6 +73,16 @@ async function main(): Promise<void> {
         for (const line of formatScrapeErrors(result.errors)) {
           cronLog.warn(line);
         }
+        await notifyScrapeResults(result, {
+          enabled: notifications.enabled,
+          notifyService: notifications.notifyService,
+          maxNotifications: notifications.maxNotifications,
+          repository,
+          reactionRepository,
+          notificationPreferenceRepository,
+          enrichmentQueue,
+          log: cronLog,
+        });
       } catch (error) {
         cronLog.error("Scrape error:", error);
       }
@@ -116,9 +138,23 @@ async function main(): Promise<void> {
   startWebServer({
     repository,
     reactionRepository,
+    notificationPreferenceRepository,
     scraperService,
     enrichmentQueue,
     scrapeDefaults: scrapeOptions,
+    notifyScrapeResults: (result) => {
+      enrichmentQueue.scheduleScrapeResults(result);
+      return notifyScrapeResults(result, {
+        enabled: notifications.enabled,
+        notifyService: notifications.notifyService,
+        maxNotifications: notifications.maxNotifications,
+        repository,
+        reactionRepository,
+        notificationPreferenceRepository,
+        enrichmentQueue,
+        log: cronLog,
+      });
+    },
   });
 }
 

@@ -60,6 +60,9 @@ export_opt LOG_LEVEL log_level
 # Web UI + Home Assistant (add-on only — see home-assistant/config.yaml)
 export_bool_opt WEB_ENABLED web_enabled
 export_opt WEB_ADMIN_USERS web_admin_users
+export_bool_opt NOTIFICATIONS_ENABLED notifications_enabled
+export_opt NOTIFY_SERVICE notify_service
+export_opt NOTIFICATIONS_MAX notifications_max
 export PANEL_ADMIN=true
 export WEB_PORT=8099
 export WEB_HOST=0.0.0.0

@@ -150,3 +150,11 @@ model PropertyMatchDiagnostic {
   @@index([listingSource, listingExternalId])
   @@map("property_match_diagnostics")
 }
+
+model UserNotificationPreference {
+  userId    String   @id @map("user_id")
+  enabled   Boolean  @default(true)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("user_notification_preferences")
+}

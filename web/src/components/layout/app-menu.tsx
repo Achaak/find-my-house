@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useBrowserNotifications } from "@/hooks/use-browser-notifications";
+import { useNotificationPreferences } from "@/hooks/use-notification-preferences";
 import type { ApiUser } from "@find-my-house/api-types";
 import * as m from "@/paraglide/messages.js";
 import { getLocale, locales, setLocale } from "@/paraglide/runtime.js";
@@ -30,7 +30,7 @@ export function AppMenu({
   commit?: string;
 }) {
   const currentLocale = getLocale();
-  const notifications = useBrowserNotifications();
+  const notifications = useNotificationPreferences();
 
   const versionLabel = version
     ? commit
@@ -66,24 +66,22 @@ export function AppMenu({
           </>
         ) : null}
 
-        {notifications.supported ? (
-          <DropdownMenuItem
-            className="whitespace-nowrap"
-            onClick={notifications.toggle}
-            disabled={notifications.isPending}
-          >
-            {notifications.enabled ? (
-              <Bell className="size-4" />
-            ) : (
-              <BellOff className="size-4" />
-            )}
-            {notifications.enabled
-              ? m.nav_notifications_disable()
-              : m.nav_notifications_enable()}
-          </DropdownMenuItem>
-        ) : null}
+        <DropdownMenuItem
+          className="whitespace-nowrap"
+          onClick={notifications.toggle}
+          disabled={notifications.isLoading || notifications.isPending}
+        >
+          {notifications.enabled ? (
+            <Bell className="size-4" />
+          ) : (
+            <BellOff className="size-4" />
+          )}
+          {notifications.enabled
+            ? m.nav_notifications_disable()
+            : m.nav_notifications_enable()}
+        </DropdownMenuItem>
 
-        {notifications.supported ? <DropdownMenuSeparator /> : null}
+        <DropdownMenuSeparator />
 
         <DropdownMenuGroup>
           <DropdownMenuLabel>{m.locale_switch()}</DropdownMenuLabel>
