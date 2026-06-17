@@ -4,27 +4,31 @@ import { makeListing } from "../test/listingFixtures.js";
 import type { ListingRepository } from "../db/listingRepository.js";
 import type { PropertyRow } from "../types/listing.js";
 import type { ReactionRepository } from "../db/reactionRepository.js";
-import {
-  getListingCompatibilityScore,
-  resolveListingCompatibilityPreferences,
-} from "./compatibilityService.js";
+import { resolveCompatibilityModel } from "./compatibilityService.js";
 import { scheduleEnrichmentBackfill } from "./enrichmentBackfill.js";
 import type { EnrichmentQueue } from "./enrichmentQueue.js";
+import { getCompatibilityScore } from "../utils/compatibility/score.js";
 
 vi.mock("./compatibilityService.js", async (importOriginal) => {
   const actual =
     await importOriginal<typeof import("./compatibilityService.js")>();
   return {
     ...actual,
-    resolveListingCompatibilityPreferences: vi.fn(),
-    getListingCompatibilityScore: vi.fn(),
+    resolveCompatibilityModel: vi.fn(),
   };
 });
 
-const mockResolvePreferences = vi.mocked(
-  resolveListingCompatibilityPreferences
-);
-const mockGetScore = vi.mocked(getListingCompatibilityScore);
+vi.mock("../utils/compatibility/score.js", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../utils/compatibility/score.js")>();
+  return {
+    ...actual,
+    getCompatibilityScore: vi.fn(),
+  };
+});
+
+const mockResolveModel = vi.mocked(resolveCompatibilityModel);
+const mockGetScore = vi.mocked(getCompatibilityScore);
 
 vi.mock("./enrichmentService.js", async (importOriginal) => {
   const actual =
@@ -51,7 +55,21 @@ describe("scheduleEnrichmentBackfill", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    mockResolvePreferences.mockResolvedValue({ weights: {} });
+    mockResolveModel.mockResolvedValue({
+      likes: [],
+      dislikes: [],
+      likeCount: 1,
+      dislikeCount: 0,
+      weights: { price: 100 },
+      profile: {},
+      calibration: {
+        scoreMin: 0,
+        scoreMax: 100,
+        signalStrongEnough: false,
+        likeScores: [],
+        dislikeScores: [],
+      },
+    });
     schedule = vi.fn();
     queue = { schedule } as unknown as EnrichmentQueue;
 
@@ -91,7 +109,7 @@ describe("scheduleEnrichmentBackfill", () => {
   });
 
   it("queues pending listings even without compatibility preferences", async () => {
-    mockResolvePreferences.mockResolvedValue(null);
+    mockResolveModel.mockResolvedValue(null);
 
     const scheduled = await scheduleEnrichmentBackfill(
       repository,

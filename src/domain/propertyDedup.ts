@@ -1,7 +1,7 @@
 import { computePropertyKey } from "../utils/propertyKey.js";
 import {
   propertiesMatchFuzzy,
-  toPropertyMatchInput,
+  toPropertyMatchInput as propertyRowToMatchInput,
   type PropertyMatchInput,
 } from "../utils/propertyMatch.js";
 
@@ -130,7 +130,7 @@ export function propertyRecordToPublicationInputs(property: {
 }): PropertyMatchInput[] {
   if (property.publications.length === 0) {
     return [
-      toPropertyMatchInput({
+      propertyRowToMatchInput({
         postalCode: property.postalCode,
         price: property.price,
         surface: property.surface,

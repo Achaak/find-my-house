@@ -1,28 +1,27 @@
 import { describe, expect, it } from "vitest";
 import { makePropertyRow } from "../../test/listingFixtures.js";
-import { learnCompatibilityPreferences } from "./learn.js";
+import { buildCompatibilityModel } from "./model.js";
 import {
   scoreConstructionYear,
   scoreDpeClass,
   scoreHighlightsMatch,
   scoreNumericTarget,
-  scorePrice,
-  scorePropertyCompatibility,
   scoreRenovationCondition,
-  sortByCompatibility,
-} from "./score.js";
+  scorePrice,
+} from "./legacyScore.js";
+import { evaluatePropertyCompatibility, sortByCompatibility } from "./score.js";
 
-function preferencesFromLikes(
+function modelFromLikes(
   ...likes: NonNullable<Parameters<typeof makePropertyRow>[0]>[]
 ) {
   const rows = likes.map((overrides, index) =>
     makePropertyRow({ id: index + 1, ...overrides })
   );
-  const preferences = learnCompatibilityPreferences(rows);
-  if (!preferences) {
-    throw new Error("Expected learned preferences");
+  const model = buildCompatibilityModel(rows);
+  if (!model) {
+    throw new Error("Expected learned model");
   }
-  return preferences;
+  return model;
 }
 
 describe("compatibility score", () => {
@@ -55,7 +54,7 @@ describe("compatibility score", () => {
   });
 
   it("ranks a closer match above a weaker one from learned likes", () => {
-    const preferences = preferencesFromLikes(
+    const model = modelFromLikes(
       {
         price: 230_000,
         surface: 125,
@@ -73,6 +72,15 @@ describe("compatibility score", () => {
         bedrooms: 4,
         isNewProperty: false,
         dpeClass: "C",
+      },
+      {
+        price: 240_000,
+        surface: 122,
+        landSurface: 1_550,
+        rooms: 5,
+        bedrooms: 4,
+        isNewProperty: false,
+        dpeClass: "B",
       }
     );
 
@@ -97,22 +105,23 @@ describe("compatibility score", () => {
       dpeClass: "E",
     });
 
-    const perfectScore = scorePropertyCompatibility(
-      perfect,
-      preferences
-    )?.score;
-    const weakerScore = scorePropertyCompatibility(weaker, preferences)?.score;
+    const perfectScore = evaluatePropertyCompatibility(perfect, model)?.score;
+    const weakerScore = evaluatePropertyCompatibility(weaker, model)?.score;
 
     expect(perfectScore).toBeGreaterThan(weakerScore ?? 0);
-    expect(sortByCompatibility([weaker, perfect], preferences)[0].id).toBe(10);
+    expect(sortByCompatibility([weaker, perfect], model)[0].id).toBe(10);
   });
 
   it("applies a penalty when a listing resembles a dislike", () => {
-    const preferences = learnCompatibilityPreferences(
-      [makePropertyRow({ id: 1, price: 250_000, surface: 100 })],
+    const model = buildCompatibilityModel(
+      [
+        makePropertyRow({ id: 1, price: 250_000, surface: 100, rooms: 5 }),
+        makePropertyRow({ id: 2, price: 255_000, surface: 102, rooms: 5 }),
+        makePropertyRow({ id: 3, price: 248_000, surface: 98, rooms: 5 }),
+      ],
       [
         makePropertyRow({
-          id: 2,
+          id: 4,
           price: 400_000,
           surface: 60,
           rooms: 2,
@@ -120,39 +129,39 @@ describe("compatibility score", () => {
         }),
       ]
     );
-    if (!preferences) {
-      throw new Error("Expected learned preferences");
+    if (!model) {
+      throw new Error("Expected learned model");
     }
 
     const similarToDislike = makePropertyRow({
-      id: 3,
+      id: 5,
       price: 395_000,
       surface: 62,
       rooms: 2,
       bedrooms: 1,
     });
     const unlikeDislike = makePropertyRow({
-      id: 4,
+      id: 6,
       price: 255_000,
       surface: 102,
       rooms: 5,
       bedrooms: 4,
     });
 
-    const penalized = scorePropertyCompatibility(
+    const penalized = evaluatePropertyCompatibility(
       similarToDislike,
-      preferences
+      model
     )?.score;
-    const preferred = scorePropertyCompatibility(
+    const preferred = evaluatePropertyCompatibility(
       unlikeDislike,
-      preferences
+      model
     )?.score;
 
     expect(penalized).toBeLessThan(preferred ?? 100);
   });
 
   it("favors listings that match learned amenities", () => {
-    const preferences = preferencesFromLikes(
+    const model = modelFromLikes(
       {
         bathrooms: 2,
         parkingSpaces: 2,
@@ -160,6 +169,8 @@ describe("compatibility score", () => {
         highlights: ["Garage", "Jardin"],
         propertyCondition: "Bon état",
         heating: "Gaz",
+        price: 250_000,
+        surface: 110,
       },
       {
         bathrooms: 2,
@@ -168,6 +179,18 @@ describe("compatibility score", () => {
         highlights: ["Garage", "Cave"],
         propertyCondition: "Bon état",
         heating: "Gaz",
+        price: 250_000,
+        surface: 110,
+      },
+      {
+        bathrooms: 2,
+        parkingSpaces: 2,
+        constructionYear: 1976,
+        highlights: ["Garage", "Jardin"],
+        propertyCondition: "Bon état",
+        heating: "Gaz",
+        price: 250_000,
+        surface: 110,
       }
     );
 
@@ -194,11 +217,11 @@ describe("compatibility score", () => {
       heating: "Électrique",
     });
 
-    const strongScore = scorePropertyCompatibility(
+    const strongScore = evaluatePropertyCompatibility(
       strongMatch,
-      preferences
+      model
     )?.score;
-    const weakScore = scorePropertyCompatibility(weakMatch, preferences)?.score;
+    const weakScore = evaluatePropertyCompatibility(weakMatch, model)?.score;
 
     expect(strongScore).toBeGreaterThan(weakScore ?? 0);
   });

@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Archive, Heart, ThumbsDown } from "lucide-react";
 import { useState } from "react";
+import { CompatibilityBadge } from "@/components/listings/compatibility-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -149,8 +150,8 @@ export function PropertyCard({
                 {formatSource(publication.source)}
               </Badge>
             ))}
-            {property.compatibilityScore !== undefined ? (
-              <Badge>Compat {Math.round(property.compatibilityScore)}%</Badge>
+            {property.compatibility ? (
+              <CompatibilityBadge compatibility={property.compatibility} />
             ) : null}
             {property.reaction === "like" ? (
               <Badge variant="default">

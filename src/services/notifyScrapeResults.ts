@@ -4,10 +4,10 @@ import {
 } from "../discord/notifications.js";
 import type { ListingRepository } from "../db/listingRepository.js";
 import type { PropertyRow } from "../types/listing.js";
-import type { CompatibilityPreferences } from "../types/compatibility.js";
+import type { CompatibilityModel } from "../types/compatibility.js";
 import type { ReactionRepository } from "../db/reactionRepository.js";
 import type { ExtendedScrapeResult } from "../types/listing.js";
-import { learnCompatibilityPreferences } from "../utils/compatibility/learn.js";
+import { buildCompatibilityModel } from "../utils/compatibility/model.js";
 import type { Logger } from "../utils/logger.js";
 import { ensurePropertyEnriched } from "./enrichmentService.js";
 import type { EnrichmentQueue } from "./enrichmentQueue.js";
@@ -19,7 +19,7 @@ export type NotifyScrapeResultsOptions = {
   repository?: ListingRepository;
   reactionRepository?: ReactionRepository;
   enrichmentQueue?: EnrichmentQueue;
-  compatibilityPreferences?: CompatibilityPreferences;
+  compatibilityModel?: CompatibilityModel | null;
   log?: Pick<Logger, "info">;
 };
 
@@ -67,17 +67,16 @@ export async function notifyScrapeResults(
     return summary;
   }
 
-  let compatibilityPreferences = options.compatibilityPreferences;
-  if (!compatibilityPreferences && options.reactionRepository) {
+  let compatibilityModel = options.compatibilityModel;
+  if (compatibilityModel === undefined && options.reactionRepository) {
     const { likes, dislikes } =
       await options.reactionRepository.loadCompatibilityTrainingData();
-    compatibilityPreferences =
-      learnCompatibilityPreferences(likes, dislikes) ?? undefined;
+    compatibilityModel = buildCompatibilityModel(likes, dislikes);
   }
 
   const limits = {
     maxNotifications: options.maxNotifications,
-    compatibilityPreferences,
+    compatibilityModel: compatibilityModel ?? null,
   };
 
   const insertedListings = options.repository

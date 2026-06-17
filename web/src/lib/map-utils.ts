@@ -1,6 +1,7 @@
 import { withBasePath } from "@/lib/base-path";
 import { formatPriceDrop, hasPriceDrop } from "@/lib/price-drop";
 import { getDisplayPublications } from "@/lib/publications";
+import { formatCompatibilityBadge } from "@/lib/compatibility";
 import type { Property } from "@find-my-house/api-types";
 import { formatPrice, formatSource } from "@/lib/utils";
 
@@ -82,10 +83,12 @@ export function buildPopupHtml(property: Property): string {
       ? `<span class="fmh-map-popup__first-price">${escapeHtml(formatPrice(property.firstPrice))}</span>`
       : "";
 
-  const compatBlock =
-    property.compatibilityScore !== undefined
-      ? `<span class="fmh-map-popup__badge">${escapeHtml(`Compat ${String(Math.round(property.compatibilityScore))}%`)}</span>`
-      : "";
+  const compatLabel = property.compatibility?.tier
+    ? formatCompatibilityBadge(property.compatibility)
+    : null;
+  const compatBlock = compatLabel
+    ? `<span class="fmh-map-popup__badge">${escapeHtml(compatLabel)}</span>`
+    : "";
 
   const reactionBlock =
     property.reaction === "like"

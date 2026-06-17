@@ -2,6 +2,47 @@ import type { EnergyClass } from "../utils/energy/energyClass.js";
 import type { GeoPoint } from "../utils/geo/geo.js";
 import type { PropertyRow } from "./listing.js";
 
+export type CompatibilityCriterion =
+  | "price"
+  | "surface"
+  | "landSurface"
+  | "rooms"
+  | "bedrooms"
+  | "bathrooms"
+  | "parkingSpaces"
+  | "constructionYear"
+  | "highlights"
+  | "condition"
+  | "heating"
+  | "orientation"
+  | "dpe"
+  | "ancien"
+  | "distance";
+
+export const COMPATIBILITY_CRITERIA = [
+  "price",
+  "surface",
+  "landSurface",
+  "rooms",
+  "bedrooms",
+  "bathrooms",
+  "parkingSpaces",
+  "constructionYear",
+  "highlights",
+  "condition",
+  "heating",
+  "orientation",
+  "dpe",
+  "ancien",
+  "distance",
+] as const satisfies readonly CompatibilityCriterion[];
+
+export type CompatibilityReadiness = "none" | "scoring" | "tier" | "full";
+
+export type CompatibilityTier = "strong" | "good" | "moderate" | "weak";
+
+export type CompatibilityFactorSentiment = "positive" | "negative" | "neutral";
+
 export type CompatibilityPreferences = {
   maxPrice?: number;
   idealPrice?: number;
@@ -29,26 +70,77 @@ export type CompatibilityPreferences = {
   dislikes?: PropertyRow[];
 };
 
-export type CompatibilityBreakdown = {
-  price: number | null;
-  surface: number | null;
-  landSurface: number | null;
-  rooms: number | null;
-  bedrooms: number | null;
-  bathrooms: number | null;
-  parkingSpaces: number | null;
-  constructionYear: number | null;
-  highlights: number | null;
-  condition: number | null;
-  heating: number | null;
-  orientation: number | null;
-  dpe: number | null;
-  ancien: number | null;
-  distance: number | null;
-  dislikePenalty: number | null;
+/** @deprecated Use CompatibilityBreakdownRecord */
+export type CompatibilityBreakdown = Record<
+  CompatibilityCriterion,
+  number | null
+>;
+
+export type CompatibilityBreakdownRecord = Record<
+  CompatibilityCriterion,
+  number | null
+>;
+
+export type CompatibilityFactor = {
+  criterion: CompatibilityCriterion;
+  label: string;
+  sentiment: CompatibilityFactorSentiment;
+  score: number;
+  weight: number;
 };
 
-export type CompatibilityResult = {
+export type CompatibilityEvaluation = {
   score: number;
-  breakdown: CompatibilityBreakdown;
+  breakdown: CompatibilityBreakdownRecord;
+  factors: CompatibilityFactor[];
 };
+
+export type CompatibilityCalibration = {
+  scoreMin: number;
+  scoreMax: number;
+  signalStrongEnough: boolean;
+  likeScores: number[];
+  dislikeScores: number[];
+};
+
+export type CompatibilityModel = {
+  likes: PropertyRow[];
+  dislikes: PropertyRow[];
+  likeCount: number;
+  dislikeCount: number;
+  weights: Partial<Record<CompatibilityCriterion, number>>;
+  profile: CompatibilityPreferences;
+  calibration: CompatibilityCalibration | null;
+};
+
+export type CompatibilityCard = {
+  readiness: CompatibilityReadiness;
+  tier?: CompatibilityTier;
+  rank?: number;
+  rankTotal?: number;
+  summary?: string;
+};
+
+export type CompatibilityDetail = CompatibilityCard & {
+  factors: CompatibilityFactor[];
+  breakdown: {
+    criterion: CompatibilityCriterion;
+    score: number;
+    weight: number;
+  }[];
+};
+
+export type CompatibilityProfileWeightImportance = "high" | "medium" | "low";
+
+export type CompatibilityProfile = {
+  readiness: CompatibilityReadiness;
+  training: { likes: number; dislikes: number };
+  preferences: { label: string; value: string }[];
+  weights: {
+    criterion: CompatibilityCriterion;
+    importance: CompatibilityProfileWeightImportance;
+  }[];
+};
+
+/** @deprecated Use CompatibilityEvaluation */
+export type CompatibilityResult = CompatibilityEvaluation;

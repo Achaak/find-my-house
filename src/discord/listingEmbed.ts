@@ -1,43 +1,35 @@
-import type { PropertyRow } from "../types/listing.js";
-import type { CompatibilityPreferences } from "../types/compatibility.js";
-import { formatListingEmbed, type ListingEmbed } from "./format.js";
-import {
-  getListingCompatibilityScore,
-  resolveListingCompatibilityPreferences,
-} from "../services/compatibilityService.js";
 import type { ReactionRepository } from "../db/reactionRepository.js";
+import type { PropertyRow } from "../types/listing.js";
+import {
+  getListingCompatibilityCard,
+  resolveCompatibilityModel,
+} from "../services/compatibilityService.js";
+import { formatListingEmbed } from "./format.js";
 
 export {
-  getListingCompatibilityScore,
+  getListingCompatibilityCard,
+  resolveCompatibilityModel,
   resetListingCompatibilityCache,
-  resolveListingCompatibilityPreferences,
 } from "../services/compatibilityService.js";
 
 export async function formatListingEmbedWithCompatibility(
   property: PropertyRow,
   reactionRepository: ReactionRepository,
-  preferences?: CompatibilityPreferences | null
-): Promise<ListingEmbed> {
-  const resolvedPreferences =
-    preferences ??
-    (await resolveListingCompatibilityPreferences(reactionRepository));
-  return formatListingEmbed(property, {
-    compatibilityScore: getListingCompatibilityScore(
-      property,
-      resolvedPreferences
-    ),
-  });
+  model?: Awaited<ReturnType<typeof resolveCompatibilityModel>>
+): Promise<import("./format.js").ListingEmbed> {
+  const resolvedModel =
+    model ?? (await resolveCompatibilityModel(reactionRepository));
+  const compatibility = getListingCompatibilityCard(property, resolvedModel);
+  return formatListingEmbed(property, { compatibility });
 }
 
 export async function formatListingEmbedsWithCompatibility(
   properties: PropertyRow[],
   reactionRepository: ReactionRepository
-): Promise<ListingEmbed[]> {
-  const preferences =
-    await resolveListingCompatibilityPreferences(reactionRepository);
-  return properties.map((property) =>
-    formatListingEmbed(property, {
-      compatibilityScore: getListingCompatibilityScore(property, preferences),
-    })
-  );
+): Promise<import("./format.js").ListingEmbed[]> {
+  const model = await resolveCompatibilityModel(reactionRepository);
+  return properties.map((property) => {
+    const compatibility = getListingCompatibilityCard(property, model);
+    return formatListingEmbed(property, { compatibility });
+  });
 }

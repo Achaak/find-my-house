@@ -1,8 +1,8 @@
 import type { ListingRepository } from "../db/listingRepository.js";
 import type { ReactionRepository } from "../db/reactionRepository.js";
-import type { CompatibilityPreferences } from "../types/compatibility.js";
+import type { CompatibilityModel } from "../types/compatibility.js";
 import type { ListingSearchFilters, PropertyRow } from "../types/listing.js";
-import { resolveListingCompatibilityPreferences } from "../services/compatibilityService.js";
+import { resolveCompatibilityModel } from "../services/compatibilityService.js";
 import {
   noteBrowseReaction,
   pickNextFromBrowsePool,
@@ -53,20 +53,19 @@ export async function pickNextBrowseListing(
   reactionRepository: ReactionRepository,
   userId: string,
   session: BrowseSession,
-  preferences?: CompatibilityPreferences | null
+  model?: CompatibilityModel | null
 ): Promise<{
   property: PropertyRow;
   isExplore: boolean;
 } | null> {
-  const resolvedPreferences =
-    preferences ??
-    (await resolveListingCompatibilityPreferences(reactionRepository));
+  const resolvedModel =
+    model ?? (await resolveCompatibilityModel(reactionRepository));
 
   return pickNextFromBrowsePool(
     repository,
     reactionRepository,
     session,
-    resolvedPreferences
+    resolvedModel
   );
 }
 
@@ -76,13 +75,13 @@ export type BrowseState = {
   isExplore: boolean;
   hasPreferences: boolean;
   finished: boolean;
-  preferences: CompatibilityPreferences | null;
+  model: CompatibilityModel | null;
 };
 
 function buildBrowseState(
   userId: string,
   session: BrowseSession,
-  preferences: CompatibilityPreferences | null,
+  model: CompatibilityModel | null,
   property: PropertyRow | null,
   isExplore: boolean
 ): BrowseState {
@@ -92,9 +91,9 @@ function buildBrowseState(
       property: null,
       shownCount: session.shownCount,
       isExplore: false,
-      hasPreferences: preferences !== null,
+      hasPreferences: model !== null,
       finished: true,
-      preferences,
+      model,
     };
   }
 
@@ -102,9 +101,9 @@ function buildBrowseState(
     property,
     shownCount: session.shownCount,
     isExplore,
-    hasPreferences: preferences !== null,
+    hasPreferences: model !== null,
     finished: false,
-    preferences,
+    model,
   };
 }
 
@@ -115,8 +114,7 @@ export async function getBrowseState(
   userId: string,
   session: BrowseSession
 ): Promise<BrowseState> {
-  const preferences =
-    await resolveListingCompatibilityPreferences(reactionRepository);
+  const model = await resolveCompatibilityModel(reactionRepository);
 
   if (session.currentPropertyId !== null) {
     const property = await repository.findById(session.currentPropertyId);
@@ -124,7 +122,7 @@ export async function getBrowseState(
       return buildBrowseState(
         userId,
         session,
-        preferences,
+        model,
         property,
         session.currentIsExplore
       );
@@ -137,7 +135,7 @@ export async function getBrowseState(
     reactionRepository,
     userId,
     session,
-    preferences
+    model
   );
 }
 
@@ -147,11 +145,10 @@ export async function advanceBrowseSession(
   reactionRepository: ReactionRepository,
   userId: string,
   session: BrowseSession,
-  preferences?: CompatibilityPreferences | null
+  model?: CompatibilityModel | null
 ): Promise<BrowseState> {
-  const resolvedPreferences =
-    preferences ??
-    (await resolveListingCompatibilityPreferences(reactionRepository));
+  const resolvedModel =
+    model ?? (await resolveCompatibilityModel(reactionRepository));
 
   session.currentPropertyId = null;
 
@@ -160,11 +157,11 @@ export async function advanceBrowseSession(
     reactionRepository,
     userId,
     session,
-    resolvedPreferences
+    resolvedModel
   );
 
   if (!pick) {
-    return buildBrowseState(userId, session, resolvedPreferences, null, false);
+    return buildBrowseState(userId, session, resolvedModel, null, false);
   }
 
   session.currentPropertyId = pick.property.id;
@@ -173,7 +170,7 @@ export async function advanceBrowseSession(
   return buildBrowseState(
     userId,
     session,
-    resolvedPreferences,
+    resolvedModel,
     pick.property,
     pick.isExplore
   );

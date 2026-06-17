@@ -1,7 +1,8 @@
+import type { CompatibilityCard } from "../types/compatibility.js";
 import type { ListingSource, PropertyRow } from "../types/listing.js";
 import { normalizeAvivImageUrl } from "../utils/classifiedPortal/helpers.js";
 import { formatEnergyClasses } from "../utils/energy/energyClass.js";
-import { formatCompatibilityLabel } from "../utils/compatibility/score.js";
+import { formatCompatibilityFieldValue } from "../utils/compatibility/present.js";
 
 const SOURCE_LABELS: Record<ListingSource, string> = {
   bienici: "Bien'ici",
@@ -162,18 +163,21 @@ export function formatPublicationLinks(property: PropertyRow): string {
 
 function buildListingFields(
   property: PropertyRow,
-  compatibilityScore?: number
+  compatibility?: CompatibilityCard
 ): EmbedField[] {
   const fields: EmbedField[] = [];
   const propertyType = formatPropertyType(property.propertyType);
   const newPropertyLabel = formatNewPropertyLabel(property.isNewProperty);
 
-  if (compatibilityScore !== undefined) {
-    fields.push({
-      name: "Compatibility",
-      value: formatCompatibilityLabel(compatibilityScore),
-      inline: true,
-    });
+  if (compatibility) {
+    const value = formatCompatibilityFieldValue(compatibility);
+    if (value) {
+      fields.push({
+        name: "Adéquation",
+        value,
+        inline: false,
+      });
+    }
   }
 
   if (property.surface) {
@@ -324,7 +328,7 @@ function buildEmbedAuthor(property: PropertyRow): { name: string } {
 
 export function formatListingEmbed(
   property: PropertyRow,
-  options?: { compatibilityScore?: number }
+  options?: { compatibility?: CompatibilityCard }
 ): ListingEmbed {
   return {
     title: truncate(property.title, 256),
@@ -332,7 +336,7 @@ export function formatListingEmbed(
     color: getEmbedColor(property),
     author: buildEmbedAuthor(property),
     description: buildListingDescription(property),
-    fields: buildListingFields(property, options?.compatibilityScore),
+    fields: buildListingFields(property, options?.compatibility),
     image: isValidEmbedImageUrl(property.imageUrl)
       ? { url: normalizeAvivImageUrl(property.imageUrl) }
       : undefined,

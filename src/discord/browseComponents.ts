@@ -99,7 +99,7 @@ export async function buildBrowseReply(
   const embed = await formatListingEmbedWithCompatibility(
     property,
     reactionRepository,
-    state.preferences
+    state.model ?? undefined
   );
 
   return {

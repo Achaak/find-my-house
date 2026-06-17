@@ -10,7 +10,7 @@ import {
 } from "./browseSession.js";
 
 vi.mock("../services/compatibilityService.js", () => ({
-  resolveListingCompatibilityPreferences: vi.fn(() => Promise.resolve(null)),
+  resolveCompatibilityModel: vi.fn(() => Promise.resolve(null)),
 }));
 
 const propertyA = makePropertyRow({ id: 1, title: "Maison A" });

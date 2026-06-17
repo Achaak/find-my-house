@@ -20,6 +20,66 @@ export type PropertyPublication = {
   scrapedAt: string;
 };
 
+export type CompatibilityReadiness = "none" | "scoring" | "tier" | "full";
+
+export type CompatibilityTier = "strong" | "good" | "moderate" | "weak";
+
+export type CompatibilityFactorSentiment = "positive" | "negative" | "neutral";
+
+export type CompatibilityCriterion =
+  | "price"
+  | "surface"
+  | "landSurface"
+  | "rooms"
+  | "bedrooms"
+  | "bathrooms"
+  | "parkingSpaces"
+  | "constructionYear"
+  | "highlights"
+  | "condition"
+  | "heating"
+  | "orientation"
+  | "dpe"
+  | "ancien"
+  | "distance";
+
+export type CompatibilityFactor = {
+  criterion: CompatibilityCriterion;
+  label: string;
+  sentiment: CompatibilityFactorSentiment;
+  score: number;
+  weight: number;
+};
+
+export type CompatibilityCard = {
+  readiness: CompatibilityReadiness;
+  tier?: CompatibilityTier;
+  rank?: number;
+  rankTotal?: number;
+  summary?: string;
+};
+
+export type CompatibilityDetail = CompatibilityCard & {
+  factors: CompatibilityFactor[];
+  breakdown: {
+    criterion: CompatibilityCriterion;
+    score: number;
+    weight: number;
+  }[];
+};
+
+export type CompatibilityProfileWeightImportance = "high" | "medium" | "low";
+
+export type CompatibilityProfile = {
+  readiness: CompatibilityReadiness;
+  training: { likes: number; dislikes: number };
+  preferences: { label: string; value: string }[];
+  weights: {
+    criterion: CompatibilityCriterion;
+    importance: CompatibilityProfileWeightImportance;
+  }[];
+};
+
 export type Property = {
   id: number;
   title: string;
@@ -57,7 +117,7 @@ export type Property = {
   scrapedAt: string;
   createdAt: string;
   updatedAt: string;
-  compatibilityScore?: number;
+  compatibility?: CompatibilityCard | CompatibilityDetail;
   reaction?: PropertyReactionState;
   archived?: boolean;
 };
@@ -78,10 +138,11 @@ export type PropertyCard = Pick<
   | "publications"
   | "url"
   | "source"
-  | "compatibilityScore"
   | "reaction"
   | "archived"
->;
+> & {
+  compatibility?: CompatibilityCard;
+};
 
 export type PropertyDetail = Property;
 
@@ -272,6 +333,8 @@ export type BrowseStopResponse = {
 export type ReactionsResponse = {
   items: Property[];
 };
+
+export type CompatibilityProfileResponse = CompatibilityProfile;
 
 export type ReactionMutationResponse = {
   status: string;

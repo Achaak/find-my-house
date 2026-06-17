@@ -5,7 +5,7 @@ import { sortByCompatibility } from "../../utils/compatibility/score.js";
 import { buildListingActionRow } from "../components.js";
 import {
   formatListingEmbedWithCompatibility,
-  resolveListingCompatibilityPreferences,
+  resolveCompatibilityModel,
 } from "../listingEmbed.js";
 import type { CommandHandler } from "./types.js";
 
@@ -185,13 +185,13 @@ export const handleListings: CommandHandler = async (interaction, ctx) => {
     limit: sort === "compat_desc" ? Math.max(limit, 50) : limit,
   });
 
-  const compatibilityPreferences = await resolveListingCompatibilityPreferences(
+  const compatibilityModel = await resolveCompatibilityModel(
     ctx.reactionRepository
   );
 
   const rankedListings =
     sort === "compat_desc"
-      ? sortByCompatibility(listings, compatibilityPreferences).slice(0, limit)
+      ? sortByCompatibility(listings, compatibilityModel).slice(0, limit)
       : listings;
 
   if (rankedListings.length === 0) {
@@ -204,7 +204,7 @@ export const handleListings: CommandHandler = async (interaction, ctx) => {
   }
 
   const compatibilityHint =
-    sort === "compat_desc" && !compatibilityPreferences
+    sort === "compat_desc" && !compatibilityModel
       ? "\n_Like listings to enable compatibility sorting._"
       : "";
   const resultHeader =

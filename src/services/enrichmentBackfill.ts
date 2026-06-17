@@ -1,11 +1,12 @@
 import type { ListingRepository } from "../db/listingRepository.js";
 import type { ReactionRepository } from "../db/reactionRepository.js";
 import {
-  getListingCompatibilityScore,
-  resolveListingCompatibilityPreferences,
+  getListingCompatibilityCard,
+  resolveCompatibilityModel,
 } from "./compatibilityService.js";
 import { getEnrichmentStatus } from "./enrichmentService.js";
 import type { EnrichmentQueue } from "./enrichmentQueue.js";
+import { getCompatibilityScore } from "../utils/compatibility/score.js";
 import { sortByCompatibility } from "../utils/compatibility/score.js";
 
 export type EnrichmentBackfillOptions = {
@@ -32,23 +33,20 @@ export async function scheduleEnrichmentBackfill(
   const minScore = options.minScore ?? DEFAULT_MIN_SCORE;
   const limit = options.limit ?? DEFAULT_LIMIT;
   const searchLimit = options.searchLimit ?? DEFAULT_SEARCH_LIMIT;
-  const preferences =
-    await resolveListingCompatibilityPreferences(reactionRepository);
+  const model = await resolveCompatibilityModel(reactionRepository);
 
   const scanned = await repository.findPropertiesForEnrichmentScan(searchLimit);
   const pending = scanned.filter(
     (property) => getEnrichmentStatus(property, "display") === "pending"
   );
 
-  const ranked = preferences
-    ? sortByCompatibility(pending, preferences)
-    : pending;
+  const ranked = model ? sortByCompatibility(pending, model) : pending;
 
   const candidates = ranked
     .filter((property) => {
       if (minScore <= 0) return true;
-      if (!preferences) return true;
-      const score = getListingCompatibilityScore(property, preferences);
+      if (!model) return true;
+      const score = getCompatibilityScore(property, model);
       return score !== undefined && score >= minScore;
     })
     .slice(0, limit);
@@ -65,3 +63,9 @@ export const scheduleHighCompatibilityBackfill = scheduleEnrichmentBackfill;
 
 /** @deprecated Use EnrichmentBackfillOptions */
 export type HighCompatibilityBackfillOptions = EnrichmentBackfillOptions;
+
+export function compatibilityCardForProperty(
+  ...args: Parameters<typeof getListingCompatibilityCard>
+) {
+  return getListingCompatibilityCard(...args);
+}

@@ -16,7 +16,10 @@ import type { ApiContext } from "./types.js";
 import { fetchStatsSection } from "../services/statsService.js";
 import { scrapeConfig } from "../config/scrape.js";
 import { getPrisma } from "../db/prisma.js";
-import { resolveListingCompatibilityPreferences } from "../services/compatibilityService.js";
+import {
+  resolveCompatibilityModel,
+  resolveCompatibilityProfile,
+} from "../services/compatibilityService.js";
 import { reconcileProperties } from "../services/reconcileService.js";
 import { scheduleEnrichmentBackfill } from "../services/enrichmentBackfill.js";
 import {
@@ -79,7 +82,7 @@ async function serializeBrowseResponse(
   return {
     item: property
       ? serializePropertyRow(property, {
-          preferences: state.preferences,
+          model: state.model,
           reaction,
         })
       : null,
@@ -127,6 +130,11 @@ export function createApiApp(ctx: ApiContext) {
 
   app.get("/api/me", (c) => c.json(getUser(c)));
 
+  app.get("/api/compatibility/profile", async (c) => {
+    const profile = await resolveCompatibilityProfile(ctx.reactionRepository);
+    return c.json(profile);
+  });
+
   app.get("/api/listings", async (c) => {
     const query = c.req.query();
     const parsed = parseListingSearchFilters(query);
@@ -154,17 +162,17 @@ export function createApiApp(ctx: ApiContext) {
       offset: filters.offset,
     });
 
+    const model = await resolveCompatibilityModel(ctx.reactionRepository);
+
     const rankedListings =
       sort === "compat_desc"
-        ? sortByCompatibility(
-            listings,
-            await resolveListingCompatibilityPreferences(ctx.reactionRepository)
-          ).slice(0, limit)
+        ? sortByCompatibility(listings, model).slice(0, limit)
         : listings;
 
     const items = await serializeProperties(
       rankedListings,
-      ctx.reactionRepository
+      ctx.reactionRepository,
+      { includeRanks: sort === "compat_desc" }
     );
 
     return c.json({

@@ -1,6 +1,6 @@
 import type { ListingRepository } from "../db/listingRepository.js";
 import type { ReactionRepository } from "../db/reactionRepository.js";
-import type { CompatibilityPreferences } from "../types/compatibility.js";
+import type { CompatibilityModel } from "../types/compatibility.js";
 import type { ListingSearchFilters, PropertyRow } from "../types/listing.js";
 import { pickBrowseListing } from "../utils/compatibility/pickBrowseListing.js";
 import { resolveGeoFilter } from "../utils/geo/geoFilter.js";
@@ -173,7 +173,7 @@ export async function pickNextFromBrowsePool(
   repository: ListingRepository,
   reactionRepository: ReactionRepository,
   session: BrowseSession,
-  preferences: CompatibilityPreferences | null
+  model: CompatibilityModel | null
 ): Promise<{
   property: PropertyRow;
   isExplore: boolean;
@@ -184,7 +184,7 @@ export async function pickNextFromBrowsePool(
     (property) => !session.seenPropertyIds.includes(property.id)
   );
 
-  const pick = pickBrowseListing(candidates, preferences, session.shownCount);
+  const pick = pickBrowseListing(candidates, model, session.shownCount);
 
   if (!pick) return null;
 

@@ -270,7 +270,7 @@ function ListingsPage() {
             <option value="price_asc">Price ascending</option>
             <option value="price_desc">Price descending</option>
             <option value="surface_desc">Surface descending</option>
-            <option value="compat_desc">Compatibility</option>
+            <option value="compat_desc">Adéquation</option>
           </Select>
         </FilterField>
         <FilterField label="Property type">

@@ -1,18 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
 import { makePropertyRow } from "../../test/listingFixtures.js";
-import { learnCompatibilityPreferences } from "./learn.js";
+import { buildCompatibilityModel } from "./model.js";
 import {
   BROWSE_EXPLORE_INTERVAL,
   pickBrowseListing,
 } from "./pickBrowseListing.js";
 
-function preferencesFromLikes(
+function modelFromLikes(
   ...likes: NonNullable<Parameters<typeof makePropertyRow>[0]>[]
 ) {
   const rows = likes.map((overrides, index) =>
     makePropertyRow({ id: index + 1, ...overrides })
   );
-  return learnCompatibilityPreferences(rows);
+  return buildCompatibilityModel(rows);
 }
 
 describe("pickBrowseListing", () => {
@@ -33,9 +33,10 @@ describe("pickBrowseListing", () => {
   });
 
   it("prefers high-compatibility listings on regular rounds", () => {
-    const preferences = preferencesFromLikes(
+    const model = modelFromLikes(
       { price: 250_000, surface: 100, rooms: 5, bedrooms: 3, city: "Lyon" },
-      { price: 240_000, surface: 95, rooms: 5, bedrooms: 3, city: "Lyon" }
+      { price: 240_000, surface: 95, rooms: 5, bedrooms: 3, city: "Lyon" },
+      { price: 245_000, surface: 98, rooms: 5, bedrooms: 3, city: "Lyon" }
     );
 
     const strongMatch = makePropertyRow({
@@ -57,7 +58,7 @@ describe("pickBrowseListing", () => {
 
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
 
-    const pick = pickBrowseListing([weakMatch, strongMatch], preferences, 1);
+    const pick = pickBrowseListing([weakMatch, strongMatch], model, 1);
 
     randomSpy.mockRestore();
 
@@ -66,9 +67,10 @@ describe("pickBrowseListing", () => {
   });
 
   it("surfaces a low-compatibility listing on explore rounds", () => {
-    const preferences = preferencesFromLikes(
+    const model = modelFromLikes(
       { price: 250_000, surface: 100, rooms: 5, bedrooms: 3, city: "Lyon" },
-      { price: 240_000, surface: 95, rooms: 5, bedrooms: 3, city: "Lyon" }
+      { price: 240_000, surface: 95, rooms: 5, bedrooms: 3, city: "Lyon" },
+      { price: 245_000, surface: 98, rooms: 5, bedrooms: 3, city: "Lyon" }
     );
 
     const strongMatch = makePropertyRow({
@@ -90,7 +92,7 @@ describe("pickBrowseListing", () => {
 
     const pick = pickBrowseListing(
       [strongMatch, weakMatch],
-      preferences,
+      model,
       BROWSE_EXPLORE_INTERVAL
     );
 

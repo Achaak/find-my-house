@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { CompatibilityProfilePanel } from "@/components/listings/compatibility-detail";
 import { ReactionListPage } from "@/components/listings/reaction-list-page";
 import { Button } from "@/components/ui/button";
 import { api, queryKeys } from "@/lib/api";
@@ -11,6 +12,11 @@ export const Route = createFileRoute("/favorites")({
 
 function FavoritesPage() {
   const [showArchived, setShowArchived] = useState(false);
+
+  const profileQuery = useQuery({
+    queryKey: queryKeys.compatibilityProfile,
+    queryFn: () => api.compatibilityProfile(),
+  });
 
   const query = useQuery({
     queryKey: queryKeys.reactions("like", {
@@ -25,6 +31,9 @@ function FavoritesPage() {
 
   return (
     <div className="space-y-4">
+      {profileQuery.data ? (
+        <CompatibilityProfilePanel profile={profileQuery.data} />
+      ) : null}
       <div className="flex flex-wrap gap-2">
         <Button
           type="button"

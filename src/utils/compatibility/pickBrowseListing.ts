@@ -1,9 +1,9 @@
-import type { CompatibilityPreferences } from "../../types/compatibility.js";
+import type { CompatibilityModel } from "../../types/compatibility.js";
 import type { PropertyRow } from "../../types/listing.js";
-import { scorePropertyCompatibility } from "./score.js";
+import { evaluatePropertyCompatibility } from "./evaluate.js";
+import { scoreToTier } from "./present.js";
 
 export const BROWSE_EXPLORE_INTERVAL = 5;
-export const BROWSE_LOW_COMPAT_THRESHOLD = 50;
 export const BROWSE_TOP_TIER_SIZE = 10;
 
 export type BrowsePickResult = {
@@ -19,31 +19,46 @@ function pickRandom<T>(items: T[]): T {
   return item;
 }
 
+function isExploreTier(
+  property: PropertyRow,
+  model: CompatibilityModel
+): boolean {
+  const evaluation = evaluatePropertyCompatibility(property, model);
+  if (!evaluation) return true;
+
+  const tier = scoreToTier(evaluation.score, model);
+  return tier === "weak" || tier === "moderate";
+}
+
 export function pickBrowseListing(
   candidates: PropertyRow[],
-  preferences: CompatibilityPreferences | null,
+  model: CompatibilityModel | null,
   shownCount: number
 ): BrowsePickResult | null {
   if (candidates.length === 0) return null;
 
-  if (!preferences) {
+  if (!model) {
     return { property: candidates[0], isExplore: false };
   }
 
   const scored = candidates.map((property) => ({
     property,
-    score: scorePropertyCompatibility(property, preferences)?.score ?? 0,
+    evaluation: evaluatePropertyCompatibility(property, model),
+    score: evaluatePropertyCompatibility(property, model)?.score ?? 0,
   }));
 
   const isExplore =
     shownCount > 0 && shownCount % BROWSE_EXPLORE_INTERVAL === 0;
 
   if (isExplore) {
-    const lowCompat = scored.filter(
-      (entry) => entry.score < BROWSE_LOW_COMPAT_THRESHOLD
+    const exploreCandidates = scored.filter((entry) =>
+      isExploreTier(entry.property, model)
     );
-    if (lowCompat.length > 0) {
-      return { property: pickRandom(lowCompat).property, isExplore: true };
+    if (exploreCandidates.length > 0) {
+      return {
+        property: pickRandom(exploreCandidates).property,
+        isExplore: true,
+      };
     }
 
     scored.sort((a, b) => a.score - b.score);

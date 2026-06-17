@@ -3,7 +3,7 @@ import type {
   ApiUser,
   AddressConfirmResponse,
   AdminScrapeResponse,
-  BrowseStopResponse,
+  CompatibilityProfileResponse,
   BrowseState,
   ListingsResponse,
   ListingDetailResponse,
@@ -79,6 +79,9 @@ export const api = {
 
   listing: (id: number) =>
     apiFetch<ListingDetailResponse>(`/api/listings/${String(id)}`),
+
+  compatibilityProfile: () =>
+    apiFetch<CompatibilityProfileResponse>("/api/compatibility/profile"),
 
   browseStart: () =>
     apiFetch<BrowseState>("/api/browse/start", { method: "POST" }),
@@ -191,6 +194,7 @@ export const queryKeys = {
   ) => ["reactions", type, options ?? {}] as const,
   stats: (section: StatsSection) => ["stats", section] as const,
   address: (id: number) => ["address", id] as const,
+  compatibilityProfile: ["compatibility-profile"] as const,
   notifications: (since?: string) =>
     ["notifications", since ?? "default"] as const,
 };

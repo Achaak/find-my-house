@@ -1,27 +1,31 @@
-import type {
-  ReactionRepository,
-  ReactionType,
-} from "../db/reactionRepository.js";
-import type { CompatibilityPreferences } from "../types/compatibility.js";
+import type { ReactionRepository } from "../db/reactionRepository.js";
+import type { CompatibilityModel } from "../types/compatibility.js";
 import type { PropertyRow } from "../types/listing.js";
 import {
-  getListingCompatibilityScore,
-  resolveListingCompatibilityPreferences,
+  buildListingCompatibilityRanks,
+  getListingCompatibilityCard,
+  getListingCompatibilityDetail,
+  resolveCompatibilityModel,
 } from "../services/compatibilityService.js";
 import type { RankedDpeSearchResult } from "../utils/energy/dpePropertyMatch.js";
 import type {
+  CompatibilityCard,
+  CompatibilityDetail,
   DpeCandidate,
   Property,
   PropertyCard,
   PropertyDetail,
   PropertyReactionState,
 } from "./types.js";
+import type { ReactionType } from "../db/reactionRepository.js";
 
 type ReactionSnapshot = { type: ReactionType; archivedAt: Date | null };
 
 export type SerializeBatchContext = {
-  preferences: CompatibilityPreferences | null;
+  model: CompatibilityModel | null;
   reactions: Map<number, ReactionSnapshot>;
+  ranks: Map<number, { rank: number; rankTotal: number }>;
+  includeDetail?: boolean;
 };
 
 export function serializeDpeCandidate(
@@ -39,25 +43,48 @@ export function serializeDpeCandidate(
   };
 }
 
+function serializeCompatibility(
+  property: PropertyRow,
+  model: CompatibilityModel | null,
+  options?: {
+    rank?: { rank: number; rankTotal: number };
+    detail?: boolean;
+  }
+): CompatibilityCard | CompatibilityDetail | undefined {
+  if (!model) return undefined;
+
+  if (options?.detail) {
+    return getListingCompatibilityDetail(property, model, options.rank);
+  }
+
+  return getListingCompatibilityCard(property, model, options?.rank);
+}
+
 export function serializePropertyRow(
   property: PropertyRow,
   options?: {
     includeCompatibility?: boolean;
     batch?: SerializeBatchContext;
-    preferences?: CompatibilityPreferences | null;
+    model?: CompatibilityModel | null;
     reaction?: ReactionSnapshot | null;
+    includeCompatibilityDetail?: boolean;
   }
 ): Property {
   const includeCompatibility = options?.includeCompatibility !== false;
-  const preferences =
-    options?.preferences ?? options?.batch?.preferences ?? null;
+  const model = options?.model ?? options?.batch?.model ?? null;
   const existingReaction =
     options?.reaction !== undefined
       ? options.reaction
       : (options?.batch?.reactions.get(property.id) ?? null);
 
-  const compatibilityScore = includeCompatibility
-    ? getListingCompatibilityScore(property, preferences)
+  const rank = options?.batch?.ranks.get(property.id);
+  const includeDetail =
+    options?.includeCompatibilityDetail ??
+    options?.batch?.includeDetail ??
+    false;
+
+  const compatibility = includeCompatibility
+    ? serializeCompatibility(property, model, { rank, detail: includeDetail })
     : undefined;
 
   let reaction: PropertyReactionState = null;
@@ -104,7 +131,7 @@ export function serializePropertyRow(
     scrapedAt: property.scrapedAt,
     createdAt: property.createdAt,
     updatedAt: property.updatedAt,
-    compatibilityScore,
+    compatibility,
     reaction,
     archived,
   };
@@ -116,40 +143,49 @@ export async function serializeProperty(
   options?: { includeCompatibility?: boolean }
 ): Promise<PropertyDetail> {
   const includeCompatibility = options?.includeCompatibility !== false;
-  const [preferences, reaction] = await Promise.all([
+  const [model, reaction] = await Promise.all([
     includeCompatibility
-      ? resolveListingCompatibilityPreferences(reactionRepository)
+      ? resolveCompatibilityModel(reactionRepository)
       : Promise.resolve(null),
     reactionRepository.getReaction(property.id),
   ]);
 
   return serializePropertyRow(property, {
     ...options,
-    preferences,
+    model,
     reaction,
+    includeCompatibilityDetail: true,
   });
 }
 
 export async function serializeProperties(
   properties: PropertyRow[],
   reactionRepository: ReactionRepository,
-  options?: { includeCompatibility?: boolean }
+  options?: {
+    includeCompatibility?: boolean;
+    includeRanks?: boolean;
+  }
 ): Promise<PropertyCard[]> {
   if (properties.length === 0) {
     return [];
   }
 
   const includeCompatibility = options?.includeCompatibility !== false;
-  const [preferences, reactions] = await Promise.all([
+  const [model, reactions] = await Promise.all([
     includeCompatibility
-      ? resolveListingCompatibilityPreferences(reactionRepository)
+      ? resolveCompatibilityModel(reactionRepository)
       : Promise.resolve(null),
     reactionRepository.getReactionsForProperties(
       properties.map((property) => property.id)
     ),
   ]);
 
-  const batch: SerializeBatchContext = { preferences, reactions };
+  const ranks =
+    includeCompatibility && (options?.includeRanks ?? true)
+      ? buildListingCompatibilityRanks(properties, model)
+      : new Map<number, { rank: number; rankTotal: number }>();
+
+  const batch: SerializeBatchContext = { model, reactions, ranks };
 
   return properties.map((property) =>
     serializePropertyRow(property, { ...options, batch })

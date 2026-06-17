@@ -5,6 +5,7 @@ import {
   DetailsSectionSkeleton,
   ListingDetailSkeleton,
 } from "@/components/listings/listing-detail-skeleton";
+import { CompatibilityDetailPanel } from "@/components/listings/compatibility-detail";
 import { PropertyCard } from "@/components/listings/property-card";
 import { PropertyPortalLinks } from "@/components/listings/property-portal-links";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -90,6 +91,9 @@ function ListingDetailPage() {
         </p>
       ) : null}
       <PropertyCard property={property} imageSkeleton={isRefreshingDetails} />
+      {property.compatibility ? (
+        <CompatibilityDetailPanel compatibility={property.compatibility} />
+      ) : null}
       {isRefreshingDetails ? (
         <DetailsSectionSkeleton />
       ) : (

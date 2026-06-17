@@ -81,12 +81,17 @@ describe("discord/format", () => {
     );
   });
 
-  it("includes compatibility score when provided", () => {
+  it("includes compatibility presentation when provided", () => {
     const embed = formatListingEmbed(makePropertyRow(), {
-      compatibilityScore: 87,
+      compatibility: {
+        readiness: "tier",
+        tier: "strong",
+        summary: "Prix proche de tes likes",
+      },
     });
 
-    const field = embed.fields.find((entry) => entry.name === "Compatibility");
-    expect(field?.value).toContain("87/100");
+    const field = embed.fields.find((entry) => entry.name === "Adéquation");
+    expect(field?.value).toContain("Forte adéquation");
+    expect(field?.value).toContain("Prix proche de tes likes");
   });
 });

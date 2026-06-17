@@ -1,11 +1,9 @@
 import { REST } from "@discordjs/rest";
 import { Routes } from "discord-api-types/rest/v10";
-import type { CompatibilityPreferences } from "../types/compatibility.js";
+import type { CompatibilityModel } from "../types/compatibility.js";
 import type { PropertyRow } from "../types/listing.js";
-import {
-  scorePropertyCompatibility,
-  sortByCompatibility,
-} from "../utils/compatibility/score.js";
+import { getListingCompatibilityCard } from "../services/compatibilityService.js";
+import { sortByCompatibility } from "../utils/compatibility/score.js";
 import { createLogger } from "../utils/logger.js";
 import { buildListingActionComponents } from "./components.js";
 import { formatListingEmbed } from "./format.js";
@@ -18,7 +16,7 @@ type ListingNotificationOptions = {
   shouldNotify?: (property: PropertyRow) => boolean;
   logLabel: string;
   maxNotifications?: number;
-  compatibilityPreferences?: CompatibilityPreferences;
+  compatibilityModel?: CompatibilityModel | null;
 };
 
 async function sendListingNotifications(
@@ -27,7 +25,7 @@ async function sendListingNotifications(
   listings: PropertyRow[],
   options: ListingNotificationOptions
 ): Promise<number> {
-  const { shouldNotify, compatibilityPreferences } = options;
+  const { shouldNotify, compatibilityModel } = options;
   const eligible = shouldNotify
     ? listings.filter((listing) => shouldNotify(listing))
     : listings;
@@ -35,8 +33,8 @@ async function sendListingNotifications(
 
   const rest = new REST({ version: "10" }).setToken(token);
   const maxNotifications = options.maxNotifications ?? eligible.length;
-  const ranked = compatibilityPreferences
-    ? sortByCompatibility(eligible, compatibilityPreferences)
+  const ranked = compatibilityModel
+    ? sortByCompatibility(eligible, compatibilityModel)
     : eligible;
   const toNotify = ranked.slice(0, maxNotifications);
   const hidden = eligible.length - toNotify.length;
@@ -47,14 +45,14 @@ async function sendListingNotifications(
 
   for (const listing of toNotify) {
     try {
-      const compatibilityScore = compatibilityPreferences
-        ? scorePropertyCompatibility(listing, compatibilityPreferences)?.score
+      const compatibility = compatibilityModel
+        ? getListingCompatibilityCard(listing, compatibilityModel)
         : undefined;
 
       await rest.post(Routes.channelMessages(channelId), {
         body: {
           content: !headerSent ? header : undefined,
-          embeds: [formatListingEmbed(listing, { compatibilityScore })],
+          embeds: [formatListingEmbed(listing, { compatibility })],
           components: buildListingActionComponents(listing.id),
         },
       });
@@ -85,7 +83,13 @@ async function sendListingNotifications(
 
 export type ListingNotificationLimits = {
   maxNotifications?: number;
-  compatibilityPreferences?: CompatibilityPreferences;
+  compatibilityModel?: CompatibilityModel | null;
+};
+
+/** @deprecated Use compatibilityModel */
+export type LegacyListingNotificationLimits = {
+  maxNotifications?: number;
+  compatibilityPreferences?: unknown;
 };
 
 export async function sendNewListingNotifications(
@@ -108,7 +112,7 @@ export async function sendNewListingNotifications(
         : `⏭️ **${String(hidden)} other listings** not shown — use \`/listings\` to view them.`,
     logLabel: "notification",
     maxNotifications: limits.maxNotifications,
-    compatibilityPreferences: limits.compatibilityPreferences,
+    compatibilityModel: limits.compatibilityModel,
   });
 }
 
@@ -133,6 +137,6 @@ export async function sendPriceDropNotifications(
     shouldNotify: (property) => property.price < property.firstPrice,
     logLabel: "price drop",
     maxNotifications: limits.maxNotifications,
-    compatibilityPreferences: limits.compatibilityPreferences,
+    compatibilityModel: limits.compatibilityModel,
   });
 }
