@@ -6,6 +6,7 @@ import type {
   AdminNotificationTestResponse,
   CompatibilityProfileResponse,
   BrowseState,
+  BrowseStopResponse,
   ListingsResponse,
   ListingDetailResponse,
   ListingSearchFilters,
