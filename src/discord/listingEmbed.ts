@@ -1,4 +1,5 @@
 import type { PropertyRow } from "../types/listing.js";
+import type { CompatibilityPreferences } from "../types/compatibility.js";
 import { formatListingEmbed, type ListingEmbed } from "./format.js";
 import {
   getListingCompatibilityScore,
@@ -14,12 +15,17 @@ export {
 
 export async function formatListingEmbedWithCompatibility(
   property: PropertyRow,
-  reactionRepository: ReactionRepository
+  reactionRepository: ReactionRepository,
+  preferences?: CompatibilityPreferences | null
 ): Promise<ListingEmbed> {
-  const preferences =
-    await resolveListingCompatibilityPreferences(reactionRepository);
+  const resolvedPreferences =
+    preferences ??
+    (await resolveListingCompatibilityPreferences(reactionRepository));
   return formatListingEmbed(property, {
-    compatibilityScore: getListingCompatibilityScore(property, preferences),
+    compatibilityScore: getListingCompatibilityScore(
+      property,
+      resolvedPreferences
+    ),
   });
 }
 

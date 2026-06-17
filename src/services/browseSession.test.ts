@@ -15,27 +15,38 @@ vi.mock("../services/compatibilityService.js", () => ({
 
 const propertyA = makePropertyRow({ id: 1, title: "Maison A" });
 const propertyB = makePropertyRow({ id: 2, title: "Maison B" });
+const propertyC = makePropertyRow({ id: 3, title: "Maison C" });
 
 function createMocks() {
   const search = vi.fn(() =>
-    Promise.resolve({ items: [propertyA, propertyB], total: 2 })
+    Promise.resolve({ items: [propertyA, propertyB, propertyC], total: 3 })
   );
   const findById = vi.fn((id: number) =>
     Promise.resolve(
-      id === propertyA.id
-        ? propertyA
-        : id === propertyB.id
-          ? propertyB
-          : undefined
+      [propertyA, propertyB, propertyC].find((property) => property.id === id)
     )
+  );
+  const findByIds = vi.fn((ids: number[]) =>
+    Promise.resolve(
+      [propertyA, propertyB, propertyC].filter((property) =>
+        ids.includes(property.id)
+      )
+    )
+  );
+  const listRankedPropertyIds = vi.fn(() =>
+    Promise.resolve([propertyA.id, propertyB.id, propertyC.id])
   );
 
   const repository = {
     search,
     findById,
+    findByIds,
+    listRankedPropertyIds,
   } as unknown as ListingRepository;
 
-  const reactionRepository = {} as ReactionRepository;
+  const reactionRepository = {
+    getReactedPropertyIds: vi.fn(() => Promise.resolve(new Set<number>())),
+  } as unknown as ReactionRepository;
 
   return { repository, reactionRepository, search };
 }
@@ -71,12 +82,8 @@ describe("browseSession", () => {
     expect(search).toHaveBeenCalledTimes(1);
   });
 
-  it("advanceBrowseSession moves to the next listing", async () => {
+  it("advanceBrowseSession reuses the candidate pool without another search", async () => {
     const { repository, reactionRepository, search } = createMocks();
-    search
-      .mockResolvedValueOnce({ items: [propertyA, propertyB], total: 2 })
-      .mockResolvedValueOnce({ items: [propertyB], total: 1 });
-
     const session = startBrowseSession(userId, {});
 
     const first = await getBrowseState(
@@ -93,8 +100,8 @@ describe("browseSession", () => {
     );
 
     expect(first.property?.id).toBe(propertyA.id);
-    expect(second.property?.id).toBe(propertyB.id);
+    expect(second.property?.id).not.toBe(propertyA.id);
     expect(session.shownCount).toBe(2);
-    expect(search).toHaveBeenCalledTimes(2);
+    expect(search).toHaveBeenCalledTimes(1);
   });
 });

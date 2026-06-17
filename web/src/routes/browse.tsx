@@ -53,12 +53,6 @@ function BrowsePage() {
     }) => api.browseReact(action, propertyId),
     onSuccess: (data) => {
       queryClient.setQueryData(queryKeys.browse, data);
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.reactions("like"),
-      });
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.reactions("dislike"),
-      });
     },
   });
 

@@ -39,7 +39,7 @@ export function serializeDpeCandidate(
   };
 }
 
-function serializePropertyRow(
+export function serializePropertyRow(
   property: PropertyRow,
   options?: {
     includeCompatibility?: boolean;

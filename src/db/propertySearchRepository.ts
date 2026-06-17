@@ -163,8 +163,120 @@ function needsSearchPostProcessing(
   return radiusFilter !== null;
 }
 
+type ResolvedSearch = {
+  where: Prisma.PropertyWhereInput;
+  orderBy: ReturnType<typeof searchOrderBy>;
+  radiusFilter: { center: GeoPoint; radiusKm: number } | null;
+  sort: ListingSearchFilters["sort"];
+};
+
+function rankPropertyIdsInRadius(
+  leanRows: {
+    id: number;
+    latitude: number | null;
+    longitude: number | null;
+    price: number;
+    firstSeenAt: Date;
+    surface: number | null;
+  }[],
+  radiusFilter: { center: GeoPoint; radiusKm: number },
+  sort: ListingSearchFilters["sort"]
+): number[] {
+  const { center, radiusKm } = radiusFilter;
+  return leanRows
+    .filter(
+      (row): row is typeof row & { latitude: number; longitude: number } => {
+        if (row.latitude === null || row.longitude === null) return false;
+        return isWithinRadiusKm(
+          { lat: row.latitude, lng: row.longitude },
+          center,
+          radiusKm
+        );
+      }
+    )
+    .map((row) => ({
+      id: row.id,
+      distance: haversineDistanceKm(
+        center.lat,
+        center.lng,
+        row.latitude,
+        row.longitude
+      ),
+      price: row.price,
+      firstSeenAt: row.firstSeenAt,
+      surface: row.surface,
+    }))
+    .sort((a, b) => compareGeoRankedCandidates(a, b, sort))
+    .map((entry) => entry.id);
+}
+
 export class PropertySearchRepository {
   constructor(private readonly prisma: PrismaClient) {}
+
+  private async resolveSearch(
+    filters: ListingSearchFilters
+  ): Promise<ResolvedSearch | null> {
+    const geoFilter = resolveGeoFilter(filters, true);
+    const useGeoFilter = geoFilter.mode !== "city";
+
+    let radiusFilter: { center: GeoPoint; radiusKm: number } | null = null;
+
+    if (useGeoFilter) {
+      if (!filters.city) return null;
+      const searchCenter = await resolveGeoSearchCenter(
+        filters.city,
+        filters.postalCode
+      );
+      if (!searchCenter) return null;
+      radiusFilter = resolveRadiusSearchFilter(geoFilter, searchCenter.center);
+    }
+
+    let where = buildPropertySearchWhere(filters, useGeoFilter, radiusFilter);
+    if (filters.priceDropOnly) {
+      where = applyPriceDropWhere(where);
+    }
+
+    return {
+      where,
+      orderBy: searchOrderBy(filters.sort),
+      radiusFilter,
+      sort: filters.sort,
+    };
+  }
+
+  async listRankedPropertyIds(
+    filters: ListingSearchFilters
+  ): Promise<number[]> {
+    const resolved = await this.resolveSearch(filters);
+    if (!resolved) return [];
+
+    const { where, orderBy, radiusFilter, sort } = resolved;
+
+    if (!needsSearchPostProcessing(radiusFilter)) {
+      const rows = await this.prisma.property.findMany({
+        where,
+        select: { id: true },
+        orderBy,
+      });
+      return rows.map((row) => row.id);
+    }
+
+    const leanRows = await this.prisma.property.findMany({
+      where,
+      select: {
+        id: true,
+        latitude: true,
+        longitude: true,
+        price: true,
+        firstSeenAt: true,
+        surface: true,
+      },
+    });
+
+    if (!radiusFilter) return [];
+
+    return rankPropertyIdsInRadius(leanRows, radiusFilter, sort);
+  }
 
   async findRecent(limit = 10): Promise<PropertyRow[]> {
     const rows = await this.prisma.property.findMany({
@@ -179,42 +291,32 @@ export class PropertySearchRepository {
   async search(
     filters: ListingSearchFilters
   ): Promise<{ items: PropertyRow[]; total: number }> {
-    const geoFilter = resolveGeoFilter(filters, true);
-    const useGeoFilter = geoFilter.mode !== "city";
+    const resolved = await this.resolveSearch(filters);
+    if (!resolved) return { items: [], total: 0 };
 
-    let radiusFilter: { center: GeoPoint; radiusKm: number } | null = null;
-
-    if (useGeoFilter) {
-      if (!filters.city) return { items: [], total: 0 };
-      const searchCenter = await resolveGeoSearchCenter(
-        filters.city,
-        filters.postalCode
-      );
-      if (!searchCenter) return { items: [], total: 0 };
-      radiusFilter = resolveRadiusSearchFilter(geoFilter, searchCenter.center);
-    }
-
-    let where = buildPropertySearchWhere(filters, useGeoFilter, radiusFilter);
-    if (filters.priceDropOnly) {
-      where = applyPriceDropWhere(where);
-    }
-    const orderBy = searchOrderBy(filters.sort);
+    const { where, orderBy, radiusFilter, sort } = resolved;
     const offset = filters.offset ?? 0;
     const limit = filters.limit ?? 10;
+    const includeTotal = filters.includeTotal !== false;
 
     if (!needsSearchPostProcessing(radiusFilter)) {
-      const [total, rows] = await Promise.all([
-        this.prisma.property.count({ where }),
-        this.prisma.property.findMany({
-          where,
-          include: propertyInclude,
-          orderBy,
-          skip: offset,
-          take: limit,
-        }),
-      ]);
+      const rowsPromise = this.prisma.property.findMany({
+        where,
+        include: propertyInclude,
+        orderBy,
+        skip: offset,
+        take: limit,
+      });
+      const totalPromise = includeTotal
+        ? this.prisma.property.count({ where })
+        : Promise.resolve(0);
 
-      return { items: rows.map(toPropertyRow), total };
+      const [total, rows] = await Promise.all([totalPromise, rowsPromise]);
+
+      return {
+        items: rows.map(toPropertyRow),
+        total: includeTotal ? total : rows.length,
+      };
     }
 
     const leanRows = await this.prisma.property.findMany({
@@ -233,36 +335,12 @@ export class PropertySearchRepository {
       return { items: [], total: 0 };
     }
 
-    const { center, radiusKm } = radiusFilter;
-    const rankedIds = leanRows
-      .filter(
-        (row): row is typeof row & { latitude: number; longitude: number } => {
-          if (row.latitude === null || row.longitude === null) return false;
-          return isWithinRadiusKm(
-            { lat: row.latitude, lng: row.longitude },
-            center,
-            radiusKm
-          );
-        }
-      )
-      .map((row) => ({
-        id: row.id,
-        distance: haversineDistanceKm(
-          center.lat,
-          center.lng,
-          row.latitude,
-          row.longitude
-        ),
-        price: row.price,
-        firstSeenAt: row.firstSeenAt,
-        surface: row.surface,
-      }))
-      .sort((a, b) => compareGeoRankedCandidates(a, b, filters.sort));
+    const rankedIds = rankPropertyIdsInRadius(leanRows, radiusFilter, sort);
 
     const total = rankedIds.length;
     const pageIds = rankedIds
       .slice(offset, offset + limit)
-      .map((entry) => entry.id);
+      .map((entry) => entry);
 
     if (pageIds.length === 0) {
       return { items: [], total };

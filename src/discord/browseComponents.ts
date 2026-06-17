@@ -8,10 +8,12 @@ import {
 import type { ListingRepository } from "../db/listingRepository.js";
 import type { ReactionRepository } from "../db/reactionRepository.js";
 import type { EnrichmentQueue } from "../services/enrichmentQueue.js";
+import { propertyNeedsEnrichment } from "../services/enrichmentService.js";
 import {
   advanceBrowseSession,
   clearBrowseSession,
   getBrowseSession,
+  noteBrowseReaction,
   startBrowseSession,
   type BrowseSession,
 } from "../services/browseSession.js";
@@ -88,13 +90,16 @@ export async function buildBrowseReply(
     };
   }
 
-  await enrichmentQueue.waitUntilEnriched(state.property.id, "display", "high");
-  const property =
-    (await repository.findById(state.property.id)) ?? state.property;
+  let property = state.property;
+  if (propertyNeedsEnrichment(property, "display")) {
+    await enrichmentQueue.waitUntilEnriched(property.id, "display", "high");
+    property = (await repository.findById(property.id)) ?? property;
+  }
 
   const embed = await formatListingEmbedWithCompatibility(
     property,
-    reactionRepository
+    reactionRepository,
+    state.preferences
   );
 
   return {
@@ -179,6 +184,7 @@ export async function handleBrowseButton(
   }
 
   await reactionRepository.add(parsed.propertyId, parsed.action);
+  noteBrowseReaction(session, parsed.propertyId);
 
   const next = await buildBrowseReply(
     repository,

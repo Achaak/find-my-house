@@ -45,6 +45,7 @@ export type ListingSearchRepository = {
   search(
     filters: ListingSearchFilters
   ): Promise<{ items: PropertyRow[]; total: number }>;
+  listRankedPropertyIds(filters: ListingSearchFilters): Promise<number[]>;
   findAddedSince(since: Date, limit?: number): Promise<PropertyRow[]>;
   findById(id: number): Promise<PropertyRow | undefined>;
   findByIds(ids: number[]): Promise<PropertyRow[]>;

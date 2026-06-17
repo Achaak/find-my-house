@@ -2,28 +2,38 @@ import type { ListingRepository } from "../db/listingRepository.js";
 import type { ReactionRepository } from "../db/reactionRepository.js";
 import type { CompatibilityPreferences } from "../types/compatibility.js";
 import type { ListingSearchFilters, PropertyRow } from "../types/listing.js";
-import { pickBrowseListing } from "../utils/compatibility/pickBrowseListing.js";
 import { resolveListingCompatibilityPreferences } from "../services/compatibilityService.js";
+import {
+  noteBrowseReaction,
+  pickNextFromBrowsePool,
+  type BrowseSession,
+} from "./browseCandidates.js";
 
-export type BrowseSession = {
-  filters: ListingSearchFilters;
-  shownCount: number;
-  currentPropertyId: number | null;
-  currentIsExplore: boolean;
-};
+export type { BrowseSession };
 
 const sessions = new Map<string, BrowseSession>();
+
+function createBrowseSessionState(
+  filters: ListingSearchFilters
+): BrowseSession {
+  return {
+    filters,
+    shownCount: 0,
+    currentPropertyId: null,
+    currentIsExplore: false,
+    candidatePool: [],
+    seenPropertyIds: [],
+    reactedPropertyIds: null,
+    geoRankedIds: null,
+    geoRankedCursor: 0,
+  };
+}
 
 export function startBrowseSession(
   userId: string,
   filters: ListingSearchFilters
 ): BrowseSession {
-  const session: BrowseSession = {
-    filters,
-    shownCount: 0,
-    currentPropertyId: null,
-    currentIsExplore: false,
-  };
+  const session = createBrowseSessionState(filters);
   sessions.set(userId, session);
   return session;
 }
@@ -36,18 +46,7 @@ export function getBrowseSession(userId: string): BrowseSession | undefined {
   return sessions.get(userId);
 }
 
-async function loadBrowseCandidates(
-  repository: ListingRepository,
-  filters: ListingSearchFilters
-): Promise<PropertyRow[]> {
-  const { items } = await repository.search({
-    ...filters,
-    excludeReacted: true,
-    limit: 100,
-    sort: "date_desc",
-  });
-  return items;
-}
+export { noteBrowseReaction };
 
 export async function pickNextBrowseListing(
   repository: ListingRepository,
@@ -63,17 +62,12 @@ export async function pickNextBrowseListing(
     preferences ??
     (await resolveListingCompatibilityPreferences(reactionRepository));
 
-  const candidates = await loadBrowseCandidates(repository, session.filters);
-  const pick = pickBrowseListing(
-    candidates,
-    resolvedPreferences,
-    session.shownCount
+  return pickNextFromBrowsePool(
+    repository,
+    reactionRepository,
+    session,
+    resolvedPreferences
   );
-
-  if (!pick) return null;
-
-  session.shownCount += 1;
-  return pick;
 }
 
 export type BrowseState = {
@@ -82,6 +76,7 @@ export type BrowseState = {
   isExplore: boolean;
   hasPreferences: boolean;
   finished: boolean;
+  preferences: CompatibilityPreferences | null;
 };
 
 function buildBrowseState(
@@ -99,6 +94,7 @@ function buildBrowseState(
       isExplore: false,
       hasPreferences: preferences !== null,
       finished: true,
+      preferences,
     };
   }
 
@@ -108,6 +104,7 @@ function buildBrowseState(
     isExplore,
     hasPreferences: preferences !== null,
     finished: false,
+    preferences,
   };
 }
 

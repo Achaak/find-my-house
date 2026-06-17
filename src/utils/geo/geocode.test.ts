@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { resolveGeoSearchCenter } from "./geocode.js";
+import {
+  clearGeoSearchCenterCache,
+  resolveGeoSearchCenter,
+} from "./geocode.js";
 
 vi.mock("../bienici/place.js", () => ({
   resolveBienIciPlace: vi.fn(),
@@ -17,6 +20,7 @@ const mockedResolveTravelOrigin = vi.mocked(resolveBienIciTravelOrigin);
 describe("resolveGeoSearchCenter", () => {
   afterEach(() => {
     vi.clearAllMocks();
+    clearGeoSearchCenterCache();
   });
 
   it("returns null when the city cannot be resolved", async () => {

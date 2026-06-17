@@ -127,3 +127,49 @@ export function toPropertyRow(row: PropertyWithPublications): PropertyRow {
     updatedAt: row.updatedAt.toISOString(),
   };
 }
+
+/** Property row for compatibility training — no publication join. */
+export function toCompatibilityTrainingProperty(
+  row: PrismaProperty
+): PropertyRow {
+  return {
+    id: row.id,
+    title: row.title,
+    price: row.price,
+    firstPrice: row.firstPrice,
+    surface: row.surface,
+    landSurface: row.landSurface,
+    rooms: row.rooms,
+    bedrooms: row.bedrooms,
+    isNewProperty: row.isNewProperty,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    city: row.city,
+    postalCode: row.postalCode,
+    address: row.address,
+    dpeNumero: row.dpeNumero,
+    description: row.description,
+    imageUrl: row.imageUrl,
+    propertyType: row.propertyType,
+    dpeClass: row.dpeClass,
+    gesClass: row.gesClass,
+    dpeConsumptionKwhM2: row.dpeConsumptionKwhM2,
+    gesEmissionKgM2: row.gesEmissionKgM2,
+    bathrooms: row.bathrooms,
+    constructionYear: row.constructionYear,
+    heating: row.heating,
+    orientation: row.orientation,
+    propertyCondition: row.propertyCondition,
+    parkingSpaces: row.parkingSpaces,
+    highlights: parseHighlights(row.highlights),
+    displayEnrichedAt: row.displayEnrichedAt?.toISOString() ?? null,
+    addressEnrichedAt: row.addressEnrichedAt?.toISOString() ?? null,
+    firstSeenAt: row.firstSeenAt.toISOString(),
+    publications: [],
+    url: "",
+    source: "bienici",
+    scrapedAt: row.firstSeenAt.toISOString(),
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}

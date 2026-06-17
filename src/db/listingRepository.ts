@@ -83,6 +83,12 @@ export class ListingRepository implements ListingRepositoryRoles {
     return this.searchRepo.search(filters);
   }
 
+  async listRankedPropertyIds(
+    filters: ListingSearchFilters
+  ): Promise<number[]> {
+    return this.searchRepo.listRankedPropertyIds(filters);
+  }
+
   async findAddedSince(since: Date, limit = 20): Promise<PropertyRow[]> {
     return this.searchRepo.findAddedSince(since, limit);
   }

@@ -1,6 +1,9 @@
 import type { PrismaClient, ReactionType } from "../generated/prisma/client.js";
 import type { PropertyRow } from "../types/listing.js";
-import { toPropertyRow } from "./listingMapper.js";
+import {
+  toCompatibilityTrainingProperty,
+  toPropertyRow,
+} from "./listingMapper.js";
 
 export type { ReactionType };
 
@@ -158,11 +161,33 @@ export class ReactionRepository {
     dislikes: PropertyRow[];
   }> {
     const [likes, dislikes] = await Promise.all([
-      this.findListingsByType("like", { excludeArchived: false }),
-      this.findListingsByType("dislike", { excludeArchived: false }),
+      this.findTrainingPropertiesByType("like"),
+      this.findTrainingPropertiesByType("dislike"),
     ]);
 
     return { likes, dislikes };
+  }
+
+  private async findTrainingPropertiesByType(
+    type: ReactionType
+  ): Promise<PropertyRow[]> {
+    const reactions = await this.prisma.listingReaction.findMany({
+      where: { type },
+      include: { property: true },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    });
+
+    return reactions.map((reaction) =>
+      toCompatibilityTrainingProperty(reaction.property)
+    );
+  }
+
+  async getReactedPropertyIds(): Promise<Set<number>> {
+    const reactions = await this.prisma.listingReaction.findMany({
+      select: { propertyId: true },
+    });
+    return new Set(reactions.map((reaction) => reaction.propertyId));
   }
 
   async getReaction(

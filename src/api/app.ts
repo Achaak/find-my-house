@@ -10,6 +10,7 @@ import {
   serializeDpeCandidate,
   serializeProperties,
   serializeProperty,
+  serializePropertyRow,
 } from "./serialize.js";
 import type { ApiContext } from "./types.js";
 import { fetchStatsSection } from "../services/statsService.js";
@@ -28,6 +29,7 @@ import {
   clearBrowseSession,
   getBrowseSession,
   getBrowseState,
+  noteBrowseReaction,
   startBrowseSession,
   type BrowseSession,
 } from "../services/browseSession.js";
@@ -53,7 +55,8 @@ async function serializeBrowseResponse(
   ctx: ApiContext,
   userId: string,
   session: BrowseSession,
-  state: InternalBrowseState
+  state: InternalBrowseState,
+  options?: { reactionType?: "like" | "dislike" }
 ) {
   const geoFilter = resolveGeoFilter(
     { maxTravelMinutes: session.filters.maxTravelMinutes },
@@ -61,14 +64,24 @@ async function serializeBrowseResponse(
   );
 
   let property = state.property;
-  if (property) {
+  if (property && propertyNeedsEnrichment(property, "display")) {
     await ctx.enrichmentQueue.waitUntilEnriched(property.id, "display", "high");
     property = (await ctx.repository.findById(property.id)) ?? property;
   }
 
+  const reaction =
+    property && options?.reactionType
+      ? { type: options.reactionType, archivedAt: null }
+      : property
+        ? await ctx.reactionRepository.getReaction(property.id)
+        : null;
+
   return {
     item: property
-      ? await serializeProperty(property, ctx.reactionRepository)
+      ? serializePropertyRow(property, {
+          preferences: state.preferences,
+          reaction,
+        })
       : null,
     shownCount: state.shownCount,
     isExplore: state.isExplore,
@@ -254,6 +267,7 @@ export function createApiApp(ctx: ApiContext) {
     }
 
     await ctx.reactionRepository.add(propertyId, action);
+    noteBrowseReaction(session, propertyId);
 
     const state = await advanceBrowseSession(
       ctx.repository,
@@ -262,7 +276,11 @@ export function createApiApp(ctx: ApiContext) {
       session
     );
 
-    return c.json(await serializeBrowseResponse(ctx, user.id, session, state));
+    return c.json(
+      await serializeBrowseResponse(ctx, user.id, session, state, {
+        reactionType: action,
+      })
+    );
   });
 
   app.get("/api/reactions/:type", async (c) => {

@@ -8,6 +8,8 @@ export type { ListingSource, ListingSearchSort };
 
 export type ListingSearchFilters = ApiListingSearchFilters & {
   excludeReacted?: boolean;
+  /** When false, skip the count query (browse pool refill). Defaults to true. */
+  includeTotal?: boolean;
 };
 
 export type Listing = {
