@@ -2,6 +2,7 @@ import type { UseQueryResult } from "@tanstack/react-query";
 import { PropertyCard } from "@/components/listings/property-card";
 import { getErrorMessage } from "@/lib/error-message";
 import type { Property } from "@find-my-house/api-types";
+import * as m from "@/paraglide/messages.js";
 
 export function ReactionListPage({
   title,
@@ -18,7 +19,7 @@ export function ReactionListPage({
         <h1 className="text-2xl font-semibold">{title}</h1>
         <p className="text-sm text-muted-foreground">{description}</p>
       </div>
-      {query.isLoading ? <p>Loading…</p> : null}
+      {query.isLoading ? <p>{m.common_loading()}</p> : null}
       {query.error ? (
         <p className="text-destructive">{getErrorMessage(query.error)}</p>
       ) : null}
@@ -29,7 +30,7 @@ export function ReactionListPage({
           ))}
         </div>
       ) : query.data ? (
-        <p className="text-muted-foreground">No listings yet.</p>
+        <p className="text-muted-foreground">{m.reactions_empty()}</p>
       ) : null}
     </div>
   );

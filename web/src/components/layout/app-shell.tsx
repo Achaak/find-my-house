@@ -1,25 +1,15 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import {
-  BarChart3,
-  CircleHelp,
-  Compass,
-  Heart,
-  Home,
-  Search,
-  Settings,
-  ThumbsDown,
-} from "lucide-react";
-import { NotificationWatcher } from "@/components/layout/notification-watcher";
+import { Compass, Heart, Home, Search } from "lucide-react";
+import { AppMenu } from "@/components/layout/app-menu";
+import { NavMoreMenu } from "@/components/layout/nav-more-menu";
 import type { ApiUser } from "@find-my-house/api-types";
+import * as m from "@/paraglide/messages.js";
 import { cn } from "@/lib/utils";
 
-const navItems = [
-  { to: "/listings", label: "Listings", icon: Search },
-  { to: "/browse", label: "Browse", icon: Compass },
-  { to: "/favorites", label: "Favorites", icon: Heart },
-  { to: "/dislikes", label: "Dislikes", icon: ThumbsDown },
-  { to: "/stats", label: "Stats", icon: BarChart3 },
-  { to: "/help", label: "Help", icon: CircleHelp },
+const primaryNavItems = [
+  { to: "/listings", label: () => m.nav_listings(), icon: Search },
+  { to: "/browse", label: () => m.nav_browse(), icon: Compass },
+  { to: "/favorites", label: () => m.nav_favorites(), icon: Heart },
 ] as const;
 
 function NavLink({
@@ -66,71 +56,48 @@ export function AppShell({
     select: (state) => state.location.pathname,
   });
 
-  const versionLabel = version
-    ? commit
-      ? `v${version} (${commit.slice(0, 7)})`
-      : `v${version}`
-    : null;
-
   return (
     <div className="min-h-dvh bg-background">
       <header className="sticky top-0 z-10 border-b bg-background/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
           <Link to="/" className="flex items-center gap-2 font-semibold">
             <Home className="size-5 text-primary" />
-            <span>Find My House</span>
+            <span>{m.app_name()}</span>
           </Link>
           <nav
             className="hidden flex-1 items-center gap-1 md:flex"
-            aria-label="Main navigation"
+            aria-label={m.nav_main()}
           >
-            {navItems.map(({ to, label, icon }) => (
+            {primaryNavItems.map(({ to, label, icon }) => (
               <NavLink
                 key={to}
                 to={to}
-                label={label}
+                label={label()}
                 icon={icon}
                 pathname={pathname}
               />
             ))}
-            {user?.isAdmin ? (
-              <NavLink
-                to="/admin"
-                label="Admin"
-                icon={Settings}
-                pathname={pathname}
-              />
-            ) : null}
+            <NavMoreMenu pathname={pathname} isAdmin={user?.isAdmin} />
           </nav>
-          <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
-            <NotificationWatcher />
-            {user ? user.username : "…"}
-            {versionLabel ? ` · ${versionLabel}` : null}
+          <div className="ml-auto">
+            <AppMenu user={user} version={version} commit={commit} />
           </div>
         </div>
         <nav
-          className="flex gap-1 overflow-x-auto border-t px-4 py-2 md:hidden"
-          aria-label="Main navigation"
+          className="flex gap-1 border-t px-4 py-2 md:hidden"
+          aria-label={m.nav_main()}
         >
-          {navItems.map(({ to, label, icon }) => (
+          {primaryNavItems.map(({ to, label, icon }) => (
             <NavLink
               key={to}
               to={to}
-              label={label}
+              label={label()}
               icon={icon}
               pathname={pathname}
               compact
             />
           ))}
-          {user?.isAdmin ? (
-            <NavLink
-              to="/admin"
-              label="Admin"
-              icon={Settings}
-              pathname={pathname}
-              compact
-            />
-          ) : null}
+          <NavMoreMenu pathname={pathname} isAdmin={user?.isAdmin} compact />
         </nav>
       </header>
       <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>

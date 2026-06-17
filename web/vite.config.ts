@@ -1,4 +1,5 @@
 import path from "node:path";
+import { paraglideVitePlugin } from "@inlang/paraglide-js";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
@@ -8,6 +9,12 @@ export default defineConfig({
   // Relative asset URLs so the build works behind Home Assistant Ingress.
   base: "./",
   plugins: [
+    paraglideVitePlugin({
+      project: "./project.inlang",
+      outdir: "./src/paraglide",
+      strategy: ["localStorage", "preferredLanguage", "baseLocale"],
+      emitTsDeclarations: true,
+    }),
     tanstackRouter({ target: "react", autoCodeSplitting: true }),
     react(),
     tailwindcss(),

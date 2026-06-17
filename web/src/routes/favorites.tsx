@@ -5,6 +5,7 @@ import { CompatibilityProfilePanel } from "@/components/listings/compatibility-d
 import { ReactionListPage } from "@/components/listings/reaction-list-page";
 import { Button } from "@/components/ui/button";
 import { api, queryKeys } from "@/lib/api";
+import * as m from "@/paraglide/messages.js";
 
 export const Route = createFileRoute("/favorites")({
   component: FavoritesPage,
@@ -41,7 +42,7 @@ function FavoritesPage() {
           variant={!showArchived ? "default" : "outline"}
           onClick={() => setShowArchived(false)}
         >
-          Active
+          {m.favorites_tab_active()}
         </Button>
         <Button
           type="button"
@@ -49,15 +50,15 @@ function FavoritesPage() {
           variant={showArchived ? "default" : "outline"}
           onClick={() => setShowArchived(true)}
         >
-          Archived
+          {m.favorites_tab_archived()}
         </Button>
       </div>
       <ReactionListPage
-        title={showArchived ? "Archived favorites" : "Favorites"}
+        title={
+          showArchived ? m.favorites_title_archived() : m.favorites_title()
+        }
         description={
-          showArchived
-            ? "Archived favorites still count toward compatibility scoring."
-            : "Listings you liked."
+          showArchived ? m.favorites_desc_archived() : m.favorites_desc()
         }
         query={query}
       />

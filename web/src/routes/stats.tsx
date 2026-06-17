@@ -6,6 +6,7 @@ import { StatsPanel } from "@/components/stats/stats-panels";
 import { Button } from "@/components/ui/button";
 import { api, queryKeys } from "@/lib/api";
 import { getErrorMessage } from "@/lib/error-message";
+import * as m from "@/paraglide/messages.js";
 
 const sections: StatsSection[] = [
   "overview",
@@ -14,6 +15,14 @@ const sections: StatsSection[] = [
   "mine",
   "activity",
 ];
+
+const sectionLabels: Record<StatsSection, () => string> = {
+  overview: () => m.stats_section_overview(),
+  sources: () => m.stats_section_sources(),
+  prices: () => m.stats_section_prices(),
+  mine: () => m.stats_section_mine(),
+  activity: () => m.stats_section_activity(),
+};
 
 export const Route = createFileRoute("/stats")({
   component: StatsPage,
@@ -30,10 +39,8 @@ function StatsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Statistics</h1>
-        <p className="text-sm text-muted-foreground">
-          Database overview, sources, prices, and activity.
-        </p>
+        <h1 className="text-2xl font-semibold">{m.stats_title()}</h1>
+        <p className="text-sm text-muted-foreground">{m.stats_subtitle()}</p>
       </div>
       <div className="flex flex-wrap gap-2">
         {sections.map((item) => (
@@ -44,11 +51,11 @@ function StatsPage() {
             size="sm"
             onClick={() => setSection(item)}
           >
-            {item}
+            {sectionLabels[item]()}
           </Button>
         ))}
       </div>
-      {query.isLoading ? <p>Loading…</p> : null}
+      {query.isLoading ? <p>{m.common_loading()}</p> : null}
       {query.error ? (
         <p className="text-destructive">{getErrorMessage(query.error)}</p>
       ) : null}

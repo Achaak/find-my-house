@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { api, queryKeys } from "@/lib/api";
+import * as m from "@/paraglide/messages.js";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -18,46 +19,46 @@ function HomePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-semibold">Find My House</h1>
+        <h1 className="text-3xl font-semibold">{m.app_name()}</h1>
         <p className="mt-2 max-w-2xl text-muted-foreground">
-          Web interface for your French real-estate scraper.
+          {m.home_subtitle()}
         </p>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         <HomeCard
-          title="Search listings"
-          description="Filter by city, price, surface, source, compatibility, price drops, map view…"
+          title={m.home_card_listings_title()}
+          description={m.home_card_listings_desc()}
           to="/listings"
         />
         <HomeCard
-          title="Browse"
-          description="Review listings one by one with like/dislike."
+          title={m.home_card_browse_title()}
+          description={m.home_card_browse_desc()}
           to="/browse"
         />
         <HomeCard
-          title="Favorites"
-          description="Manage your liked listings, archived favorites, and compatibility training."
+          title={m.home_card_favorites_title()}
+          description={m.home_card_favorites_desc()}
           to="/favorites"
         />
         <HomeCard
-          title="Dislikes"
-          description="Review listings you disliked."
+          title={m.home_card_dislikes_title()}
+          description={m.home_card_dislikes_desc()}
           to="/dislikes"
         />
         <HomeCard
-          title="Statistics"
-          description="Overview, sources, prices, activity and your reactions."
+          title={m.home_card_stats_title()}
+          description={m.home_card_stats_desc()}
           to="/stats"
         />
         <HomeCard
-          title="Help"
-          description="Authentication, features, and usage notes."
+          title={m.home_card_help_title()}
+          description={m.home_card_help_desc()}
           to="/help"
         />
         {meQuery.data?.isAdmin ? (
           <HomeCard
-            title="Admin"
-            description="Run scrape and reconcile manually."
+            title={m.home_card_admin_title()}
+            description={m.home_card_admin_desc()}
             to="/admin"
           />
         ) : null}
@@ -83,7 +84,7 @@ function HomeCard({
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">{description}</p>
         <Link to={to} className={cn(buttonVariants())}>
-          Open
+          {m.home_card_open()}
         </Link>
       </CardContent>
     </Card>

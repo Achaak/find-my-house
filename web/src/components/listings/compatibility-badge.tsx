@@ -4,6 +4,7 @@ import {
   formatCompatibilityBadge,
   formatCompatibilityRank,
 } from "@/lib/compatibility";
+import * as m from "@/paraglide/messages.js";
 
 export function CompatibilityBadge({
   compatibility,
@@ -14,7 +15,7 @@ export function CompatibilityBadge({
   const rank = formatCompatibilityRank(compatibility);
 
   if (!label && compatibility.readiness === "scoring") {
-    return <Badge variant="outline">Calibration…</Badge>;
+    return <Badge variant="outline">{m.compatibility_calibration()}</Badge>;
   }
 
   if (!label) return null;

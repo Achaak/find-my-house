@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { getDisplayPublications } from "@/lib/publications";
 import type { Property } from "@find-my-house/api-types";
+import * as m from "@/paraglide/messages.js";
 import { cn, formatSource } from "@/lib/utils";
 
 export function PropertyPortalLinks({
@@ -24,7 +25,9 @@ export function PropertyPortalLinks({
   if (publications.length === 1) {
     const publication = publications[0]!;
     const label = formatSource(publication.source);
-    const inactiveSuffix = publication.isActive ? "" : " (inactive)";
+    const inactiveSuffix = publication.isActive
+      ? ""
+      : m.portal_inactive_suffix();
 
     return (
       <a
@@ -56,13 +59,15 @@ export function PropertyPortalLinks({
         }
       >
         <ExternalLink className="size-4" />
-        Portails
+        {m.portal_dropdown_label()}
         <ChevronDown className="size-4 opacity-60" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {publications.map((publication) => {
           const label = formatSource(publication.source);
-          const inactiveSuffix = publication.isActive ? "" : " (inactive)";
+          const inactiveSuffix = publication.isActive
+            ? ""
+            : m.portal_inactive_suffix();
 
           return (
             <DropdownMenuItem

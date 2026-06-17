@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Label } from "@/components/ui/input";
 import { api, queryKeys } from "@/lib/api";
 import { getErrorMessage } from "@/lib/error-message";
+import { formatLocaleDateTime } from "@/lib/locale";
 import {
   diagnosticsEmptyMessage,
   type DiagnosticsPreset,
@@ -14,6 +15,7 @@ import type {
   ListingSource,
   PropertyMatchDiagnosticItem,
 } from "@find-my-house/api-types";
+import * as m from "@/paraglide/messages.js";
 
 export const Route = createFileRoute("/admin")({
   beforeLoad: async ({ context }) => {
@@ -43,6 +45,8 @@ function AdminPage() {
   const [beforeId, setBeforeId] = useState<number | undefined>(undefined);
   const [hasLoadedDiagnostics, setHasLoadedDiagnostics] = useState(false);
   const [activePreset, setActivePreset] = useState<DiagnosticsPreset>(null);
+  const emDash = m.common_em_dash();
+
   const toListingSource = (value: string): ListingSource | undefined => {
     if (!value) return undefined;
     const allowed: ListingSource[] = [
@@ -128,16 +132,14 @@ function AdminPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Admin</h1>
-        <p className="text-sm text-muted-foreground">
-          Manual scrape, enrichment, and reconcile operations (admin only).
-        </p>
+        <h1 className="text-2xl font-semibold">{m.admin_title()}</h1>
+        <p className="text-sm text-muted-foreground">{m.admin_subtitle()}</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Run scrape</CardTitle>
+            <CardTitle>{m.admin_scrape_title()}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <Button
@@ -145,7 +147,9 @@ function AdminPage() {
               onClick={() => scrapeMutation.mutate()}
               disabled={scrapeMutation.isPending}
             >
-              {scrapeMutation.isPending ? "Running…" : "Scrape now"}
+              {scrapeMutation.isPending
+                ? m.common_running()
+                : m.admin_scrape_run()}
             </Button>
             {scrapeMutation.data ? (
               <pre className="whitespace-pre-wrap rounded-lg bg-muted p-3 text-xs">
@@ -162,7 +166,7 @@ function AdminPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Reconcile properties</CardTitle>
+            <CardTitle>{m.admin_reconcile_title()}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <Button
@@ -171,7 +175,9 @@ function AdminPage() {
               onClick={() => reconcileMutation.mutate()}
               disabled={reconcileMutation.isPending}
             >
-              {reconcileMutation.isPending ? "Running…" : "Reconcile"}
+              {reconcileMutation.isPending
+                ? m.common_running()
+                : m.admin_reconcile_run()}
             </Button>
             {reconcileMutation.data ? (
               <pre className="rounded-lg bg-muted p-3 text-xs">
@@ -188,12 +194,11 @@ function AdminPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Force enrichment</CardTitle>
+            <CardTitle>{m.admin_enrich_title()}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Queue pending listings for display enrichment (same batch as the
-              hourly cron).
+              {m.admin_enrich_desc()}
             </p>
             <Button
               type="button"
@@ -201,13 +206,17 @@ function AdminPage() {
               onClick={() => enrichMutation.mutate()}
               disabled={enrichMutation.isPending}
             >
-              {enrichMutation.isPending ? "Running…" : "Enrich now"}
+              {enrichMutation.isPending
+                ? m.common_running()
+                : m.admin_enrich_run()}
             </Button>
             {enrichMutation.data ? (
               <p className="text-sm text-muted-foreground">
                 {enrichMutation.data.queued === 0
-                  ? "No pending listings to enrich."
-                  : `${String(enrichMutation.data.queued)} listing(s) queued.`}
+                  ? m.admin_enrich_none()
+                  : m.admin_enrich_queued({
+                      count: enrichMutation.data.queued,
+                    })}
               </p>
             ) : null}
             {enrichMutation.error ? (
@@ -220,12 +229,12 @@ function AdminPage() {
 
         <Card className="md:col-span-2">
           <CardHeader>
-            <CardTitle>Property match diagnostics</CardTitle>
+            <CardTitle>{m.admin_diagnostics_title()}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-3 md:grid-cols-3">
               <div className="space-y-1">
-                <Label htmlFor="diag-source">Source</Label>
+                <Label htmlFor="diag-source">{m.admin_diag_source()}</Label>
                 <Input
                   id="diag-source"
                   placeholder="bienici"
@@ -234,7 +243,7 @@ function AdminPage() {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="diag-postal">Postal code</Label>
+                <Label htmlFor="diag-postal">{m.admin_diag_postal()}</Label>
                 <Input
                   id="diag-postal"
                   placeholder="75001"
@@ -243,7 +252,7 @@ function AdminPage() {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="diag-veto">Best veto</Label>
+                <Label htmlFor="diag-veto">{m.admin_diag_veto()}</Label>
                 <Input
                   id="diag-veto"
                   placeholder="price_out_of_tolerance"
@@ -252,7 +261,7 @@ function AdminPage() {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="diag-from">From (ISO)</Label>
+                <Label htmlFor="diag-from">{m.admin_diag_from()}</Label>
                 <Input
                   id="diag-from"
                   placeholder="2026-06-16T00:00:00.000Z"
@@ -261,7 +270,7 @@ function AdminPage() {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="diag-to">To (ISO)</Label>
+                <Label htmlFor="diag-to">{m.admin_diag_to()}</Label>
                 <Input
                   id="diag-to"
                   placeholder="2026-06-16T23:59:59.999Z"
@@ -277,28 +286,28 @@ function AdminPage() {
                 variant="outline"
                 onClick={() => applyPreset("price")}
               >
-                Price veto only
+                {m.admin_preset_price()}
               </Button>
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => applyPreset("last24h")}
               >
-                Last 24h
+                {m.admin_preset_last24h()}
               </Button>
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => applyPreset("bienici")}
               >
-                Bienici
+                {m.admin_preset_bienici()}
               </Button>
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => applyPreset("reset")}
               >
-                Reset
+                {m.admin_preset_reset()}
               </Button>
             </div>
 
@@ -313,8 +322,8 @@ function AdminPage() {
                 disabled={diagnosticsMutation.isPending}
               >
                 {diagnosticsMutation.isPending
-                  ? "Loading…"
-                  : "Load diagnostics"}
+                  ? m.common_loading()
+                  : m.admin_diagnostics_load()}
               </Button>
               <Button
                 type="button"
@@ -326,7 +335,7 @@ function AdminPage() {
                   diagnosticsMutation.isPending || !beforeId || !hasMore
                 }
               >
-                Load more
+                {m.common_load_more()}
               </Button>
             </div>
 
@@ -349,29 +358,29 @@ function AdminPage() {
                 <table className="w-full text-left text-xs">
                   <thead className="bg-muted">
                     <tr>
-                      <th className="p-2">At</th>
-                      <th className="p-2">Listing</th>
-                      <th className="p-2">Postal</th>
-                      <th className="p-2">Best score</th>
-                      <th className="p-2">Best veto</th>
+                      <th className="p-2">{m.admin_table_at()}</th>
+                      <th className="p-2">{m.admin_table_listing()}</th>
+                      <th className="p-2">{m.admin_table_postal()}</th>
+                      <th className="p-2">{m.admin_table_score()}</th>
+                      <th className="p-2">{m.admin_table_veto()}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {diagnostics.map((item) => (
                       <tr key={item.id} className="border-t">
                         <td className="p-2">
-                          {new Date(item.createdAt).toLocaleString()}
+                          {formatLocaleDateTime(item.createdAt)}
                         </td>
                         <td className="p-2">
                           {item.listingSource}:{item.listingExternalId}
                         </td>
-                        <td className="p-2">{item.postalCode ?? "—"}</td>
+                        <td className="p-2">{item.postalCode ?? emDash}</td>
                         <td className="p-2">
                           {item.bestScore !== null
                             ? item.bestScore.toFixed(3)
-                            : "—"}
+                            : emDash}
                         </td>
-                        <td className="p-2">{item.bestVeto ?? "—"}</td>
+                        <td className="p-2">{item.bestVeto ?? emDash}</td>
                       </tr>
                     ))}
                   </tbody>

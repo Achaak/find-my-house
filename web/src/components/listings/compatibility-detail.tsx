@@ -4,9 +4,11 @@ import type {
 } from "@find-my-house/api-types";
 import { CompatibilityBadge } from "@/components/listings/compatibility-badge";
 import {
-  compatibilityCriterionLabels,
-  compatibilityImportanceLabels,
+  compatibilityCriterionLabel,
+  compatibilityImportanceLabel,
+  formatCompatibilityProfileTraining,
 } from "@/lib/compatibility";
+import * as m from "@/paraglide/messages.js";
 
 export function CompatibilityDetailPanel({
   compatibility,
@@ -21,7 +23,7 @@ export function CompatibilityDetailPanel({
   return (
     <section className="space-y-3 rounded-lg border p-4">
       <div className="space-y-2">
-        <h2 className="text-lg font-semibold">Adéquation</h2>
+        <h2 className="text-lg font-semibold">{m.compatibility_title()}</h2>
         <CompatibilityBadge compatibility={compatibility} />
         {compatibility.summary ? (
           <p className="text-sm text-muted-foreground">
@@ -32,7 +34,9 @@ export function CompatibilityDetailPanel({
 
       {factors.length > 0 ? (
         <div className="space-y-2">
-          <h3 className="text-sm font-medium">Facteurs principaux</h3>
+          <h3 className="text-sm font-medium">
+            {m.compatibility_main_factors()}
+          </h3>
           <ul className="space-y-1 text-sm">
             {factors.map((factor) => (
               <li key={factor.criterion}>{factor.label}</li>
@@ -44,7 +48,7 @@ export function CompatibilityDetailPanel({
       {breakdown.length > 0 ? (
         <details className="text-sm">
           <summary className="cursor-pointer font-medium">
-            Détail par critère
+            {m.compatibility_breakdown()}
           </summary>
           <ul className="mt-2 space-y-1">
             {breakdown.map((entry) => (
@@ -52,7 +56,7 @@ export function CompatibilityDetailPanel({
                 key={entry.criterion}
                 className="flex items-center justify-between gap-3"
               >
-                <span>{compatibilityCriterionLabels[entry.criterion]}</span>
+                <span>{compatibilityCriterionLabel(entry.criterion)}</span>
                 <span className="text-muted-foreground">
                   {Math.round(entry.score)}%
                 </span>
@@ -73,7 +77,7 @@ export function CompatibilityProfilePanel({
   if (profile.readiness === "none") {
     return (
       <section className="rounded-lg border p-4 text-sm text-muted-foreground">
-        Likez des annonces pour entraîner l&apos;adéquation.
+        {m.compatibility_train_prompt()}
       </section>
     );
   }
@@ -81,20 +85,22 @@ export function CompatibilityProfilePanel({
   return (
     <section className="space-y-4 rounded-lg border p-4">
       <div>
-        <h2 className="text-lg font-semibold">Tes goûts inférés</h2>
+        <h2 className="text-lg font-semibold">
+          {m.compatibility_profile_title()}
+        </h2>
         <p className="text-sm text-muted-foreground">
-          Dérivé de {profile.training.likes} like
-          {profile.training.likes > 1 ? "s" : ""}
-          {profile.training.dislikes > 0
-            ? ` et ${String(profile.training.dislikes)} dislike${profile.training.dislikes > 1 ? "s" : ""}`
-            : ""}
-          . Lecture seule.
+          {formatCompatibilityProfileTraining(
+            profile.training.likes,
+            profile.training.dislikes
+          )}
         </p>
       </div>
 
       {profile.preferences.length > 0 ? (
         <div className="space-y-2">
-          <h3 className="text-sm font-medium">Profil appris</h3>
+          <h3 className="text-sm font-medium">
+            {m.compatibility_profile_learned()}
+          </h3>
           <dl className="grid gap-2 text-sm sm:grid-cols-2">
             {profile.preferences.map((entry) => (
               <div key={entry.label}>
@@ -108,12 +114,14 @@ export function CompatibilityProfilePanel({
 
       {profile.weights.length > 0 ? (
         <div className="space-y-2">
-          <h3 className="text-sm font-medium">Ce qui compte pour toi</h3>
+          <h3 className="text-sm font-medium">
+            {m.compatibility_profile_weights()}
+          </h3>
           <ul className="space-y-1 text-sm">
             {profile.weights.map((entry) => (
               <li key={entry.criterion}>
-                {compatibilityCriterionLabels[entry.criterion]} —{" "}
-                {compatibilityImportanceLabels[entry.importance]}
+                {compatibilityCriterionLabel(entry.criterion)} —{" "}
+                {compatibilityImportanceLabel(entry.importance)}
               </li>
             ))}
           </ul>

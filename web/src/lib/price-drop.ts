@@ -1,5 +1,6 @@
 import type { Property } from "@find-my-house/api-types";
 import { formatPrice } from "@/lib/utils";
+import * as m from "@/paraglide/messages.js";
 
 export function hasPriceDrop(
   property: Pick<Property, "price" | "firstPrice">
@@ -14,5 +15,5 @@ export function formatPriceDrop(
 
   const drop = property.firstPrice - property.price;
   const pct = Math.round((drop / property.firstPrice) * 100);
-  return `−${formatPrice(drop)} (−${String(pct)}%)`;
+  return m.price_drop_format({ amount: formatPrice(drop), pct });
 }

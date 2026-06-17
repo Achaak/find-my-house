@@ -21,6 +21,7 @@ import { PropertyImageSkeleton } from "@/components/listings/listing-detail-skel
 import { PropertyPortalLinks } from "@/components/listings/property-portal-links";
 import { cn, formatPrice, formatSource } from "@/lib/utils";
 import { getDisplayPublications } from "@/lib/publications";
+import * as m from "@/paraglide/messages.js";
 
 export function PropertyCard({
   property,
@@ -39,7 +40,10 @@ export function PropertyCard({
 }) {
   const queryClient = useQueryClient();
   const [imageFailed, setImageFailed] = useState(false);
-  const imageAlt = `${property.title} — ${property.city}`;
+  const imageAlt = m.property_image_alt({
+    title: property.title,
+    city: property.city,
+  });
 
   const invalidateProperty = () => {
     void queryClient.invalidateQueries({
@@ -139,7 +143,7 @@ export function PropertyCard({
                 : "flex h-52 items-center justify-center bg-muted text-sm text-muted-foreground"
             }
           >
-            No photo
+            {m.property_no_photo()}
           </div>
         )}
         <CardHeader>
@@ -152,14 +156,6 @@ export function PropertyCard({
             ))}
             {property.compatibility ? (
               <CompatibilityBadge compatibility={property.compatibility} />
-            ) : null}
-            {property.reaction === "like" ? (
-              <Badge variant="default">
-                {property.archived ? "Archived" : "Liked"}
-              </Badge>
-            ) : null}
-            {property.reaction === "dislike" ? (
-              <Badge variant="secondary">Disliked</Badge>
             ) : null}
             {formatPriceDrop(property) ? (
               <Badge variant="default" className="bg-emerald-600">
@@ -185,10 +181,16 @@ export function PropertyCard({
           <div className="flex flex-wrap gap-3 text-muted-foreground">
             {property.surface ? <span>{property.surface} m²</span> : null}
             {property.landSurface ? (
-              <span>{property.landSurface} m² land</span>
+              <span>
+                {m.property_land_surface({ surface: property.landSurface })}
+              </span>
             ) : null}
-            {property.rooms ? <span>{property.rooms} rooms</span> : null}
-            {property.bedrooms ? <span>{property.bedrooms} beds</span> : null}
+            {property.rooms ? (
+              <span>{m.property_rooms({ count: property.rooms })}</span>
+            ) : null}
+            {property.bedrooms ? (
+              <span>{m.property_beds({ count: property.bedrooms })}</span>
+            ) : null}
           </div>
           {mutationError ? (
             <p className="text-destructive">{getErrorMessage(mutationError)}</p>
@@ -200,7 +202,7 @@ export function PropertyCard({
             params={{ id: String(property.id) }}
             className={cn(buttonVariants())}
           >
-            Details
+            {m.property_details()}
           </Link>
           {hideReactions ? null : (
             <>
@@ -208,10 +210,12 @@ export function PropertyCard({
                 variant="outline"
                 size="sm"
                 disabled={isPending}
+                className={cn(
+                  property.reaction === "like" &&
+                    "border-green-600 bg-green-50 text-green-800 hover:bg-green-100 hover:text-green-900"
+                )}
                 aria-label={
-                  property.reaction === "like"
-                    ? "Unlike listing"
-                    : "Like listing"
+                  property.reaction === "like" ? m.aria_unlike() : m.aria_like()
                 }
                 onClick={() =>
                   property.reaction === "like"
@@ -219,17 +223,28 @@ export function PropertyCard({
                     : likeMutation.mutate()
                 }
               >
-                <Heart className="size-4" />
-                {property.reaction === "like" ? "Unlike" : "Like"}
+                <Heart
+                  className={cn(
+                    "size-4",
+                    property.reaction === "like" && "fill-current"
+                  )}
+                />
+                {property.reaction === "like"
+                  ? m.reaction_unlike()
+                  : m.reaction_like()}
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 disabled={isPending}
+                className={cn(
+                  property.reaction === "dislike" &&
+                    "border-gray-500 bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-800"
+                )}
                 aria-label={
                   property.reaction === "dislike"
-                    ? "Remove dislike"
-                    : "Dislike listing"
+                    ? m.aria_remove_dislike()
+                    : m.aria_dislike()
                 }
                 onClick={() =>
                   property.reaction === "dislike"
@@ -238,22 +253,28 @@ export function PropertyCard({
                 }
               >
                 <ThumbsDown className="size-4" />
-                {property.reaction === "dislike" ? "Undo" : "Dislike"}
+                {property.reaction === "dislike"
+                  ? m.reaction_undo()
+                  : m.reaction_dislike()}
               </Button>
               {property.reaction === "like" ? (
                 <Button
                   variant="outline"
                   size="sm"
                   disabled={isPending}
+                  className={cn(
+                    property.archived &&
+                      "border-amber-600 bg-amber-50 text-amber-800 hover:bg-amber-100 hover:text-amber-900"
+                  )}
                   aria-label={
-                    property.archived
-                      ? "Unarchive favorite"
-                      : "Archive favorite"
+                    property.archived ? m.aria_unarchive() : m.aria_archive()
                   }
                   onClick={() => archiveMutation.mutate()}
                 >
                   <Archive className="size-4" />
-                  {property.archived ? "Unarchive" : "Archive"}
+                  {property.archived
+                    ? m.reaction_unarchive()
+                    : m.reaction_archive()}
                 </Button>
               ) : null}
             </>

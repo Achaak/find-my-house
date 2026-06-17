@@ -12,9 +12,11 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { api, queryKeys } from "@/lib/api";
 import { getErrorMessage } from "@/lib/error-message";
 import { findCachedListing } from "@/lib/listing-cache";
+import { formatLocaleDateTime } from "@/lib/locale";
 import { googleMapsSearchUrl } from "@/lib/map-utils";
 import type { Property } from "@find-my-house/api-types";
 import { cn, formatPrice } from "@/lib/utils";
+import * as m from "@/paraglide/messages.js";
 
 export const Route = createFileRoute("/listings/$id")({
   component: ListingDetailPage,
@@ -57,7 +59,7 @@ function ListingDetailPage() {
   });
 
   if (propertyId === null) {
-    return <p>Invalid listing id.</p>;
+    return <p>{m.listing_detail_invalid_id()}</p>;
   }
 
   if (listingQuery.isPending) {
@@ -71,7 +73,7 @@ function ListingDetailPage() {
   }
 
   if (!listingQuery.data) {
-    return <p>Listing not found.</p>;
+    return <p>{m.listing_detail_not_found()}</p>;
   }
 
   const property = listingQuery.data.item;
@@ -83,7 +85,9 @@ function ListingDetailPage() {
   return (
     <div className="space-y-6">
       {isRefreshingDetails ? (
-        <p className="text-sm text-muted-foreground">Loading full details…</p>
+        <p className="text-sm text-muted-foreground">
+          {m.listing_detail_loading()}
+        </p>
       ) : null}
       {listingQuery.error ? (
         <p className="text-sm text-destructive">
@@ -101,17 +105,18 @@ function ListingDetailPage() {
       )}
 
       <section className="rounded-xl border bg-card p-6">
-        <h2 className="text-lg font-semibold">Address via ADEME DPE</h2>
+        <h2 className="text-lg font-semibold">
+          {m.listing_detail_ademe_title()}
+        </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Check each candidate on Google Maps, then confirm the property address
-          using ADEME DPE data.
+          {m.listing_detail_ademe_desc()}
         </p>
         {addressQuery.isLoading ||
         addressQuery.data?.enrichment.status === "pending" ? (
           <p className="mt-4 text-sm text-muted-foreground">
             {addressQuery.data?.enrichment.status === "pending"
-              ? "Enriching listing data before ADEME search…"
-              : "Searching ADEME…"}
+              ? m.listing_detail_ademe_enriching()
+              : m.listing_detail_ademe_searching()}
           </p>
         ) : null}
         {addressQuery.error ? (
@@ -141,10 +146,12 @@ function ListingDetailPage() {
                 <div>
                   <div className="font-medium">{candidate.address}</div>
                   <div className="text-xs text-muted-foreground">
-                    DPE {candidate.numeroDpe} · score{" "}
-                    {Number.isFinite(candidate.score)
-                      ? Math.round(candidate.score)
-                      : "—"}
+                    {m.listing_detail_dpe_score({
+                      numero: candidate.numeroDpe,
+                      score: Number.isFinite(candidate.score)
+                        ? Math.round(candidate.score)
+                        : m.common_em_dash(),
+                    })}
                   </div>
                 </div>
                 <div className="flex flex-wrap items-start gap-2">
@@ -161,7 +168,7 @@ function ListingDetailPage() {
                     )}
                   >
                     <MapPin className="size-4" />
-                    Google Maps
+                    {m.listing_detail_google_maps()}
                   </a>
                   <ConfirmAddressButton
                     propertyId={propertyId}
@@ -173,7 +180,7 @@ function ListingDetailPage() {
           </div>
         ) : addressQuery.data ? (
           <p className="mt-4 text-sm text-muted-foreground">
-            No DPE candidates found.
+            {m.listing_detail_ademe_empty()}
           </p>
         ) : null}
       </section>
@@ -182,59 +189,82 @@ function ListingDetailPage() {
 }
 
 function PropertyDetailsSection({ property }: { property: Property }) {
+  const emDash = m.common_em_dash();
+
   return (
     <section className="rounded-xl border bg-card p-6">
-      <h2 className="text-lg font-semibold">Details</h2>
+      <h2 className="text-lg font-semibold">
+        {m.listing_detail_details_title()}
+      </h2>
       <dl className="mt-4 grid gap-3 text-sm md:grid-cols-2">
-        <Detail label="Address" value={property.address ?? "Unknown"} />
-        <Detail label="Type" value={property.propertyType ?? "—"} />
         <Detail
-          label="Price per m²"
+          label={m.detail_address()}
+          value={property.address ?? m.common_unknown()}
+        />
+        <Detail
+          label={m.detail_type()}
+          value={property.propertyType ?? emDash}
+        />
+        <Detail
+          label={m.detail_price_per_m2()}
           value={
             property.surface
               ? formatPrice(Math.round(property.price / property.surface))
-              : "—"
+              : emDash
           }
         />
-        <Detail label="DPE" value={property.dpeClass ?? "—"} />
-        <Detail label="GES" value={property.gesClass ?? "—"} />
+        <Detail label={m.detail_dpe()} value={property.dpeClass ?? emDash} />
+        <Detail label={m.detail_ges()} value={property.gesClass ?? emDash} />
         <Detail
-          label="DPE consumption"
+          label={m.detail_dpe_consumption()}
           value={
             property.dpeConsumptionKwhM2
-              ? `${String(property.dpeConsumptionKwhM2)} kWh/m²`
-              : "—"
+              ? `${String(property.dpeConsumptionKwhM2)} ${m.unit_kwh_m2()}`
+              : emDash
           }
         />
         <Detail
-          label="GES emissions"
+          label={m.detail_ges_emissions()}
           value={
             property.gesEmissionKgM2
-              ? `${String(property.gesEmissionKgM2)} kg CO₂/m²`
-              : "—"
+              ? `${String(property.gesEmissionKgM2)} ${m.unit_kg_co2_m2()}`
+              : emDash
           }
         />
         <Detail
-          label="Bathrooms"
-          value={property.bathrooms ? String(property.bathrooms) : "—"}
+          label={m.detail_bathrooms()}
+          value={property.bathrooms ? String(property.bathrooms) : emDash}
         />
         <Detail
-          label="Construction year"
+          label={m.detail_construction_year()}
           value={
-            property.constructionYear ? String(property.constructionYear) : "—"
+            property.constructionYear
+              ? String(property.constructionYear)
+              : emDash
           }
         />
-        <Detail label="Heating" value={property.heating ?? "—"} />
-        <Detail label="Orientation" value={property.orientation ?? "—"} />
-        <Detail label="Condition" value={property.propertyCondition ?? "—"} />
+        <Detail label={m.detail_heating()} value={property.heating ?? emDash} />
         <Detail
-          label="Parking"
-          value={property.parkingSpaces ? String(property.parkingSpaces) : "—"}
+          label={m.detail_orientation()}
+          value={property.orientation ?? emDash}
         />
-        <Detail label="First price" value={formatPrice(property.firstPrice)} />
         <Detail
-          label="First seen"
-          value={new Date(property.firstSeenAt).toLocaleString("fr-FR")}
+          label={m.detail_condition()}
+          value={property.propertyCondition ?? emDash}
+        />
+        <Detail
+          label={m.detail_parking()}
+          value={
+            property.parkingSpaces ? String(property.parkingSpaces) : emDash
+          }
+        />
+        <Detail
+          label={m.detail_first_price()}
+          value={formatPrice(property.firstPrice)}
+        />
+        <Detail
+          label={m.detail_first_seen()}
+          value={formatLocaleDateTime(property.firstSeenAt)}
         />
       </dl>
       {property.highlights?.length ? (
@@ -293,11 +323,13 @@ function ConfirmAddressButton({
         disabled={mutation.isPending}
         onClick={() => mutation.mutate()}
       >
-        {mutation.isPending ? "Saving…" : "Confirm"}
+        {mutation.isPending ? m.common_saving() : m.listing_detail_confirm()}
       </Button>
       {mutation.isSuccess ? (
         <span className="text-xs text-muted-foreground">
-          Address saved for DPE {mutation.data.dpeNumero}
+          {m.listing_detail_address_saved({
+            numero: mutation.data.dpeNumero,
+          })}
         </span>
       ) : null}
       {mutation.error ? (

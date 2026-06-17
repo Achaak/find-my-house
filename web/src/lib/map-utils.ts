@@ -4,6 +4,7 @@ import { getDisplayPublications } from "@/lib/publications";
 import { formatCompatibilityBadge } from "@/lib/compatibility";
 import type { Property } from "@find-my-house/api-types";
 import { formatPrice, formatSource } from "@/lib/utils";
+import * as m from "@/paraglide/messages.js";
 
 export function escapeHtml(text: string): string {
   return text
@@ -64,15 +65,15 @@ export function buildPopupHtml(property: Property): string {
     .join(" ");
   const specs = [
     property.surface ? `${String(property.surface)} m²` : null,
-    property.rooms ? `${String(property.rooms)} rooms` : null,
-    property.bedrooms ? `${String(property.bedrooms)} beds` : null,
+    property.rooms ? m.property_rooms({ count: property.rooms }) : null,
+    property.bedrooms ? m.property_beds({ count: property.bedrooms }) : null,
   ]
     .filter(Boolean)
     .join(" · ");
 
   const imageBlock = property.imageUrl
     ? `<img class="fmh-map-popup__image" src="${escapeHtml(property.imageUrl)}" alt="" loading="lazy" />`
-    : `<div class="fmh-map-popup__image fmh-map-popup__image--placeholder">No photo</div>`;
+    : `<div class="fmh-map-popup__image fmh-map-popup__image--placeholder">${escapeHtml(m.property_no_photo())}</div>`;
 
   const priceDropBlock = priceDrop
     ? `<span class="fmh-map-popup__drop">${escapeHtml(priceDrop)}</span>`
@@ -92,9 +93,9 @@ export function buildPopupHtml(property: Property): string {
 
   const reactionBlock =
     property.reaction === "like"
-      ? `<span class="fmh-map-popup__badge fmh-map-popup__badge--liked">Liked</span>`
+      ? `<span class="fmh-map-popup__badge fmh-map-popup__badge--liked">${escapeHtml(m.reaction_liked())}</span>`
       : property.reaction === "dislike"
-        ? `<span class="fmh-map-popup__badge fmh-map-popup__badge--disliked">Disliked</span>`
+        ? `<span class="fmh-map-popup__badge fmh-map-popup__badge--disliked">${escapeHtml(m.reaction_disliked())}</span>`
         : "";
 
   const portalPublications = getDisplayPublications(property);
@@ -131,7 +132,7 @@ export function buildPopupHtml(property: Property): string {
         </p>
         ${specs ? `<p class="fmh-map-popup__specs">${escapeHtml(specs)}</p>` : ""}
         <div class="fmh-map-popup__actions">
-          <a class="fmh-map-popup__btn fmh-map-popup__btn--primary" href="${escapeHtml(detailUrl)}">Details</a>
+          <a class="fmh-map-popup__btn fmh-map-popup__btn--primary" href="${escapeHtml(detailUrl)}">${escapeHtml(m.property_details())}</a>
           ${portalLinks}
         </div>
       </div>

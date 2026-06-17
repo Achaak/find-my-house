@@ -14,7 +14,9 @@ import type {
 } from "@find-my-house/api-types";
 import { PropertyCard } from "@/components/listings/property-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatLocaleDateTime } from "@/lib/locale";
 import { formatPrice, formatSource } from "@/lib/utils";
+import * as m from "@/paraglide/messages.js";
 
 const LISTING_SOURCES: ListingSource[] = [
   "bienici",
@@ -39,12 +41,16 @@ function StatCard({ label, value }: { label: string; value: string }) {
 }
 
 function formatPriceRange(stats: PriceStats | null): string {
-  if (!stats) return "—";
-  return `${formatPrice(stats.min)} – ${formatPrice(stats.max)} (median ${formatPrice(stats.median)})`;
+  if (!stats) return m.common_em_dash();
+  return m.stats_price_range({
+    min: formatPrice(stats.min),
+    max: formatPrice(stats.max),
+    median: formatPrice(stats.median),
+  });
 }
 
 function formatCitySummary(cities: CityCount[]): string {
-  if (cities.length === 0) return "No cities";
+  if (cities.length === 0) return m.stats_no_cities();
   return cities
     .map((entry) => `${entry.city} (${String(entry.count)})`)
     .join(" · ");
@@ -66,24 +72,30 @@ function formatSourceLines(counts: SourcePublicationCounts): string {
     const total = active + inactive;
     if (total === 0) return null;
     const inactiveSuffix =
-      inactive > 0 ? ` (${String(inactive)} inactive)` : "";
-    return `${formatSource(source)}: ${String(active)} active${inactiveSuffix}`;
+      inactive > 0 ? m.stats_source_inactive({ count: inactive }) : "";
+    return String(
+      m.stats_source_active_line({
+        source: formatSource(source),
+        count: active,
+        inactive: inactiveSuffix,
+      })
+    );
   })
     .filter((line): line is string => line !== null)
     .join("\n");
 }
 
 function formatScrapedAt(date: string | null): string {
-  if (!date) return "Never";
-  return new Date(date).toLocaleString("fr-FR");
+  if (!date) return m.stats_never();
+  return formatLocaleDateTime(date);
 }
 
 function formatActivityBlock(activity: ActivityStats): string {
   return [
-    `Last scrape: ${formatScrapedAt(activity.lastScrapedAt)}`,
-    `${String(activity.addedLast7Days)} new properties (7 days)`,
-    `${String(activity.deactivatedLast7Days)} publications deactivated`,
-    `${String(activity.multiSourceCount)} multi-source properties`,
+    m.stats_last_scrape({ date: formatScrapedAt(activity.lastScrapedAt) }),
+    m.stats_new_7d({ count: activity.addedLast7Days }),
+    m.stats_deactivated_7d({ count: activity.deactivatedLast7Days }),
+    m.stats_multi_source({ count: activity.multiSourceCount }),
   ].join("\n");
 }
 
@@ -112,51 +124,81 @@ function formatEnrichmentBlock(enrichment: {
 }): string {
   const queuedLine =
     enrichment.queued > 0
-      ? `\n${String(enrichment.queued)} in enrichment queue`
+      ? m.stats_enrichment_queued({ count: enrichment.queued })
       : "";
-  return `${String(enrichment.pending)} pending enrichment${queuedLine}`;
+  return m.stats_enrichment_pending({
+    count: enrichment.pending,
+    queued: queuedLine,
+  });
 }
 
 function OverviewPanel({ data }: { data: StatsOverview }) {
+  const priceDrops =
+    data.priceDrops > 0
+      ? m.stats_overview_price_drops({ count: data.priceDrops })
+      : "";
+  const toEnrich =
+    data.enrichment.pending > 0
+      ? m.stats_overview_to_enrich({ count: data.enrichment.pending })
+      : "";
+
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        {data.activeProperties} active properties / {data.total} in database ·{" "}
-        {data.activePublications} active publications ·{" "}
-        {data.inactivePublications} inactive
-        {data.priceDrops > 0 ? ` · ${String(data.priceDrops)} price drops` : ""}
-        {data.enrichment.pending > 0
-          ? ` · ${String(data.enrichment.pending)} to enrich`
-          : ""}
+        {m.stats_overview_summary({
+          active: data.activeProperties,
+          total: data.total,
+          activePubs: data.activePublications,
+          inactivePubs: data.inactivePublications,
+          priceDrops,
+          toEnrich,
+        })}
       </p>
       <div className="grid gap-4 md:grid-cols-3">
-        <StatCard label="Properties" value={String(data.total)} />
-        <StatCard label="Active" value={String(data.activeProperties)} />
         <StatCard
-          label="Publications"
+          label={m.stats_label_properties()}
+          value={String(data.total)}
+        />
+        <StatCard
+          label={m.stats_label_active()}
+          value={String(data.activeProperties)}
+        />
+        <StatCard
+          label={m.stats_label_publications()}
           value={String(data.activePublications)}
         />
-        <StatCard label="Price drops" value={String(data.priceDrops)} />
-        <StatCard label="To enrich" value={String(data.enrichment.pending)} />
         <StatCard
-          label="Enrichment queue"
+          label={m.stats_label_price_drops()}
+          value={String(data.priceDrops)}
+        />
+        <StatCard
+          label={m.stats_label_to_enrich()}
+          value={String(data.enrichment.pending)}
+        />
+        <StatCard
+          label={m.stats_label_enrichment_queue()}
           value={String(data.enrichment.queued)}
         />
-        <StatCard label="Your likes" value={String(data.likes)} />
-        <StatCard label="Your dislikes" value={String(data.dislikes)} />
+        <StatCard label={m.stats_label_likes()} value={String(data.likes)} />
+        <StatCard
+          label={m.stats_label_dislikes()}
+          value={String(data.dislikes)}
+        />
       </div>
       <div className="grid gap-4 md:grid-cols-2">
-        <InfoBlock title="Sources">
-          {formatSourceSummary(data.sourceCounts) || "—"}
+        <InfoBlock title={m.stats_block_sources()}>
+          {formatSourceSummary(data.sourceCounts) || m.common_em_dash()}
         </InfoBlock>
-        <InfoBlock title="Price">{formatPriceRange(data.priceStats)}</InfoBlock>
-        <InfoBlock title="Top cities">
+        <InfoBlock title={m.stats_block_price()}>
+          {formatPriceRange(data.priceStats)}
+        </InfoBlock>
+        <InfoBlock title={m.stats_block_cities()}>
           {formatCitySummary(data.topCities)}
         </InfoBlock>
-        <InfoBlock title="Activity (7 days)">
+        <InfoBlock title={m.stats_block_activity()}>
           {formatActivityBlock(data.activity)}
         </InfoBlock>
-        <InfoBlock title="Enrichment">
+        <InfoBlock title={m.stats_block_enrichment()}>
           {formatEnrichmentBlock(data.enrichment)}
         </InfoBlock>
       </div>
@@ -184,40 +226,50 @@ function SourcesPanel({ data }: { data: StatsSources }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        {totalActive} active publications · {totalInactive} inactive ·{" "}
-        {data.multiSourceCount} multi-source properties
+        {m.stats_sources_summary({
+          active: totalActive,
+          inactive: totalInactive,
+          multi: data.multiSourceCount,
+        })}
       </p>
-      <InfoBlock title="By portal">
-        {formatSourceLines(data.sourceCounts) || "No publications"}
+      <InfoBlock title={m.stats_by_portal()}>
+        {formatSourceLines(data.sourceCounts) || m.stats_no_publications()}
       </InfoBlock>
     </div>
   );
 }
 
 function PricesPanel({ data }: { data: StatsPrices }) {
+  const emDash = m.common_em_dash();
+
   return (
     <div className="space-y-4">
       <div className="grid gap-4 md:grid-cols-3">
-        <StatCard label="Ongoing drops" value={String(data.priceDrops)} />
         <StatCard
-          label="Median"
-          value={data.priceStats ? formatPrice(data.priceStats.median) : "—"}
+          label={m.stats_label_ongoing_drops()}
+          value={String(data.priceDrops)}
         />
         <StatCard
-          label="Average"
-          value={data.priceStats ? formatPrice(data.priceStats.average) : "—"}
+          label={m.stats_label_median()}
+          value={data.priceStats ? formatPrice(data.priceStats.median) : emDash}
         />
         <StatCard
-          label="Range"
+          label={m.stats_label_average()}
           value={
-            data.priceStats
-              ? `${formatPrice(data.priceStats.min)} – ${formatPrice(data.priceStats.max)}`
-              : "—"
+            data.priceStats ? formatPrice(data.priceStats.average) : emDash
           }
         />
         <StatCard
-          label="Active properties"
-          value={data.priceStats ? String(data.priceStats.count) : "—"}
+          label={m.stats_label_range()}
+          value={
+            data.priceStats
+              ? `${formatPrice(data.priceStats.min)} – ${formatPrice(data.priceStats.max)}`
+              : emDash
+          }
+        />
+        <StatCard
+          label={m.stats_label_active_properties()}
+          value={data.priceStats ? String(data.priceStats.count) : emDash}
         />
       </div>
       {data.drops.length ? (
@@ -227,7 +279,9 @@ function PricesPanel({ data }: { data: StatsPrices }) {
           ))}
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">No ongoing price drops.</p>
+        <p className="text-sm text-muted-foreground">
+          {m.stats_no_price_drops()}
+        </p>
       )}
     </div>
   );
@@ -237,27 +291,34 @@ function MinePanel({ data }: { data: StatsMine }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        {data.likes} favorites · {data.dislikes} dislikes
+        {m.stats_mine_summary({
+          likes: data.likes,
+          dislikes: data.dislikes,
+        })}
       </p>
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-4">
-          <h2 className="text-sm font-medium">Recent favorites</h2>
+          <h2 className="text-sm font-medium">{m.stats_recent_favorites()}</h2>
           {data.recentLikes.length ? (
             data.recentLikes.map((property) => (
               <PropertyCard key={property.id} property={property} compact />
             ))
           ) : (
-            <p className="text-sm text-muted-foreground">No favorites.</p>
+            <p className="text-sm text-muted-foreground">
+              {m.stats_no_favorites()}
+            </p>
           )}
         </div>
         <div className="space-y-4">
-          <h2 className="text-sm font-medium">Recent dislikes</h2>
+          <h2 className="text-sm font-medium">{m.stats_recent_dislikes()}</h2>
           {data.recentDislikes.length ? (
             data.recentDislikes.map((property) => (
               <PropertyCard key={property.id} property={property} compact />
             ))
           ) : (
-            <p className="text-sm text-muted-foreground">No dislikes.</p>
+            <p className="text-sm text-muted-foreground">
+              {m.stats_no_dislikes()}
+            </p>
           )}
         </div>
       </div>
@@ -268,19 +329,25 @@ function MinePanel({ data }: { data: StatsMine }) {
 function ActivityPanel({ data }: { data: StatsActivity }) {
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">Area: {data.zoneLabel}</p>
+      <p className="text-sm text-muted-foreground">
+        {m.stats_area({ label: data.zoneLabel })}
+      </p>
       <div className="grid gap-4 md:grid-cols-2">
-        <InfoBlock title="Scraping">
+        <InfoBlock title={m.stats_block_scraping()}>
           {[
-            `Last scrape: ${formatScrapedAt(data.activity.lastScrapedAt)}`,
-            `Schedule: ${data.cron}`,
-            `Scrapers: ${data.scrapers.join(", ") || "—"}`,
+            m.stats_last_scrape({
+              date: formatScrapedAt(data.activity.lastScrapedAt),
+            }),
+            m.stats_schedule({ cron: data.cron }),
+            m.stats_scrapers({
+              list: data.scrapers.join(", ") || m.common_em_dash(),
+            }),
           ].join("\n")}
         </InfoBlock>
-        <InfoBlock title="Last 7 days">
+        <InfoBlock title={m.stats_block_last_7d()}>
           {formatActivityBlock(data.activity)}
         </InfoBlock>
-        <InfoBlock title="Enrichment">
+        <InfoBlock title={m.stats_block_enrichment()}>
           {formatEnrichmentBlock(data.enrichment)}
         </InfoBlock>
       </div>

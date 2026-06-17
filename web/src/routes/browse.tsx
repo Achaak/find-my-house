@@ -6,6 +6,7 @@ import { api, queryKeys } from "@/lib/api";
 import { ApiError } from "@/lib/api-client";
 import { getErrorMessage } from "@/lib/error-message";
 import { formatBrowseCriteria } from "@/lib/listing-filters";
+import * as m from "@/paraglide/messages.js";
 
 export const Route = createFileRoute("/browse")({
   component: BrowsePage,
@@ -65,10 +66,8 @@ function BrowsePage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Browse</h1>
-          <p className="text-sm text-muted-foreground">
-            Review listings one at a time with like or dislike.
-          </p>
+          <h1 className="text-2xl font-semibold">{m.browse_title()}</h1>
+          <p className="text-sm text-muted-foreground">{m.browse_subtitle()}</p>
         </div>
         <div className="flex gap-2">
           <Button
@@ -76,7 +75,7 @@ function BrowsePage() {
             onClick={() => startMutation.mutate()}
             disabled={startMutation.isPending || stopMutation.isPending}
           >
-            {state ? "Restart" : "Start"}
+            {state ? m.browse_restart() : m.browse_start()}
           </Button>
           {state ? (
             <Button
@@ -85,14 +84,14 @@ function BrowsePage() {
               onClick={() => stopMutation.mutate()}
               disabled={stopMutation.isPending || startMutation.isPending}
             >
-              Stop
+              {m.browse_stop()}
             </Button>
           ) : null}
         </div>
       </div>
 
       {startMutation.isPending || browseQuery.isLoading ? (
-        <p>Loading…</p>
+        <p>{m.common_loading()}</p>
       ) : null}
 
       {browseQuery.error ? (
@@ -111,18 +110,17 @@ function BrowsePage() {
         <div className="space-y-4">
           {state.criteria ? (
             <p className="text-sm text-muted-foreground">
-              Criteria: {formatBrowseCriteria(state.criteria, state.zoneLabel)}
+              {m.browse_criteria_prefix()}{" "}
+              {formatBrowseCriteria(state.criteria, state.zoneLabel)}
             </p>
           ) : null}
           <p className="text-sm text-muted-foreground">
-            {state.shownCount} viewed
-            {state.isExplore ? " · outside comfort zone" : ""}
-            {!state.hasPreferences
-              ? " · like listings to enable compatibility"
-              : ""}
+            {m.browse_viewed_count({ count: state.shownCount })}
+            {state.isExplore ? m.browse_outside_comfort_zone() : ""}
+            {!state.hasPreferences ? m.browse_enable_compatibility() : ""}
           </p>
           {state.finished || !state.item ? (
-            <p>No more listings to browse with current criteria.</p>
+            <p>{m.browse_finished()}</p>
           ) : (
             <>
               <PropertyCard property={state.item} hideReactions />
@@ -137,7 +135,7 @@ function BrowsePage() {
                     })
                   }
                 >
-                  {isReacting ? "Saving…" : "Like & next"}
+                  {isReacting ? m.common_saving() : m.browse_like_next()}
                 </Button>
                 <Button
                   type="button"
@@ -150,14 +148,14 @@ function BrowsePage() {
                     })
                   }
                 >
-                  {isReacting ? "Saving…" : "Dislike & next"}
+                  {isReacting ? m.common_saving() : m.browse_dislike_next()}
                 </Button>
               </div>
             </>
           )}
         </div>
       ) : browseQuery.isSuccess || startMutation.isSuccess ? (
-        <p className="text-muted-foreground">Press Start to begin browsing.</p>
+        <p className="text-muted-foreground">{m.browse_press_start()}</p>
       ) : null}
     </div>
   );

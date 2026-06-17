@@ -1,12 +1,14 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { getIntlLocale } from "@/lib/locale";
+import * as m from "@/paraglide/messages.js";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 export function formatPrice(price: number): string {
-  return new Intl.NumberFormat("fr-FR", {
+  return new Intl.NumberFormat(getIntlLocale(), {
     style: "currency",
     currency: "EUR",
     maximumFractionDigits: 0,
@@ -14,13 +16,18 @@ export function formatPrice(price: number): string {
 }
 
 export function formatSource(source: string): string {
-  const labels: Record<string, string> = {
-    bienici: "Bien'ici",
-    leboncoin: "Leboncoin",
-    seloger: "SeLoger",
-    logicimmo: "Logic-Immo",
-  };
-  return labels[source] ?? source;
+  switch (source) {
+    case "bienici":
+      return m.source_bienici();
+    case "leboncoin":
+      return m.source_leboncoin();
+    case "seloger":
+      return m.source_seloger();
+    case "logicimmo":
+      return m.source_logicimmo();
+    default:
+      return source;
+  }
 }
 
 export function parseOptionalNumber(value: string): number | undefined {

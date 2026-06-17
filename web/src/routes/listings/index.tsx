@@ -16,6 +16,7 @@ import type {
   ListingSource,
 } from "@find-my-house/api-types";
 import { parseOptionalNumber } from "@/lib/utils";
+import * as m from "@/paraglide/messages.js";
 
 export const Route = createFileRoute("/listings/")({
   validateSearch: (search) => searchParamsToFilters(search),
@@ -70,10 +71,9 @@ function ListingsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Listings</h1>
+          <h1 className="text-2xl font-semibold">{m.listings_title()}</h1>
           <p className="text-sm text-muted-foreground">
-            Search saved listings with filters for city, price, surface, source,
-            and more.
+            {m.listings_subtitle()}
           </p>
         </div>
         <div className="flex gap-2">
@@ -86,7 +86,7 @@ function ListingsPage() {
               setView("list");
             }}
           >
-            List
+            {m.listings_view_list()}
           </Button>
           <Button
             type="button"
@@ -97,7 +97,7 @@ function ListingsPage() {
               setView("map");
             }}
           >
-            Map
+            {m.listings_view_map()}
           </Button>
         </div>
       </div>
@@ -112,7 +112,7 @@ function ListingsPage() {
           void navigate({ search: next });
         }}
       >
-        <FilterField label="City">
+        <FilterField label={m.filter_city()}>
           <Input
             value={draft.city ?? ""}
             onChange={(event) =>
@@ -120,7 +120,7 @@ function ListingsPage() {
             }
           />
         </FilterField>
-        <FilterField label="Postal code">
+        <FilterField label={m.filter_postal_code()}>
           <Input
             value={draft.postalCode ?? ""}
             onChange={(event) =>
@@ -131,7 +131,7 @@ function ListingsPage() {
             }
           />
         </FilterField>
-        <FilterField label="Text">
+        <FilterField label={m.filter_text()}>
           <Input
             value={draft.text ?? ""}
             onChange={(event) =>
@@ -139,7 +139,7 @@ function ListingsPage() {
             }
           />
         </FilterField>
-        <FilterField label="Source">
+        <FilterField label={m.filter_source()}>
           <Select
             value={draft.source ?? ""}
             onChange={(event) =>
@@ -151,14 +151,14 @@ function ListingsPage() {
               }))
             }
           >
-            <option value="">All</option>
-            <option value="bienici">Bien&apos;ici</option>
-            <option value="leboncoin">Leboncoin</option>
-            <option value="seloger">SeLoger</option>
-            <option value="logicimmo">Logic-Immo</option>
+            <option value="">{m.filter_source_all()}</option>
+            <option value="bienici">{m.source_bienici()}</option>
+            <option value="leboncoin">{m.source_leboncoin()}</option>
+            <option value="seloger">{m.source_seloger()}</option>
+            <option value="logicimmo">{m.source_logicimmo()}</option>
           </Select>
         </FilterField>
-        <FilterField label="Min price">
+        <FilterField label={m.filter_min_price()}>
           <Input
             type="number"
             value={draft.minPrice ?? ""}
@@ -170,7 +170,7 @@ function ListingsPage() {
             }
           />
         </FilterField>
-        <FilterField label="Max price">
+        <FilterField label={m.filter_max_price()}>
           <Input
             type="number"
             value={draft.maxPrice ?? ""}
@@ -182,7 +182,7 @@ function ListingsPage() {
             }
           />
         </FilterField>
-        <FilterField label="Min surface">
+        <FilterField label={m.filter_min_surface()}>
           <Input
             type="number"
             value={draft.minSurface ?? ""}
@@ -194,7 +194,7 @@ function ListingsPage() {
             }
           />
         </FilterField>
-        <FilterField label="Min land surface">
+        <FilterField label={m.filter_min_land_surface()}>
           <Input
             type="number"
             value={draft.minLandSurface ?? ""}
@@ -206,7 +206,7 @@ function ListingsPage() {
             }
           />
         </FilterField>
-        <FilterField label="Min rooms">
+        <FilterField label={m.filter_min_rooms()}>
           <Input
             type="number"
             value={draft.minRooms ?? ""}
@@ -218,7 +218,7 @@ function ListingsPage() {
             }
           />
         </FilterField>
-        <FilterField label="Min bedrooms">
+        <FilterField label={m.filter_min_bedrooms()}>
           <Input
             type="number"
             value={draft.minBedrooms ?? ""}
@@ -230,7 +230,7 @@ function ListingsPage() {
             }
           />
         </FilterField>
-        <FilterField label="Max travel (min)">
+        <FilterField label={m.filter_max_travel()}>
           <Input
             type="number"
             value={draft.maxTravelMinutes ?? ""}
@@ -242,7 +242,7 @@ function ListingsPage() {
             }
           />
         </FilterField>
-        <FilterField label="Limit">
+        <FilterField label={m.filter_limit()}>
           <Input
             type="number"
             min={1}
@@ -256,7 +256,7 @@ function ListingsPage() {
             }
           />
         </FilterField>
-        <FilterField label="Sort">
+        <FilterField label={m.filter_sort()}>
           <Select
             value={draft.sort ?? "date_desc"}
             onChange={(event) =>
@@ -266,14 +266,14 @@ function ListingsPage() {
               }))
             }
           >
-            <option value="date_desc">Most recent</option>
-            <option value="price_asc">Price ascending</option>
-            <option value="price_desc">Price descending</option>
-            <option value="surface_desc">Surface descending</option>
-            <option value="compat_desc">Adéquation</option>
+            <option value="date_desc">{m.sort_date_desc()}</option>
+            <option value="price_asc">{m.sort_price_asc()}</option>
+            <option value="price_desc">{m.sort_price_desc()}</option>
+            <option value="surface_desc">{m.sort_surface_desc()}</option>
+            <option value="compat_desc">{m.compatibility_sort()}</option>
           </Select>
         </FilterField>
-        <FilterField label="Property type">
+        <FilterField label={m.filter_property_type()}>
           <div className="flex flex-col gap-2 pt-1 text-sm">
             <label className="inline-flex items-center gap-2">
               <input
@@ -287,7 +287,7 @@ function ListingsPage() {
                   }))
                 }
               />
-              Ancien only
+              {m.filter_ancien_only()}
             </label>
             <label className="inline-flex items-center gap-2">
               <input
@@ -303,7 +303,7 @@ function ListingsPage() {
                   }))
                 }
               />
-              Neuf only
+              {m.filter_neuf_only()}
             </label>
             <label className="inline-flex items-center gap-2">
               <input
@@ -316,16 +316,16 @@ function ListingsPage() {
                   }))
                 }
               />
-              Price drops only
+              {m.filter_price_drop_only()}
             </label>
           </div>
         </FilterField>
         <div className="flex items-end">
-          <Button type="submit">Search</Button>
+          <Button type="submit">{m.common_search()}</Button>
         </div>
       </form>
 
-      {query.isLoading ? <p>Loading…</p> : null}
+      {query.isLoading ? <p>{m.common_loading()}</p> : null}
       {query.error ? (
         <p className="text-destructive">{getErrorMessage(query.error)}</p>
       ) : null}
@@ -333,12 +333,12 @@ function ListingsPage() {
       {query.data ? (
         <>
           <p className="text-sm text-muted-foreground">
-            {total} result(s)
+            {m.listings_result_count({ count: total })}
             {view === "list" && items.length < total
-              ? ` · showing ${String(items.length)}`
+              ? m.listings_showing_count({ count: items.length })
               : ""}
             {view === "map" && mapQuery.isFetching && !mapQuery.data
-              ? " · loading map data…"
+              ? m.listings_loading_map()
               : ""}
             {(view === "map" ? mapZone : query.data.pages[0]?.zone)
               ? ` · ${view === "map" ? mapZone : query.data.pages[0]?.zone}`
@@ -365,7 +365,7 @@ function ListingsPage() {
                               if (previous) setSelectedId(previous.id);
                             }}
                           >
-                            Previous
+                            {m.common_previous()}
                           </Button>
                           <Button
                             type="button"
@@ -380,7 +380,7 @@ function ListingsPage() {
                               if (next) setSelectedId(next.id);
                             }}
                           >
-                            Next
+                            {m.common_next()}
                           </Button>
                         </div>
                       </div>
@@ -388,7 +388,7 @@ function ListingsPage() {
                     </>
                   ) : (
                     <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
-                      Click a marker on the map to view listing details.
+                      {m.listings_map_select_prompt()}
                     </div>
                   )}
                 </div>
@@ -399,7 +399,7 @@ function ListingsPage() {
                     className="flex items-center justify-center rounded-xl border bg-card text-sm text-muted-foreground"
                     style={{ height: "min(70vh, 720px)" }}
                   >
-                    Loading map…
+                    {m.listings_map_loading()}
                   </div>
                 ) : (
                   <ListingsMap
@@ -426,7 +426,9 @@ function ListingsPage() {
               disabled={query.isFetchingNextPage}
               onClick={() => void query.fetchNextPage()}
             >
-              {query.isFetchingNextPage ? "Loading…" : "Load more"}
+              {query.isFetchingNextPage
+                ? m.common_loading()
+                : m.common_load_more()}
             </Button>
           ) : null}
         </>

@@ -10,6 +10,7 @@ import {
   MAP_TILE_URLS,
 } from "@/lib/map-utils";
 import type { Property } from "@find-my-house/api-types";
+import * as m from "@/paraglide/messages.js";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
@@ -294,7 +295,7 @@ export function ListingsMap({
   if (mappable.length === 0) {
     return (
       <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
-        No geolocated listings in this result set.
+        {m.map_no_geolocated()}
       </p>
     );
   }
@@ -310,13 +311,18 @@ export function ListingsMap({
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-2 p-3">
         <div className="pointer-events-auto rounded-lg border bg-background/95 px-3 py-2 text-xs text-muted-foreground shadow-sm backdrop-blur">
           <span className="font-medium text-foreground">
-            {mappable.length} geolocated
+            {m.map_geolocated_count({ count: mappable.length })}
           </span>
           {missingGeo > 0 ? (
-            <span>{` · ${String(missingGeo)} without coordinates`}</span>
+            <span>{m.map_without_coords({ count: missingGeo })}</span>
           ) : null}
           {totalCount !== undefined && totalCount > properties.length ? (
-            <span>{` · ${String(properties.length)} of ${String(totalCount)} loaded`}</span>
+            <span>
+              {m.map_loaded_count({
+                loaded: properties.length,
+                total: totalCount,
+              })}
+            </span>
           ) : null}
         </div>
 
@@ -327,7 +333,7 @@ export function ListingsMap({
             variant="secondary"
             className="h-8 bg-background/95 shadow-sm backdrop-blur"
             onClick={fitAllMarkers}
-            aria-label="Recenter map"
+            aria-label={m.map_recenter()}
           >
             <Target className="size-4" />
           </Button>
@@ -337,7 +343,9 @@ export function ListingsMap({
             variant="secondary"
             className="h-8 bg-background/95 shadow-sm backdrop-blur"
             onClick={toggleFullscreen}
-            aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen map"}
+            aria-label={
+              isFullscreen ? m.map_exit_fullscreen() : m.map_fullscreen()
+            }
           >
             {isFullscreen ? (
               <Minimize2 className="size-4" />
@@ -353,23 +361,23 @@ export function ListingsMap({
           isDark ? "bg-zinc-900/95 text-zinc-100" : "bg-background/95"
         }`}
       >
-        <p className="mb-1.5 font-medium">Legend</p>
+        <p className="mb-1.5 font-medium">{m.map_legend_title()}</p>
         <ul className="space-y-1">
           <li className="flex items-center gap-2">
             <span className="fmh-map-legend-swatch fmh-map-legend-swatch--default" />
-            Default
+            {m.map_legend_default()}
           </li>
           <li className="flex items-center gap-2">
             <span className="fmh-map-legend-swatch fmh-map-legend-swatch--liked" />
-            Liked
+            {m.map_legend_liked()}
           </li>
           <li className="flex items-center gap-2">
             <span className="fmh-map-legend-swatch fmh-map-legend-swatch--disliked" />
-            Disliked
+            {m.map_legend_disliked()}
           </li>
           <li className="flex items-center gap-2">
             <span className="fmh-map-legend-swatch fmh-map-legend-swatch--price-drop" />
-            Price drop
+            {m.map_legend_price_drop()}
           </li>
         </ul>
       </div>

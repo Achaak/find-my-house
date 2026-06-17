@@ -1,5 +1,7 @@
 import type { ListingSearchFilters } from "@find-my-house/api-types";
+import { formatLocaleNumber } from "@/lib/locale";
 import { parseOptionalNumber } from "@/lib/utils";
+import * as m from "@/paraglide/messages.js";
 
 export function filtersToSearchParams(
   filters: ListingSearchFilters
@@ -77,17 +79,27 @@ export function formatBrowseCriteria(
   const parts: string[] = [];
   if (criteria.city) parts.push(criteria.city);
   if (zoneLabel) parts.push(zoneLabel);
-  if (criteria.postalCode) parts.push(`CP ${criteria.postalCode}`);
+  if (criteria.postalCode) {
+    parts.push(m.browse_criteria_postal({ code: criteria.postalCode }));
+  }
   if (criteria.maxPrice !== undefined) {
-    parts.push(`≤ ${criteria.maxPrice.toLocaleString("fr-FR")} €`);
+    parts.push(
+      m.browse_criteria_max_price({
+        price: formatLocaleNumber(criteria.maxPrice),
+      })
+    );
   }
   if (criteria.minSurface !== undefined) {
-    parts.push(`≥ ${String(criteria.minSurface)} m²`);
+    parts.push(
+      m.browse_criteria_min_surface({ surface: String(criteria.minSurface) })
+    );
   }
   if (criteria.minLandSurface !== undefined) {
-    parts.push(`≥ ${String(criteria.minLandSurface)} m² land`);
+    parts.push(
+      m.browse_criteria_min_land({ land: String(criteria.minLandSurface) })
+    );
   }
-  if (criteria.ancienOnly) parts.push("ancien");
-  if (criteria.neufOnly) parts.push("neuf");
-  return parts.length > 0 ? parts.join(" · ") : "Default scrape criteria";
+  if (criteria.ancienOnly) parts.push(m.browse_criteria_ancien());
+  if (criteria.neufOnly) parts.push(m.browse_criteria_neuf());
+  return parts.length > 0 ? parts.join(" · ") : m.browse_criteria_default();
 }

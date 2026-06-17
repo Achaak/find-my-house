@@ -1,9 +1,8 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Bell, BellOff } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
 import { api, queryKeys } from "@/lib/api";
 import { formatPriceDrop, hasPriceDrop } from "@/lib/price-drop";
+import * as m from "@/paraglide/messages.js";
 
 const STORAGE_KEY = "find-my-house.notifications.since";
 const ENABLED_KEY = "find-my-house.notifications.enabled";
@@ -31,7 +30,8 @@ function writeNotifiedIds(ids: Set<number>): void {
   sessionStorage.setItem(NOTIFIED_KEY, JSON.stringify([...ids]));
 }
 
-export function NotificationWatcher() {
+export function useBrowserNotifications() {
+  const supported = typeof window !== "undefined" && "Notification" in window;
   const [enabled, setEnabled] = useState(
     () => localStorage.getItem(ENABLED_KEY) === "true"
   );
@@ -41,18 +41,18 @@ export function NotificationWatcher() {
   const digestQuery = useQuery({
     queryKey: queryKeys.notifications(since),
     queryFn: () => api.notificationsDigest(since),
-    enabled,
+    enabled: supported && enabled,
     refetchInterval: 5 * 60_000,
   });
 
   const enableMutation = useMutation({
     mutationFn: async () => {
-      if (!("Notification" in window)) {
-        throw new Error("Browser notifications are not supported.");
+      if (!supported) {
+        throw new Error(m.notifications_unsupported());
       }
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
-        throw new Error("Notification permission denied.");
+        throw new Error(m.notifications_denied());
       }
       localStorage.setItem(ENABLED_KEY, "true");
       setEnabled(true);
@@ -73,8 +73,8 @@ export function NotificationWatcher() {
     for (const property of candidates.slice(0, 5)) {
       const drop = formatPriceDrop(property);
       const body = drop
-        ? `${property.city} · ${drop}`
-        : `${property.city} · new listing`;
+        ? m.notifications_body_price_drop({ city: property.city, drop })
+        : m.notifications_body_new({ city: property.city });
       new Notification(property.title, { body, tag: `listing-${property.id}` });
       notified.add(property.id);
     }
@@ -85,26 +85,19 @@ export function NotificationWatcher() {
     setSince(nextSince);
   }, [digestQuery.data, digestQuery.dataUpdatedAt, enabled]);
 
-  if (!("Notification" in window)) return null;
+  function toggle() {
+    if (enabled) {
+      localStorage.setItem(ENABLED_KEY, "false");
+      setEnabled(false);
+      return;
+    }
+    enableMutation.mutate();
+  }
 
-  return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="sm"
-      className="hidden md:inline-flex"
-      disabled={enableMutation.isPending}
-      onClick={() => {
-        if (enabled) {
-          localStorage.setItem(ENABLED_KEY, "false");
-          setEnabled(false);
-          return;
-        }
-        enableMutation.mutate();
-      }}
-      aria-label={enabled ? "Disable notifications" : "Enable notifications"}
-    >
-      {enabled ? <Bell className="size-4" /> : <BellOff className="size-4" />}
-    </Button>
-  );
+  return {
+    supported,
+    enabled,
+    isPending: enableMutation.isPending,
+    toggle,
+  };
 }

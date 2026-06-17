@@ -1,3 +1,5 @@
+import * as m from "@/paraglide/messages.js";
+
 export type DiagnosticsPreset =
   | "price"
   | "last24h"
@@ -10,16 +12,16 @@ export function diagnosticsEmptyMessage(
   activePreset: DiagnosticsPreset
 ): string {
   if (!hasLoadedDiagnostics) {
-    return "No diagnostics loaded yet.";
+    return m.admin_diag_empty_none();
   }
   if (activePreset === "price") {
-    return "No price veto diagnostics found for this filter set.";
+    return m.admin_diag_empty_price();
   }
   if (activePreset === "last24h") {
-    return "No diagnostics found in the last 24 hours.";
+    return m.admin_diag_empty_last24h();
   }
   if (activePreset === "bienici") {
-    return "No Bienici diagnostics found for this filter set.";
+    return m.admin_diag_empty_bienici();
   }
-  return "No diagnostics found for this filter set.";
+  return m.admin_diag_empty_default();
 }
