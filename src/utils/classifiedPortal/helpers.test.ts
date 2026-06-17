@@ -44,7 +44,7 @@ describe("classifiedImageNeedsRefresh", () => {
 });
 
 describe("normalizeAvivImageUrl", () => {
-  it("preserves signed social preview URLs for Discord", () => {
+  it("preserves signed social preview URLs", () => {
     const signed =
       "https://mms.logic-immo.com/6/a/0/4/photo.jpg?ci_seal=signed-token";
     expect(normalizeAvivImageUrl(signed)).toBe(signed);

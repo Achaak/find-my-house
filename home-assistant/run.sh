@@ -38,11 +38,6 @@ export_bool_opt() {
   fi
 }
 
-export DISCORD_TOKEN="$(require_opt discord_token)"
-export DISCORD_CLIENT_ID="$(require_opt discord_client_id)"
-export_opt DISCORD_GUILD_ID discord_guild_id
-export_opt DISCORD_CHANNEL_ID discord_channel_id
-export_opt DISCORD_ADMIN_ROLE_ID discord_admin_role_id
 export_opt SCRAPE_SCRAPERS scrape_scrapers
 export_opt SCRAPE_CRON scrape_cron
 export_opt SCRAPE_CITY scrape_city
@@ -105,5 +100,5 @@ fi
 cd /app
 echo "[run] Applying migrations..."
 pnpm exec prisma migrate deploy
-echo "[run] Starting bot and web UI..."
+echo "[run] Starting web UI..."
 exec node dist/index.js

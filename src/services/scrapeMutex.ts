@@ -1,4 +1,4 @@
-/** Serializes scrape runs so cron, Discord, and scripts do not overlap. */
+/** Serializes scrape runs so cron, API, and scripts do not overlap. */
 export class ScrapeMutex {
   private lock: Promise<void> = Promise.resolve();
   private running = false;

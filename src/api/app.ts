@@ -577,7 +577,7 @@ export function createApiApp(ctx: ApiContext) {
 
   app.post("/api/admin/scrape", requireAdmin(), async (c) => {
     const result = await ctx.scraperService.run(ctx.scrapeDefaults);
-    await ctx.notifyScrapeResults(result);
+    ctx.enrichmentQueue.scheduleScrapeResults(result);
 
     const scrapeGeoFilter = resolveGeoFilter(
       { maxTravelMinutes: ctx.scrapeDefaults.maxTravelMinutes },

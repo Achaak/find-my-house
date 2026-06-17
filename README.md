@@ -1,59 +1,52 @@
 # Find My House
 
-Discord bot + French real-estate listing scraper, with SQLite storage and automatic deduplication.
+French real-estate listing scraper with SQLite storage, automatic deduplication, and a web UI.
 
 ## Features
 
 - Multi-source scraping: **BienIci**, **Leboncoin**, **SeLoger**, and **Logic-Immo** (modular scrapers, enabled via `SCRAPE_SCRAPERS`)
 - Advanced filters: land area, rooms, bedrooms, old/new builds, radius in km or driving travel time
 - SQLite storage via Prisma 7 with uniqueness constraints (no duplicates)
-- Discord bot with slash commands and rich embeds (photo, price, surface area, link…)
-- **Web UI** (React + Vite) with the same features as Discord, accessible via **Home Assistant Ingress**
-- **Like** / **Dislike** buttons on each listing, with per-user persisted favorites (Discord or HA user)
-- New listing notifications in a Discord channel
+- **Web UI** (React + Vite), accessible via **Home Assistant Ingress**
+- **Like** / **Dislike** buttons on each listing, with per-user persisted favorites
 - Scheduled automatic scraping via cron
 
 ## Prerequisites
 
 - Node.js 20+
 - [pnpm](https://pnpm.io/installation) 9+
-- A Discord bot ([Discord Developer Portal](https://discord.com/developers/applications))
 
 ## Installation
 
 ```bash
 pnpm install
 cp .env.local.example .env.local
-# Fill in Discord and your search criteria in .env.local
+# Fill in your search criteria in .env.local
 pnpm run db:migrate
 ```
 
-**Defaults** live in `.env` (versioned). **Secrets** and **overrides** (Discord token, city, scrapers…) go in `.env.local` (git-ignored, overrides `.env`).
+**Defaults** live in `.env` (versioned). **Secrets** and **overrides** (city, scrapers…) go in `.env.local` (git-ignored, overrides `.env`).
 
 ## Configuration
 
-| Variable                    | Description                                                                                                                        |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `DISCORD_TOKEN`             | Discord bot token                                                                                                                  |
-| `DISCORD_CLIENT_ID`         | Discord application ID                                                                                                             |
-| `DISCORD_GUILD_ID`          | (Optional) Server ID for registering commands in dev                                                                               |
-| `DISCORD_CHANNEL_ID`        | (Optional) Channel for new listing notifications. The bot needs **Send Messages** and **Embed Links** permissions on this channel. |
-| `SCRAPE_SCRAPERS`           | (Optional) Active scrapers, comma-separated (`bienici`, `leboncoin`, `seloger`, `logicimmo`). All enabled if omitted.              |
-| `SCRAPE_CITY`               | Reference city (e.g. Paris)                                                                                                        |
-| `SCRAPE_POSTAL_CODE`        | (Optional) 5-digit postal code — disambiguates homonyms and filters SeLoger/Logic-Immo listings by commune                         |
-| `SCRAPE_MAX_PRICE`          | Maximum price in euros                                                                                                             |
-| `SCRAPE_MIN_SURFACE`        | Minimum surface area in m²                                                                                                         |
-| `SCRAPE_MIN_LAND_SURFACE`   | (Optional) Minimum land area in m²                                                                                                 |
-| `SCRAPE_MIN_ROOMS`          | (Optional) Minimum number of rooms                                                                                                 |
-| `SCRAPE_MIN_BEDROOMS`       | (Optional) Minimum number of bedrooms                                                                                              |
-| `SCRAPE_ANCIEN_ONLY`        | (Optional) `true` to exclude new builds                                                                                            |
-| `SCRAPE_MAX_TRAVEL_MINUTES` | (Optional) Max driving time from `SCRAPE_CITY` in minutes.                                                                         |
-| `SCRAPE_CRON`               | Cron expression (default: every 2 hours)                                                                                           |
-| `DATABASE_URL`              | Prisma SQLite URL (e.g. `file:./data/listings.db`)                                                                                 |
-| `DATABASE_PATH`             | (Optional) Alternative to `DATABASE_URL` — relative path under `file:` (e.g. `./data/listings.db`)                                 |
-| `CLOAKBROWSER_HEADLESS`     | (Optional) Set to `false` for headed mode if portals still block requests                                                          |
-| `CLOAKBROWSER_PROXY`        | (Optional) Residential proxy URL for CloakBrowser                                                                                  |
-| `CLOAKBROWSER_GEOIP`        | (Optional) Match timezone/locale to proxy IP (default `true` when proxy is set)                                                    |
+| Variable                    | Description                                                                                                           |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `SCRAPE_SCRAPERS`           | (Optional) Active scrapers, comma-separated (`bienici`, `leboncoin`, `seloger`, `logicimmo`). All enabled if omitted. |
+| `SCRAPE_CITY`               | Reference city (e.g. Paris)                                                                                           |
+| `SCRAPE_POSTAL_CODE`        | (Optional) 5-digit postal code — disambiguates homonyms and filters SeLoger/Logic-Immo listings by commune            |
+| `SCRAPE_MAX_PRICE`          | Maximum price in euros                                                                                                |
+| `SCRAPE_MIN_SURFACE`        | Minimum surface area in m²                                                                                            |
+| `SCRAPE_MIN_LAND_SURFACE`   | (Optional) Minimum land area in m²                                                                                    |
+| `SCRAPE_MIN_ROOMS`          | (Optional) Minimum number of rooms                                                                                    |
+| `SCRAPE_MIN_BEDROOMS`       | (Optional) Minimum number of bedrooms                                                                                 |
+| `SCRAPE_ANCIEN_ONLY`        | (Optional) `true` to exclude new builds                                                                               |
+| `SCRAPE_MAX_TRAVEL_MINUTES` | (Optional) Max driving time from `SCRAPE_CITY` in minutes.                                                            |
+| `SCRAPE_CRON`               | Cron expression (default: every 2 hours)                                                                              |
+| `DATABASE_URL`              | Prisma SQLite URL (e.g. `file:./data/listings.db`)                                                                    |
+| `DATABASE_PATH`             | (Optional) Alternative to `DATABASE_URL` — relative path under `file:` (e.g. `./data/listings.db`)                    |
+| `CLOAKBROWSER_HEADLESS`     | (Optional) Set to `false` for headed mode if portals still block requests                                             |
+| `CLOAKBROWSER_PROXY`        | (Optional) Residential proxy URL for CloakBrowser                                                                     |
+| `CLOAKBROWSER_GEOIP`        | (Optional) Match timezone/locale to proxy IP (default `true` when proxy is set)                                       |
 
 Local dev only (`.env.local`, never used in the Home Assistant add-on):
 
@@ -61,14 +54,12 @@ Local dev only (`.env.local`, never used in the Home Assistant add-on):
 | ------------------- | --------------------------------------------------------------------------------------- |
 | `WEB_AUTH_DISABLED` | (Optional) `true` to skip auth when developing outside HA — **never use in production** |
 
-> **Discord migration**: replace the legacy `DISCORD_WEBHOOK_URL` variable with `DISCORD_CHANNEL_ID`. Notifications now go through the bot (REST API) instead of a webhook.
-
 ## Running
 
 Monorepo managed with **pnpm workspaces** and **Turborepo** (`find-my-house` backend + `web` frontend).
 
 ```bash
-# Backend only (Discord bot + cron + API on :8099)
+# Backend only (cron + API on :8099)
 pnpm run dev
 
 # Frontend only (Vite dev server, proxies /api → :8099)
@@ -77,7 +68,7 @@ pnpm run dev:web
 # Backend + frontend in parallel
 pnpm run dev:all
 
-# Manual scrape (uses .env criteria; notifies Discord if DISCORD_CHANNEL_ID is set)
+# Manual scrape (uses .env criteria)
 pnpm run scrape
 
 # Production build (backend + web)
@@ -116,7 +107,7 @@ The Docker image is **pre-built on GitHub Actions** (GHCR) — the Pi downloads 
 2. Make the package **public**: GitHub → **Packages** → `find-my-house-aarch64` → **Package settings** → **Change visibility**
 3. **Settings → Apps → ⋮ → Repositories** → `https://github.com/Achaak/find-my-house`
 4. **Apps → Find My House → Install**
-5. **Configuration** tab: Discord token, scrape criteria, optional `web_admin_users`, etc.
+5. **Configuration** tab: scrape criteria, optional `web_admin_users`, etc.
 6. **Start** + **Start on boot**
 7. Open the panel from the sidebar: **Find My House** (Ingress — no extra port to expose)
 
@@ -133,11 +124,11 @@ The web UI authenticates via your Home Assistant session (Ingress). Admin action
 
 Ingress is configured in `home-assistant/config.yaml` (`ingress_port: 8099`). Runtime env vars (`HOME_ASSISTANT_URL`, `WEB_PORT`, …) are injected by `home-assistant/run.sh`.
 
-Add-on scrape/Discord options mirror `.env` / `.env.local`, plus `web_enabled`, `web_admin_users`, and `log_level` (`debug`, `info`, `warn`, `error`).
+Add-on scrape options mirror `.env` / `.env.local`, plus `web_enabled`, `web_admin_users`, and `log_level` (`debug`, `info`, `warn`, `error`).
 
 **Updates**: run `pnpm release:patch` (or `minor` / `major`) — release-it bumps, syncs `config.yaml`, pushes, and creates the GitHub release. Wait for the Actions build, then **Apps → Update** (or Rebuild → Restart).
 
-Version is managed in `package.json` and synced automatically to `home-assistant/config.yaml`. Use `/version` in Discord to check the running build.
+Version is managed in `package.json` and synced automatically to `home-assistant/config.yaml`.
 
 **SSH alternative** (Terminal & SSH add-on):
 
@@ -146,7 +137,7 @@ ha store add https://github.com/Achaak/find-my-house
 ha addons install find_my_house
 ```
 
-> The GitHub repo must be **public** (or reachable without auth from the Pi). In production, leave `discord_guild_id` empty.
+> The GitHub repo must be **public** (or reachable without auth from the Pi).
 
 ### Docker (NAS, NUC, VPS)
 
@@ -155,38 +146,18 @@ cp .env.local.example .env.local   # edit the variables
 docker compose up -d --build
 ```
 
-## Discord commands
-
-| Command                                       | Description                                                                                                                                                                   |
-| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/listings`                                   | Search the database (city, postal code, text, source, min/max price, surface, land, rooms, bedrooms, old/new, radius km, travel time, sort…). Results as embeds with buttons. |
-| `/listing id:123`                             | Listing details                                                                                                                                                               |
-| `/browse`                                     | Browse listings with compatibility scoring based on your likes/dislikes                                                                                                       |
-| `/address id:123`                             | Identify a listing address from ADEME public DPE data (confirm with a button to save it)                                                                                      |
-| `/like add\|remove\|list\|archive\|unarchive` | Manage favorites                                                                                                                                                              |
-| `/dislike add\|remove\|list`                  | Manage disliked listings                                                                                                                                                      |
-| `/scraper`                                    | Run a manual scrape (`.env` criteria)                                                                                                                                         |
-| `/reconcile`                                  | Merge duplicate properties in the database                                                                                                                                    |
-| `/stats`                                      | Database statistics                                                                                                                                                           |
-| `/version`                                    | Application version                                                                                                                                                           |
-| `/help`                                       | Help                                                                                                                                                                          |
-
-The **❤️ Like** and **👎 Dislike** buttons under each listing let you add or remove a reaction in one click (ephemeral reply, visible only to you). Clicking an already active button removes the reaction.
-
 ## Web UI
 
-Same features as Discord, available in the browser:
-
-| Page                       | Discord equivalent       |
+| Page                       | Description              |
 | -------------------------- | ------------------------ |
-| Listings                   | `/listings`, `/listing`  |
-| Browse                     | `/browse`                |
-| Favorites / Dislikes       | `/like`, `/dislike`      |
-| Stats                      | `/stats`                 |
-| Admin                      | `/scraper`, `/reconcile` |
-| Listing detail → ADEME DPE | `/address`               |
+| Listings                   | Search and filter        |
+| Browse                     | One-at-a-time review     |
+| Favorites / Dislikes       | Saved reactions          |
+| Stats                      | Database statistics      |
+| Admin                      | Manual scrape, reconcile |
+| Listing detail → ADEME DPE | Address lookup           |
 
-Authentication uses your **Home Assistant** identity (Ingress or long-lived token). Reactions are stored per HA user (`ha:username`), separate from Discord reactions.
+Authentication uses your **Home Assistant** identity (Ingress or long-lived token).
 
 ## Deduplication
 
@@ -194,7 +165,7 @@ The model separates the **property** (`properties`) from its per-portal **public
 
 - A unique property is identified by a fingerprint (`property_key`) computed from postal code, price, surface area, rooms, and bedrooms (no GPS or title — too variable across portals).
 - Each portal keeps its own publication (`UNIQUE(source, external_id)` and `UNIQUE(url)`).
-- The same house on BienIci and Leboncoin creates **one property** and **two publications** — only one Discord notification is sent.
+- The same house on BienIci and Leboncoin creates **one property** and **two publications**.
 - User reactions (`listing_reactions`) are tied to the **property**, not an individual publication.
 
 After migrating from the legacy schema, run `pnpm run db:reconcile` to merge existing duplicates.
@@ -207,7 +178,7 @@ find-my-house/               # pnpm + Turborepo monorepo
 │   └── api-types/           # Shared REST API types (backend ↔ web)
 ├── src/
 │   ├── api/                 # Hono REST API + static web assets
-│   ├── config/              # Env loading, Zod schema, scrape + Discord + web config
+│   ├── config/              # Env loading, Zod schema, scrape + web config
 │   ├── db/                    # Prisma client, listing + reaction repositories
 │   ├── types/                 # Domain types (listings, enrichment)
 │   ├── utils/
@@ -225,8 +196,7 @@ find-my-house/               # pnpm + Turborepo monorepo
 │   ├── scrapers/              # Modular scrapers (bienici, leboncoin, seloger, logicimmo)
 │   ├── services/              # Scraping, enrichment, browse, reconcile, compatibility
 │   ├── scripts/               # CLI utilities (scrape-once, reconcile)
-│   ├── discord/               # Bot, slash commands, embeds, buttons, notifications
-│   └── index.ts               # Entry point (bot + cron + web server)
+│   └── index.ts               # Entry point (cron + web server)
 ├── web/                     # React + Vite + TanStack Router/Query + Tailwind + shadcn (Base UI)
 ├── home-assistant/          # Home Assistant add-on (config.yaml, run.sh, Ingress)
 ├── turbo.json

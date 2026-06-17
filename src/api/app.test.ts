@@ -76,7 +76,6 @@ describe("createApiApp", () => {
         maxPrice: 500_000,
         minSurface: 50,
       },
-      notifyScrapeResults: vi.fn(() => Promise.resolve()),
     };
 
     app = createApiApp(ctx);

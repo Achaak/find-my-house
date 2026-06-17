@@ -2,8 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   parseAppConfig,
   parseBrowserConfig,
-  parseDiscordConfig,
-  parseDiscordConfigOptional,
   parseScrapeConfig,
 } from "./schema.js";
 
@@ -99,58 +97,6 @@ describe("parseBrowserConfig", () => {
     expect(config.browser.proxy).toBe("http://proxy.example");
     expect(config.browser.geoip).toBe(false);
     expect(config.browser.resetProfile).toBe(true);
-  });
-});
-
-describe("parseDiscordConfigOptional", () => {
-  it("returns null when Discord credentials are missing", () => {
-    expect(parseDiscordConfigOptional({})).toBeNull();
-  });
-
-  it("returns parsed config when Discord credentials are present", () => {
-    expect(
-      parseDiscordConfigOptional({
-        DISCORD_TOKEN: "token",
-        DISCORD_CLIENT_ID: "client",
-      })?.discord.token
-    ).toBe("token");
-  });
-});
-
-describe("parseDiscordConfig", () => {
-  it("requires Discord credentials", () => {
-    expect(() => parseDiscordConfig({})).toThrow(
-      /Invalid Discord configuration/
-    );
-  });
-
-  it("parses optional Discord settings", () => {
-    const config = parseDiscordConfig({
-      DISCORD_TOKEN: "token",
-      DISCORD_CLIENT_ID: "client",
-      DISCORD_GUILD_ID: "guild",
-      DISCORD_CHANNEL_ID: "channel",
-      DISCORD_ADMIN_ROLE_ID: "role",
-    });
-
-    expect(config.discord).toEqual({
-      token: "token",
-      clientId: "client",
-      guildId: "guild",
-      channelId: "channel",
-      adminRoleId: "role",
-      maxNotifications: 20,
-    });
-  });
-
-  it("parses custom max notifications", () => {
-    const config = parseDiscordConfig({
-      DISCORD_TOKEN: "token",
-      DISCORD_CLIENT_ID: "client",
-      DISCORD_MAX_NOTIFICATIONS: "10",
-    });
-
-    expect(config.discord.maxNotifications).toBe(10);
   });
 });
 

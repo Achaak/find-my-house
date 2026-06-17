@@ -10,9 +10,6 @@ export type ApiContext = {
   scraperService: ScraperService;
   enrichmentQueue: EnrichmentQueue;
   scrapeDefaults: ScrapeFilters;
-  notifyScrapeResults: (
-    result: Awaited<ReturnType<ScraperService["run"]>>
-  ) => Promise<unknown>;
 };
 
 export type {

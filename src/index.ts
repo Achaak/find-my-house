@@ -1,14 +1,11 @@
 import cron from "node-cron";
 import "./config/app.js";
-import { discordConfig } from "./config/discord.js";
 import { buildScrapeFilters, scrapeConfig } from "./config/scrape.js";
 import { createListingRepository } from "./db/listingRepository.js";
 import { ReactionRepository } from "./db/reactionRepository.js";
 import { disconnectPrisma, getPrisma } from "./db/prisma.js";
-import { startDiscordBot } from "./discord/bot.js";
 import { createScrapers } from "./scrapers/index.js";
 import { formatScrapeErrors } from "./services/formatScrapeSummary.js";
-import { notifyScrapeResults } from "./services/notifyScrapeResults.js";
 import { scheduleEnrichmentBackfill } from "./services/enrichmentBackfill.js";
 import { resetListingCompatibilityCache } from "./services/compatibilityService.js";
 import { ScraperService } from "./services/scraperService.js";
@@ -42,7 +39,6 @@ async function main(): Promise<void> {
 
   const scrapeOptions = buildScrapeFilters();
   const geoFilter = resolveGeoFilter(scrapeOptions, true);
-  const { discord } = discordConfig;
 
   log.info(`Starting Find My House ${formatVersionLine()}...`);
   log.info(`Database: ${scrapeConfig.database.url}`);
@@ -65,15 +61,6 @@ async function main(): Promise<void> {
         for (const line of formatScrapeErrors(result.errors)) {
           cronLog.warn(line);
         }
-        await notifyScrapeResults(result, {
-          token: discord.token,
-          channelId: discord.channelId,
-          maxNotifications: discord.maxNotifications,
-          repository,
-          reactionRepository,
-          enrichmentQueue,
-          log: cronLog,
-        });
       } catch (error) {
         cronLog.error("Scrape error:", error);
       }
@@ -125,17 +112,6 @@ async function main(): Promise<void> {
   process.on("SIGINT", () => void stop("SIGINT"));
   process.on("SIGTERM", () => void stop("SIGTERM"));
 
-  await startDiscordBot({
-    discord,
-    clientId: discord.clientId,
-    guildId: discord.guildId,
-    repository,
-    reactionRepository,
-    scraperService,
-    enrichmentQueue,
-    scrapeDefaults: scrapeOptions,
-  });
-
   const { startWebServer } = await import("./api/server.js");
   startWebServer({
     repository,
@@ -143,18 +119,6 @@ async function main(): Promise<void> {
     scraperService,
     enrichmentQueue,
     scrapeDefaults: scrapeOptions,
-    notifyScrapeResults: (result) => {
-      enrichmentQueue.scheduleScrapeResults(result);
-      return notifyScrapeResults(result, {
-        token: discord.token,
-        channelId: discord.channelId,
-        maxNotifications: discord.maxNotifications,
-        repository,
-        reactionRepository,
-        enrichmentQueue,
-        log: cronLog,
-      });
-    },
   });
 }
 

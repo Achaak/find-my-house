@@ -5,7 +5,7 @@ import {
 } from "../domain/enrichmentCriteria.js";
 import type { PropertyEnrichmentPatch } from "../types/enrichment.js";
 import type { PropertyRow, PublicationRow } from "../types/listing.js";
-import { formatSourceLabel } from "../discord/format.js";
+import { formatSourceLabel } from "../utils/listing/sourceLabel.js";
 import {
   mergeHighlights,
   highlightsSetsEqual,

@@ -3,7 +3,7 @@ import type {
   ScrapeFilters,
 } from "../../types/listing.js";
 
-/** Map scrape defaults to listing search filters (browse, API, Discord). */
+/** Map scrape defaults to listing search filters (browse, API). */
 export function scrapeFiltersToSearch(
   filters: ScrapeFilters
 ): ListingSearchFilters {

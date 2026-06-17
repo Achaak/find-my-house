@@ -113,28 +113,7 @@ const optionalNonEmptyString = z.preprocess((value) => {
   return value;
 }, z.string().min(1).optional());
 
-export const discordEnvSchema = z
-  .object({
-    DISCORD_TOKEN: z.string().min(1, "DISCORD_TOKEN is required"),
-    DISCORD_CLIENT_ID: z.string().min(1, "DISCORD_CLIENT_ID is required"),
-    DISCORD_GUILD_ID: optionalNonEmptyString,
-    DISCORD_CHANNEL_ID: optionalNonEmptyString,
-    DISCORD_ADMIN_ROLE_ID: optionalNonEmptyString,
-    DISCORD_MAX_NOTIFICATIONS: z.coerce.number().int().positive().default(20),
-  })
-  .transform((env) => ({
-    discord: {
-      token: env.DISCORD_TOKEN,
-      clientId: env.DISCORD_CLIENT_ID,
-      guildId: env.DISCORD_GUILD_ID,
-      channelId: env.DISCORD_CHANNEL_ID,
-      adminRoleId: env.DISCORD_ADMIN_ROLE_ID,
-      maxNotifications: env.DISCORD_MAX_NOTIFICATIONS,
-    },
-  }));
-
 export type ScrapeConfig = z.infer<typeof scrapeEnvSchema>;
-export type DiscordConfig = z.infer<typeof discordEnvSchema>;
 export type AppConfig = z.infer<typeof appEnvSchema>;
 
 export const browserEnvSchema = z
@@ -191,21 +170,6 @@ export function parseBrowserConfig(env: NodeJS.ProcessEnv = process.env) {
     throw new Error(formatConfigError(result.error, "browser"));
   }
   return result.data;
-}
-
-export function parseDiscordConfig(env: NodeJS.ProcessEnv = process.env) {
-  const result = discordEnvSchema.safeParse(env);
-  if (!result.success) {
-    throw new Error(formatConfigError(result.error, "Discord"));
-  }
-  return result.data;
-}
-
-export function parseDiscordConfigOptional(
-  env: NodeJS.ProcessEnv = process.env
-) {
-  const result = discordEnvSchema.safeParse(env);
-  return result.success ? result.data : null;
 }
 
 export function parseAppConfig(env: NodeJS.ProcessEnv = process.env) {

@@ -1,5 +1,5 @@
 name: Find My House
-description: Discord bot, web UI and French real-estate listing scraper
+description: Web UI and French real-estate listing scraper
 version: "3.5.0"
 slug: find_my_house
 url: https://github.com/Achaak/find-my-house
@@ -17,11 +17,6 @@ panel_admin: true
 panel_icon: mdi:home-search
 panel_title: Find My House
 options:
-  discord_token: ""
-  discord_client_id: ""
-  discord_guild_id: ""
-  discord_channel_id: ""
-  discord_admin_role_id: ""
   scrape_scrapers: bienici,leboncoin,seloger,logicimmo
   scrape_cron: "0 */2 * * *"
   scrape_city: Paris
@@ -43,11 +38,6 @@ options:
   web_enabled: true
   web_admin_users: ""
 schema:
-  discord_token: password
-  discord_client_id: str
-  discord_guild_id: str?
-  discord_channel_id: str?
-  discord_admin_role_id: str?
   scrape_scrapers: str?
   scrape_cron: str?
   scrape_city: str?
