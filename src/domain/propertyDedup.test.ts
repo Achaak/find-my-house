@@ -89,9 +89,9 @@ describe("propertyDedup", () => {
       },
     ];
 
-    const groups = groupByFuzzyPropertyMatch(items, (item) =>
-      toPropertyMatchInput(item)
-    );
+    const groups = groupByFuzzyPropertyMatch(items, (item) => [
+      toPropertyMatchInput(item),
+    ]);
     expect(groups).toHaveLength(1);
     expect(groups[0]?.map((entry) => entry.id).sort()).toEqual([10, 11]);
   });

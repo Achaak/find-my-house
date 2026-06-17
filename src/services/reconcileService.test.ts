@@ -172,7 +172,14 @@ describe("reconcileProperties", () => {
             url: "https://www.leboncoin.fr/ad/ventes_immobilieres/lbc-sm",
             title: "Leboncoin publication",
             price: 239_000,
+            surface: 124,
+            landSurface: 1500,
+            rooms: 7,
+            bedrooms: 6,
+            isNewProperty: false,
             city: "Saint Martin de l'If",
+            postalCode: "76190",
+            propertyType: "Maison",
             scrapedAt: new Date("2026-01-01T00:00:00.000Z"),
           },
           {
@@ -182,7 +189,14 @@ describe("reconcileProperties", () => {
             url: "https://www.logic-immo.com/annonces/achat/maison/limmo-sm.htm",
             title: "Logic-Immo publication",
             price: 239_000,
+            surface: 124,
+            landSurface: 1500,
+            rooms: null,
+            bedrooms: null,
+            isNewProperty: null,
             city: "Saint Martin de l'If",
+            postalCode: "76190",
+            propertyType: null,
             scrapedAt: new Date("2026-02-01T00:00:00.000Z"),
           },
         ],
@@ -199,6 +213,180 @@ describe("reconcileProperties", () => {
 
       expect(properties).toHaveLength(1);
       expect(properties[0]?.publications).toHaveLength(2);
+    } finally {
+      await dispose();
+    }
+  });
+
+  it("fuzzy-merges cross-portal duplicates blocked by isNewProperty conflicts", async () => {
+    const { prisma, dispose } = createTestRepository();
+
+    try {
+      const leboncoinOnly = await prisma.property.create({
+        data: {
+          propertyKey: "merge-lbc-only",
+          title: "Leboncoin only",
+          price: 197_000,
+          firstPrice: 197_000,
+          surface: 130,
+          landSurface: 1000,
+          rooms: 5,
+          bedrooms: 3,
+          isNewProperty: false,
+          city: "Yvetot",
+          postalCode: "76450",
+          propertyType: "Maison",
+          firstSeenAt: new Date("2026-01-01T00:00:00.000Z"),
+        },
+      });
+      const selogerLogicimmo = await prisma.property.create({
+        data: {
+          propertyKey: "merge-seloger-logicimmo",
+          title: "SeLoger + Logic-Immo",
+          price: 197_000,
+          firstPrice: 197_000,
+          surface: 130,
+          landSurface: 1000,
+          rooms: 5,
+          bedrooms: 3,
+          isNewProperty: true,
+          city: "Yvetot",
+          postalCode: "76450",
+          propertyType: "Maison",
+          firstSeenAt: new Date("2026-02-01T00:00:00.000Z"),
+        },
+      });
+
+      await prisma.listingPublication.createMany({
+        data: [
+          {
+            propertyId: leboncoinOnly.id,
+            externalId: "lbc-475",
+            source: "leboncoin",
+            url: "https://www.leboncoin.fr/ad/ventes_immobilieres/lbc-475",
+            title: "Leboncoin",
+            price: 197_000,
+            surface: 130,
+            landSurface: 1000,
+            rooms: 5,
+            bedrooms: 3,
+            isNewProperty: false,
+            city: "Yvetot",
+            postalCode: "76450",
+            propertyType: "Maison",
+            scrapedAt: new Date("2026-01-01T00:00:00.000Z"),
+          },
+          {
+            propertyId: selogerLogicimmo.id,
+            externalId: "seloger-780",
+            source: "seloger",
+            url: "https://www.seloger.com/annonces/achat/maison/780.htm",
+            title: "SeLoger",
+            price: 197_000,
+            surface: 130,
+            landSurface: 1000,
+            rooms: 5,
+            bedrooms: 3,
+            isNewProperty: true,
+            city: "Yvetot",
+            postalCode: "76450",
+            propertyType: "Maison",
+            scrapedAt: new Date("2026-02-01T00:00:00.000Z"),
+          },
+        ],
+      });
+
+      const result = await reconcileProperties(prisma);
+
+      expect(result.fuzzyMerged).toBe(1);
+      expect(await prisma.property.count()).toBe(1);
+    } finally {
+      await dispose();
+    }
+  });
+
+  it("fuzzy-merges cross-portal duplicates with small surface differences", async () => {
+    const { prisma, dispose } = createTestRepository();
+
+    try {
+      const older = await prisma.property.create({
+        data: {
+          propertyKey: "merge-older-112",
+          title: "Older cluster",
+          price: 197_000,
+          firstPrice: 197_000,
+          surface: 123,
+          landSurface: 1476,
+          rooms: 6,
+          bedrooms: 4,
+          isNewProperty: false,
+          city: "Durdent",
+          postalCode: "76560",
+          propertyType: "Maison",
+          firstSeenAt: new Date("2026-01-01T00:00:00.000Z"),
+        },
+      });
+      const newer = await prisma.property.create({
+        data: {
+          propertyKey: "merge-newer-301",
+          title: "Newer cluster",
+          price: 197_000,
+          firstPrice: 197_000,
+          surface: 122,
+          landSurface: 1476,
+          rooms: 6,
+          bedrooms: 4,
+          isNewProperty: false,
+          city: "Durdent",
+          postalCode: "76560",
+          propertyType: "Maison",
+          firstSeenAt: new Date("2026-02-01T00:00:00.000Z"),
+        },
+      });
+
+      await prisma.listingPublication.createMany({
+        data: [
+          {
+            propertyId: older.id,
+            externalId: "seloger-112",
+            source: "seloger",
+            url: "https://www.seloger.com/annonces/achat/maison/112.htm",
+            title: "SeLoger 112",
+            price: 197_000,
+            surface: 123,
+            landSurface: 1476,
+            rooms: 6,
+            bedrooms: 4,
+            isNewProperty: false,
+            city: "Durdent",
+            postalCode: "76560",
+            propertyType: "Maison",
+            scrapedAt: new Date("2026-01-01T00:00:00.000Z"),
+          },
+          {
+            propertyId: newer.id,
+            externalId: "seloger-301",
+            source: "seloger",
+            url: "https://www.seloger.com/annonces/achat/maison/301.htm",
+            title: "SeLoger 301",
+            price: 197_000,
+            surface: 122,
+            landSurface: 1476,
+            rooms: 6,
+            bedrooms: 4,
+            isNewProperty: false,
+            city: "Durdent",
+            postalCode: "76560",
+            propertyType: "Maison",
+            scrapedAt: new Date("2026-02-01T00:00:00.000Z"),
+          },
+        ],
+      });
+
+      const result = await reconcileProperties(prisma);
+
+      expect(result.fuzzyMerged).toBe(1);
+      expect(await prisma.property.count()).toBe(1);
     } finally {
       await dispose();
     }

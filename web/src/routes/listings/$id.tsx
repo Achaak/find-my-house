@@ -6,14 +6,14 @@ import {
   ListingDetailSkeleton,
 } from "@/components/listings/listing-detail-skeleton";
 import { PropertyCard } from "@/components/listings/property-card";
-import { Badge } from "@/components/ui/badge";
+import { PropertyPortalLinks } from "@/components/listings/property-portal-links";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { api, queryKeys } from "@/lib/api";
 import { getErrorMessage } from "@/lib/error-message";
 import { findCachedListing } from "@/lib/listing-cache";
 import { googleMapsSearchUrl } from "@/lib/map-utils";
 import type { Property } from "@find-my-house/api-types";
-import { cn, formatPrice, formatSource } from "@/lib/utils";
+import { cn, formatPrice } from "@/lib/utils";
 
 export const Route = createFileRoute("/listings/$id")({
   component: ListingDetailPage,
@@ -245,20 +245,8 @@ function PropertyDetailsSection({ property }: { property: Property }) {
           {property.description}
         </p>
       ) : null}
-      <div className="mt-4 flex flex-wrap gap-2">
-        {property.publications.map((publication) => (
-          <a
-            key={publication.id}
-            href={publication.url}
-            target="_blank"
-            rel="noreferrer noopener"
-          >
-            <Badge variant={publication.isActive ? "outline" : "secondary"}>
-              {formatSource(publication.source)}
-              {!publication.isActive ? " (inactive)" : ""}
-            </Badge>
-          </a>
-        ))}
+      <div className="mt-4">
+        <PropertyPortalLinks property={property} variant="badge" />
       </div>
     </section>
   );

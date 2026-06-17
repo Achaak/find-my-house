@@ -1,12 +1,13 @@
 import { computePropertyKey } from "../utils/propertyKey.js";
 import {
   propertiesMatchFuzzy,
+  toPropertyMatchInput,
   type PropertyMatchInput,
 } from "../utils/propertyMatch.js";
 
 export type { PropertyMatchInput };
 
-export function toPropertyMatchInput(
+export function toPropertyMatchInputFromFields(
   fields: PropertyMatchInput
 ): PropertyMatchInput {
   return fields;
@@ -45,18 +46,33 @@ function unionIds(parents: Map<number, number>, a: number, b: number): void {
   }
 }
 
+function anyPublicationPairMatches(
+  leftInputs: PropertyMatchInput[],
+  rightInputs: PropertyMatchInput[]
+): boolean {
+  for (const left of leftInputs) {
+    for (const right of rightInputs) {
+      if (propertiesMatchFuzzy(left, right)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 export function groupByFuzzyPropertyMatch<T extends { id: number }>(
   items: T[],
-  toInput: (item: T) => PropertyMatchInput
+  toPublicationInputs: (item: T) => PropertyMatchInput[]
 ): T[][] {
   const byPostal = new Map<string, T[]>();
 
   for (const item of items) {
-    const input = toInput(item);
-    if (!input.postalCode) continue;
-    const group = byPostal.get(input.postalCode) ?? [];
+    const inputs = toPublicationInputs(item);
+    const postalCode = inputs.find((input) => input.postalCode)?.postalCode;
+    if (!postalCode) continue;
+    const group = byPostal.get(postalCode) ?? [];
     group.push(item);
-    byPostal.set(input.postalCode, group);
+    byPostal.set(postalCode, group);
   }
 
   const parents = new Map<number, number>(
@@ -69,7 +85,12 @@ export function groupByFuzzyPropertyMatch<T extends { id: number }>(
         const left = group[i];
         const right = group[j];
 
-        if (propertiesMatchFuzzy(toInput(left), toInput(right))) {
+        if (
+          anyPublicationPairMatches(
+            toPublicationInputs(left),
+            toPublicationInputs(right)
+          )
+        ) {
           unionIds(parents, left.id, right.id);
         }
       }
@@ -86,3 +107,55 @@ export function groupByFuzzyPropertyMatch<T extends { id: number }>(
 
   return [...grouped.values()].filter((group) => group.length > 1);
 }
+
+export function propertyRecordToPublicationInputs(property: {
+  postalCode: string | null;
+  price: number;
+  surface: number | null;
+  rooms: number | null;
+  bedrooms: number | null;
+  landSurface: number | null;
+  propertyType: string | null;
+  isNewProperty: boolean | null;
+  publications: {
+    postalCode: string | null;
+    price: number;
+    surface: number | null;
+    rooms: number | null;
+    bedrooms: number | null;
+    landSurface: number | null;
+    propertyType: string | null;
+    isNewProperty: boolean | null;
+  }[];
+}): PropertyMatchInput[] {
+  if (property.publications.length === 0) {
+    return [
+      toPropertyMatchInput({
+        postalCode: property.postalCode,
+        price: property.price,
+        surface: property.surface,
+        rooms: property.rooms,
+        bedrooms: property.bedrooms,
+        landSurface: property.landSurface,
+        propertyType: property.propertyType,
+        isNewProperty: property.isNewProperty,
+      }),
+    ];
+  }
+
+  return property.publications.map((publication) =>
+    toPropertyMatchInput({
+      postalCode: publication.postalCode ?? property.postalCode,
+      price: publication.price,
+      surface: publication.surface,
+      rooms: publication.rooms,
+      bedrooms: publication.bedrooms,
+      landSurface: publication.landSurface,
+      propertyType: publication.propertyType,
+      isNewProperty: publication.isNewProperty,
+    })
+  );
+}
+
+// Backward-compatible alias used by strict grouping tests.
+export const toPropertyMatchInput = toPropertyMatchInputFromFields;

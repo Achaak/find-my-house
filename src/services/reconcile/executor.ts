@@ -4,6 +4,7 @@ import { mergePropertiesIntoCanonical } from "../../db/propertyMerge.js";
 import {
   groupByFuzzyPropertyMatch,
   groupByStrictPropertyKey,
+  propertyRecordToPublicationInputs,
   toPropertyMatchInput,
 } from "../../domain/propertyDedup.js";
 
@@ -65,7 +66,7 @@ export async function executeReconcilePlan(
 
   for (const group of groupByFuzzyPropertyMatch(
     remaining,
-    propertyToMatchInput
+    propertyRecordToPublicationInputs
   )) {
     fuzzyMerged += await mergePropertyGroup(prisma, group);
   }

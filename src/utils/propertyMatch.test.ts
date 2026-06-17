@@ -73,16 +73,36 @@ describe("scorePropertyMatch", () => {
     expect(propertiesMatchFuzzy(leboncoin, logicimmo)).toBe(true);
   });
 
-  it("rejects different homes at the same price with conflicting surface", () => {
-    const result = scorePropertyMatch(base, { ...base, surface: 126 });
-    expect(result.veto).toBe("numeric_mismatch");
-    expect(propertiesMatchFuzzy(base, { ...base, surface: 126 })).toBe(false);
+  it("matches when portals disagree on isNewProperty", () => {
+    const result = scorePropertyMatch(base, { ...base, isNewProperty: true });
+    expect(result.veto).toBeUndefined();
+    expect(propertiesMatchFuzzy(base, { ...base, isNewProperty: true })).toBe(
+      true
+    );
   });
 
-  it("rejects conflicting room counts when both portals provide them", () => {
+  it("matches when surface differs within tolerance", () => {
+    const result = scorePropertyMatch(base, { ...base, surface: 126 });
+    expect(result.veto).toBeUndefined();
+    expect(propertiesMatchFuzzy(base, { ...base, surface: 126 })).toBe(true);
+  });
+
+  it("rejects different homes at the same price with conflicting surface", () => {
+    const result = scorePropertyMatch(base, { ...base, surface: 136 });
+    expect(result.veto).toBe("surface_out_of_tolerance");
+    expect(propertiesMatchFuzzy(base, { ...base, surface: 136 })).toBe(false);
+  });
+
+  it("matches when room counts differ by one", () => {
     const result = scorePropertyMatch(base, { ...base, rooms: 4 });
+    expect(result.veto).toBeUndefined();
+    expect(propertiesMatchFuzzy(base, { ...base, rooms: 4 })).toBe(true);
+  });
+
+  it("rejects conflicting room counts beyond tolerance", () => {
+    const result = scorePropertyMatch(base, { ...base, rooms: 3 });
     expect(result.veto).toBe("numeric_mismatch");
-    expect(propertiesMatchFuzzy(base, { ...base, rooms: 4 })).toBe(false);
+    expect(propertiesMatchFuzzy(base, { ...base, rooms: 3 })).toBe(false);
   });
 });
 
@@ -109,14 +129,18 @@ describe("propertiesMatchFuzzy", () => {
     );
   });
 
-  it("rejects conflicting isNewProperty values", () => {
+  it("matches when isNewProperty conflicts across portals", () => {
     expect(propertiesMatchFuzzy(base, { ...base, isNewProperty: true })).toBe(
-      false
+      true
     );
   });
 
-  it("rejects different surfaces", () => {
-    expect(propertiesMatchFuzzy(base, { ...base, surface: 126 })).toBe(false);
+  it("matches when surface differs within tolerance", () => {
+    expect(propertiesMatchFuzzy(base, { ...base, surface: 126 })).toBe(true);
+  });
+
+  it("rejects surfaces outside tolerance", () => {
+    expect(propertiesMatchFuzzy(base, { ...base, surface: 136 })).toBe(false);
   });
 
   it("matches when surface is missing on one side", () => {

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { makeListing } from "../test/listingFixtures.js";
 import {
   findAgencyPropertyMatch,
+  findFuzzyPropertyMatch,
   findPendingPropertyMatch,
 } from "./propertyMatchLookup.js";
 
@@ -77,5 +78,49 @@ describe("findPendingPropertyMatch", () => {
     ]);
 
     expect(match?.listing.externalId).toBe("lbc-1");
+  });
+
+  it("matches a listing to a candidate via publication fields", () => {
+    const leboncoin = makeListing({
+      source: "leboncoin",
+      externalId: "lbc-475",
+      postalCode: "76450",
+      price: 197_000,
+      surface: 130,
+      rooms: 5,
+      bedrooms: 3,
+      landSurface: 1000,
+      propertyType: "Maison",
+      isNewProperty: false,
+    });
+
+    const match = findFuzzyPropertyMatch(leboncoin, [
+      {
+        id: 780,
+        postalCode: "76450",
+        price: 197_000,
+        surface: 130,
+        rooms: 5,
+        bedrooms: 3,
+        landSurface: 1000,
+        propertyType: "Maison",
+        isNewProperty: true,
+        publications: [
+          {
+            postalCode: "76450",
+            price: 197_000,
+            surface: 130,
+            rooms: 5,
+            bedrooms: 3,
+            landSurface: 1000,
+            propertyType: "Maison",
+            isNewProperty: true,
+            source: "seloger",
+          },
+        ],
+      },
+    ]);
+
+    expect(match?.id).toBe(780);
   });
 });

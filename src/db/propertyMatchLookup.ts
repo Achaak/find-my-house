@@ -2,28 +2,97 @@ import type { Listing } from "../types/listing.js";
 import { parseBieniciAgency } from "../utils/bienici/agency.js";
 import {
   propertiesMatchFuzzy,
+  scorePropertyMatch,
   toPropertyMatchInput,
   type PropertyMatchInput,
 } from "../utils/propertyMatch.js";
 
 type PublicationAgency = {
-  source: string;
-  agencySlug: string | null;
-  agencyRef: string | null;
+  source?: string;
+  agencySlug?: string | null;
+  agencyRef?: string | null;
 };
+
+export type PublicationMatchCandidate = PropertyMatchInput & PublicationAgency;
 
 export type PropertyMatchCandidate = PropertyMatchInput & {
   id: number;
-  publications?: PublicationAgency[];
+  publications?: PublicationMatchCandidate[];
 };
+
+function pendingListings(pending: {
+  listing: Listing;
+  extraPublications?: { listing: Listing }[];
+}): Listing[] {
+  return [
+    pending.listing,
+    ...(pending.extraPublications?.map((entry) => entry.listing) ?? []),
+  ];
+}
+
+function resolvePublicationInput(
+  publication: Partial<PropertyMatchInput> & PublicationAgency,
+  fallback: PropertyMatchInput
+): PropertyMatchInput {
+  return toPropertyMatchInput({
+    postalCode: publication.postalCode ?? fallback.postalCode,
+    price: publication.price ?? fallback.price,
+    surface: publication.surface ?? fallback.surface,
+    rooms: publication.rooms ?? fallback.rooms,
+    bedrooms: publication.bedrooms ?? fallback.bedrooms,
+    landSurface: publication.landSurface ?? fallback.landSurface,
+    propertyType: publication.propertyType ?? fallback.propertyType,
+    isNewProperty: publication.isNewProperty ?? fallback.isNewProperty,
+  });
+}
+
+export function candidatePublicationInputs(
+  candidate: PropertyMatchCandidate,
+  options: { fallbackToProperty?: boolean } = { fallbackToProperty: true }
+): PropertyMatchInput[] {
+  const fallback = toPropertyMatchInput(candidate);
+  if (!candidate.publications?.length) {
+    return [fallback];
+  }
+
+  if (options.fallbackToProperty === false) {
+    return candidate.publications.map((publication) =>
+      toPropertyMatchInput({
+        postalCode: publication.postalCode ?? fallback.postalCode,
+        price: publication.price,
+        surface: publication.surface,
+        rooms: publication.rooms,
+        bedrooms: publication.bedrooms,
+        landSurface: publication.landSurface,
+        propertyType: publication.propertyType,
+        isNewProperty: publication.isNewProperty,
+      })
+    );
+  }
+
+  return candidate.publications.map((publication) =>
+    resolvePublicationInput(publication, fallback)
+  );
+}
+
+function listingMatchesInputs(
+  listing: Listing,
+  inputs: PropertyMatchInput[]
+): boolean {
+  const listingInput = toPropertyMatchInput(listing);
+  return inputs.some((input) => propertiesMatchFuzzy(listingInput, input));
+}
 
 export function findFuzzyPropertyMatch<T extends PropertyMatchCandidate>(
   listing: Listing,
   candidates: T[]
 ): T | undefined {
-  const input = toPropertyMatchInput(listing);
-
-  return candidates.find((candidate) => propertiesMatchFuzzy(input, candidate));
+  return candidates.find((candidate) =>
+    listingMatchesInputs(
+      listing,
+      candidatePublicationInputs(candidate, { fallbackToProperty: true })
+    )
+  );
 }
 
 export function findAgencyPropertyMatch<T extends PropertyMatchCandidate>(
@@ -35,16 +104,20 @@ export function findAgencyPropertyMatch<T extends PropertyMatchCandidate>(
   const agency = parseBieniciAgency(listing.externalId);
   if (!agency) return undefined;
 
-  const input = toPropertyMatchInput(listing);
+  const listingInput = toPropertyMatchInput(listing);
 
-  return candidates.find((candidate) =>
-    candidate.publications?.some(
-      (publication) =>
-        publication.source === "bienici" &&
-        publication.agencySlug === agency.agencySlug &&
-        propertiesMatchFuzzy(input, candidate)
-    )
-  );
+  return candidates.find((candidate) => {
+    const fallbackInput = toPropertyMatchInput(candidate);
+    return candidate.publications?.some((publication) => {
+      if (publication.source !== "bienici") return false;
+      if (publication.agencySlug !== agency.agencySlug) return false;
+      const publicationInput = resolvePublicationInput(
+        publication,
+        fallbackInput
+      );
+      return propertiesMatchFuzzy(listingInput, publicationInput);
+    });
+  });
 }
 
 export function findPropertyMatchForListing<T extends PropertyMatchCandidate>(
@@ -61,13 +134,50 @@ export function findPendingPropertyMatch<T extends { listing: Listing }>(
   listing: Listing,
   pending: Iterable<T>
 ): T | undefined {
-  const input = toPropertyMatchInput(listing);
+  const listingInput = toPropertyMatchInput(listing);
 
   for (const entry of pending) {
-    if (propertiesMatchFuzzy(input, toPropertyMatchInput(entry.listing))) {
+    const inputs = pendingListings(entry).map((pendingListing) =>
+      toPropertyMatchInput(pendingListing)
+    );
+    if (inputs.some((input) => propertiesMatchFuzzy(listingInput, input))) {
       return entry;
     }
   }
 
   return undefined;
+}
+
+export function anyPublicationPairMatches(
+  leftInputs: PropertyMatchInput[],
+  rightInputs: PropertyMatchInput[]
+): boolean {
+  for (const left of leftInputs) {
+    for (const right of rightInputs) {
+      if (propertiesMatchFuzzy(left, right)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+export function bestPublicationPairScore(
+  leftInputs: PropertyMatchInput[],
+  rightInputs: PropertyMatchInput[]
+): { score: number; veto: string | null } {
+  let bestScore = 0;
+  let bestVeto: string | null = null;
+
+  for (const left of leftInputs) {
+    for (const right of rightInputs) {
+      const result = scorePropertyMatch(left, right);
+      if (result.score > bestScore) {
+        bestScore = result.score;
+        bestVeto = result.veto ?? null;
+      }
+    }
+  }
+
+  return { score: bestScore, veto: bestVeto };
 }

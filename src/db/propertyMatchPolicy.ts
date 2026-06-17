@@ -2,11 +2,12 @@ import type { Listing } from "../types/listing.js";
 import {
   findPendingPropertyMatch,
   findPropertyMatchForListing,
+  bestPublicationPairScore,
+  candidatePublicationInputs,
   type PropertyMatchCandidate,
 } from "./propertyMatchLookup.js";
 import {
   PROPERTY_MATCH_THRESHOLD,
-  scorePropertyMatch,
   toPropertyMatchInput,
 } from "../utils/propertyMatch.js";
 
@@ -58,11 +59,14 @@ export class DefaultPropertyMatchPolicy implements PropertyMatchPolicy {
   ): MatchDiagnostics {
     const input = toPropertyMatchInput(listing);
     const scored = candidates.map((candidate) => {
-      const result = scorePropertyMatch(input, candidate);
+      const publicationInputs = candidatePublicationInputs(candidate, {
+        fallbackToProperty: true,
+      });
+      const best = bestPublicationPairScore([input], publicationInputs);
       return {
         candidateId: candidate.id,
-        score: result.score,
-        veto: result.veto ?? null,
+        score: best.score,
+        veto: best.veto,
       };
     });
     scored.sort((a, b) => b.score - a.score);

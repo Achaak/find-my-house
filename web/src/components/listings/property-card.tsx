@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Archive, ExternalLink, Heart, ThumbsDown } from "lucide-react";
+import { Archive, Heart, ThumbsDown } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -17,7 +17,9 @@ import { getErrorMessage } from "@/lib/error-message";
 import { formatPriceDrop } from "@/lib/price-drop";
 import type { Property } from "@find-my-house/api-types";
 import { PropertyImageSkeleton } from "@/components/listings/listing-detail-skeleton";
+import { PropertyPortalLinks } from "@/components/listings/property-portal-links";
 import { cn, formatPrice, formatSource } from "@/lib/utils";
+import { getDisplayPublications } from "@/lib/publications";
 
 export function PropertyCard({
   property,
@@ -88,6 +90,8 @@ export function PropertyCard({
     archiveMutation.error ??
     null;
 
+  const portalPublications = getDisplayPublications(property);
+
   return (
     <div
       id={`listing-card-${String(property.id)}`}
@@ -140,7 +144,11 @@ export function PropertyCard({
         <CardHeader>
           <div className="flex flex-wrap items-start gap-2">
             <Badge variant="secondary">#{property.id}</Badge>
-            <Badge variant="outline">{formatSource(property.source)}</Badge>
+            {portalPublications.map((publication) => (
+              <Badge key={publication.key} variant="outline">
+                {formatSource(publication.source)}
+              </Badge>
+            ))}
             {property.compatibilityScore !== undefined ? (
               <Badge>Compat {Math.round(property.compatibilityScore)}%</Badge>
             ) : null}
@@ -249,15 +257,7 @@ export function PropertyCard({
               ) : null}
             </>
           )}
-          <a
-            href={property.url}
-            target="_blank"
-            rel="noreferrer noopener"
-            className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-          >
-            <ExternalLink className="size-4" />
-            Portal
-          </a>
+          <PropertyPortalLinks property={property} />
         </CardFooter>
       </Card>
     </div>

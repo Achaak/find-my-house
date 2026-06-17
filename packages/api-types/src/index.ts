@@ -75,6 +75,7 @@ export type PropertyCard = Pick<
   | "city"
   | "postalCode"
   | "imageUrl"
+  | "publications"
   | "url"
   | "source"
   | "compatibilityScore"

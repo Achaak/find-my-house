@@ -2,6 +2,9 @@ import { canonicalPropertyType } from "./propertyType.js";
 
 export const FUZZY_PRICE_TOLERANCE = 0.02;
 export const FUZZY_LAND_SURFACE_TOLERANCE = 0.05;
+export const FUZZY_SURFACE_RELATIVE_TOLERANCE = 0.02;
+export const FUZZY_SURFACE_ABSOLUTE_TOLERANCE = 2;
+export const FUZZY_INTEGER_FIELD_TOLERANCE = 1;
 export const PROPERTY_MATCH_THRESHOLD = 0.85;
 export const PROPERTY_MATCH_PARTIAL_CREDIT = 0.75;
 
@@ -47,14 +50,6 @@ function landSurfacesMatchFuzzy(a: number | null, b: number | null): boolean {
   return Math.abs(a - b) / Math.max(a, b) <= FUZZY_LAND_SURFACE_TOLERANCE;
 }
 
-function isNewPropertyCompatible(
-  a: boolean | null,
-  b: boolean | null
-): boolean {
-  if (a === null || b === null) return true;
-  return a === b;
-}
-
 function propertyTypesMatch(a: string | null, b: string | null): boolean {
   const left = canonicalPropertyType(a);
   const right = canonicalPropertyType(b);
@@ -62,14 +57,40 @@ function propertyTypesMatch(a: string | null, b: string | null): boolean {
   return left === right;
 }
 
-function scoreNullableExactField(
+function surfacesMatchFuzzy(a: number, b: number): boolean {
+  if (a === b) return true;
+  const diff = Math.abs(a - b);
+  return (
+    diff <= FUZZY_SURFACE_ABSOLUTE_TOLERANCE ||
+    diff / Math.max(a, b) <= FUZZY_SURFACE_RELATIVE_TOLERANCE
+  );
+}
+
+function integersMatchFuzzy(a: number, b: number): boolean {
+  return Math.abs(a - b) <= FUZZY_INTEGER_FIELD_TOLERANCE;
+}
+
+function scoreSurface(
   a: number | null,
   b: number | null
 ): { score: number; veto?: string } {
   if (a === null || b === null) {
     return { score: PROPERTY_MATCH_PARTIAL_CREDIT };
   }
-  if (a === b) {
+  if (surfacesMatchFuzzy(a, b)) {
+    return { score: 1 };
+  }
+  return { score: 0, veto: "surface_out_of_tolerance" };
+}
+
+function scoreIntegerField(
+  a: number | null,
+  b: number | null
+): { score: number; veto?: string } {
+  if (a === null || b === null) {
+    return { score: PROPERTY_MATCH_PARTIAL_CREDIT };
+  }
+  if (integersMatchFuzzy(a, b)) {
     return { score: 1 };
   }
   return { score: 0, veto: "numeric_mismatch" };
@@ -142,14 +163,10 @@ export function scorePropertyMatch(
     return { score: 0, fields: emptyFields, veto: "postal_code_mismatch" };
   }
 
-  if (!isNewPropertyCompatible(a.isNewProperty, b.isNewProperty)) {
-    return { score: 0, fields: emptyFields, veto: "is_new_property_conflict" };
-  }
-
   const price = scorePrice(a.price, b.price);
-  const surface = scoreNullableExactField(a.surface, b.surface);
-  const rooms = scoreNullableExactField(a.rooms, b.rooms);
-  const bedrooms = scoreNullableExactField(a.bedrooms, b.bedrooms);
+  const surface = scoreSurface(a.surface, b.surface);
+  const rooms = scoreIntegerField(a.rooms, b.rooms);
+  const bedrooms = scoreIntegerField(a.bedrooms, b.bedrooms);
   const landSurface = scoreLandSurface(a.landSurface, b.landSurface);
   const propertyType = scorePropertyType(a.propertyType, b.propertyType);
 

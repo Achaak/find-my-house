@@ -1,5 +1,6 @@
 import { withBasePath } from "@/lib/base-path";
 import { formatPriceDrop, hasPriceDrop } from "@/lib/price-drop";
+import { getDisplayPublications } from "@/lib/publications";
 import type { Property } from "@find-my-house/api-types";
 import { formatPrice, formatSource } from "@/lib/utils";
 
@@ -93,13 +94,28 @@ export function buildPopupHtml(property: Property): string {
         ? `<span class="fmh-map-popup__badge fmh-map-popup__badge--disliked">Disliked</span>`
         : "";
 
+  const portalPublications = getDisplayPublications(property);
+  const sourceBadges = portalPublications
+    .map(
+      (publication) =>
+        `<span class="fmh-map-popup__badge">${escapeHtml(formatSource(publication.source))}</span>`
+    )
+    .join("");
+
+  const portalLinks = portalPublications
+    .map(
+      (publication) =>
+        `<a class="fmh-map-popup__btn" href="${escapeHtml(publication.url)}" target="_blank" rel="noreferrer noopener">${escapeHtml(formatSource(publication.source))} ↗</a>`
+    )
+    .join("");
+
   return `
     <div class="fmh-map-popup">
       ${imageBlock}
       <div class="fmh-map-popup__body">
         <div class="fmh-map-popup__badges">
           <span class="fmh-map-popup__badge">#${String(property.id)}</span>
-          <span class="fmh-map-popup__badge">${escapeHtml(formatSource(property.source))}</span>
+          ${sourceBadges}
           ${compatBlock}
           ${reactionBlock}
           ${priceDropBlock}
@@ -113,7 +129,7 @@ export function buildPopupHtml(property: Property): string {
         ${specs ? `<p class="fmh-map-popup__specs">${escapeHtml(specs)}</p>` : ""}
         <div class="fmh-map-popup__actions">
           <a class="fmh-map-popup__btn fmh-map-popup__btn--primary" href="${escapeHtml(detailUrl)}">Details</a>
-          <a class="fmh-map-popup__btn" href="${escapeHtml(property.url)}" target="_blank" rel="noreferrer noopener">Portal ↗</a>
+          ${portalLinks}
         </div>
       </div>
     </div>
