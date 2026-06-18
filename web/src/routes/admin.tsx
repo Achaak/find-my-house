@@ -257,7 +257,8 @@ function AdminPage() {
                 role="status"
               >
                 {m.admin_notifications_success({
-                  service: notificationTestMutation.data.notifyService,
+                  services:
+                    notificationTestMutation.data.notifyServices.join(", "),
                 })}
               </p>
             ) : null}

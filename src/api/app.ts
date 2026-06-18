@@ -651,7 +651,7 @@ export function createApiApp(ctx: ApiContext) {
     const bearer = isHomeAssistantAddOn()
       ? undefined
       : c.req.header("Authorization")?.replace(/^Bearer\s+/i, "");
-    const result = await sendTestNotification(notifications.notifyService, {
+    const result = await sendTestNotification(notifications.notifyServices, {
       token: bearer ?? undefined,
     });
 
@@ -661,7 +661,7 @@ export function createApiApp(ctx: ApiContext) {
 
     return c.json({
       sent: true,
-      notifyService: notifications.notifyService,
+      notifyServices: notifications.notifyServices,
     });
   });
 

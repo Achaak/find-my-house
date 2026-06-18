@@ -55,7 +55,7 @@ async function main(): Promise<void> {
   log.info(`Search area: ${scrapeOptions.city} (${geoFilterLabel(geoFilter)})`);
   if (notifications.enabled) {
     log.info(
-      `Notifications: enabled via ${notifications.notifyService} (max ${String(notifications.maxNotifications)})`
+      `Notifications: enabled via ${notifications.notifyServices.join(", ")} (max ${String(notifications.maxNotifications)})`
     );
   }
 
@@ -75,7 +75,7 @@ async function main(): Promise<void> {
         }
         await notifyScrapeResults(result, {
           enabled: notifications.enabled,
-          notifyService: notifications.notifyService,
+          notifyServices: notifications.notifyServices,
           maxNotifications: notifications.maxNotifications,
           repository,
           reactionRepository,
@@ -146,7 +146,7 @@ async function main(): Promise<void> {
       enrichmentQueue.scheduleScrapeResults(result);
       return notifyScrapeResults(result, {
         enabled: notifications.enabled,
-        notifyService: notifications.notifyService,
+        notifyServices: notifications.notifyServices,
         maxNotifications: notifications.maxNotifications,
         repository,
         reactionRepository,

@@ -3,7 +3,11 @@ import type { PropertyRow } from "../types/listing.js";
 import { getListingCompatibilityCard } from "../services/compatibilityService.js";
 import { sortByCompatibility } from "../utils/compatibility/score.js";
 import { createLogger } from "../utils/logger.js";
-import { callHaService, type HaServiceCallResult } from "./client.js";
+import {
+  callHaService,
+  callHaServices,
+  type HaServiceCallResult,
+} from "./client.js";
 import { formatPropertyNotification } from "./format.js";
 
 const log = createLogger("home-assistant");
@@ -19,12 +23,13 @@ type ListingNotificationOptions = {
 };
 
 async function sendPropertyNotification(
-  notifyService: string,
+  notifyServices: string[],
   property: PropertyRow,
   options: {
     compatibilityModel?: CompatibilityModel | null;
     header?: string;
     priceDrop?: boolean;
+    token?: string;
   }
 ): Promise<boolean> {
   const compatibility = options.compatibilityModel
@@ -37,18 +42,24 @@ async function sendPropertyNotification(
     priceDrop: options.priceDrop,
   });
 
-  const result = await callHaService(notifyService, {
+  const payload = {
     title,
     message,
     data: url ? { url } : undefined,
-  });
-  return result.ok;
+  };
+
+  const results = await Promise.all(
+    notifyServices.map((service) =>
+      callHaService(service, payload, { token: options.token })
+    )
+  );
+  return results.some((result) => result.ok);
 }
 
 async function sendListingNotifications(
-  notifyService: string,
+  notifyServices: string[],
   listings: PropertyRow[],
-  options: ListingNotificationOptions
+  options: ListingNotificationOptions & { token?: string }
 ): Promise<number> {
   const { shouldNotify, compatibilityModel } = options;
   const eligible = shouldNotify
@@ -71,10 +82,11 @@ async function sendListingNotifications(
       ? options.header(eligible.length, toNotify.length)
       : undefined;
 
-    const ok = await sendPropertyNotification(notifyService, listing, {
+    const ok = await sendPropertyNotification(notifyServices, listing, {
       compatibilityModel,
       header,
       priceDrop: options.priceDrop,
+      token: options.token,
     });
 
     if (ok) {
@@ -86,10 +98,14 @@ async function sendListingNotifications(
   }
 
   if (hidden > 0) {
-    const result = await callHaService(notifyService, {
-      title: "Find My House",
-      message: options.overflow(hidden),
-    });
+    const result = await callHaServices(
+      notifyServices,
+      {
+        title: "Find My House",
+        message: options.overflow(hidden),
+      },
+      { token: options.token }
+    );
     if (!result.ok) {
       log.error(`Summary send error ${options.logLabel}`);
     }
@@ -101,14 +117,15 @@ async function sendListingNotifications(
 export type ListingNotificationLimits = {
   maxNotifications?: number;
   compatibilityModel?: CompatibilityModel | null;
+  token?: string;
 };
 
 export async function sendNewListingNotifications(
-  notifyService: string,
+  notifyServices: string[],
   listings: PropertyRow[],
   limits: ListingNotificationLimits = {}
 ): Promise<number> {
-  return sendListingNotifications(notifyService, listings, {
+  return sendListingNotifications(notifyServices, listings, {
     header: (total, shown) => {
       if (total === 1) return "🏠 1 nouvelle annonce";
       if (total === shown) {
@@ -123,15 +140,16 @@ export async function sendNewListingNotifications(
     logLabel: "notification",
     maxNotifications: limits.maxNotifications,
     compatibilityModel: limits.compatibilityModel,
+    token: limits.token,
   });
 }
 
 export async function sendPriceDropNotifications(
-  notifyService: string,
+  notifyServices: string[],
   listings: PropertyRow[],
   limits: ListingNotificationLimits = {}
 ): Promise<number> {
-  return sendListingNotifications(notifyService, listings, {
+  return sendListingNotifications(notifyServices, listings, {
     header: (total, shown) => {
       if (total === 1) return "📉 1 baisse de prix";
       if (total === shown) {
@@ -148,19 +166,20 @@ export async function sendPriceDropNotifications(
     maxNotifications: limits.maxNotifications,
     compatibilityModel: limits.compatibilityModel,
     priceDrop: true,
+    token: limits.token,
   });
 }
 
 export async function sendTestNotification(
-  notifyService: string,
+  notifyServices: string[],
   options?: { token?: string }
 ): Promise<HaServiceCallResult> {
-  return callHaService(
-    notifyService,
+  return callHaServices(
+    notifyServices,
     {
       title: "Find My House — test",
       message:
-        "Notification de test envoyée depuis la page admin. Les alertes après scrape utilisent le même service.",
+        "Notification de test envoyée depuis la page admin. Les alertes après scrape utilisent les mêmes services.",
     },
     { token: options?.token }
   );

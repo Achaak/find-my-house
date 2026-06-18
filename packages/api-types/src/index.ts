@@ -360,7 +360,7 @@ export type AdminScrapeResponse = {
 
 export type AdminNotificationTestResponse = {
   sent: true;
-  notifyService: string;
+  notifyServices: string[];
 };
 
 export type PropertyMatchNearMiss = {

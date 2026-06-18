@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseNotifyServices } from "../homeAssistant/notifyServices.js";
 
 const scraperNameSchema = z.enum([
   "bienici",
@@ -128,7 +129,7 @@ export const notificationsEnvSchema = z
     notifications: {
       enabled:
         env.NOTIFICATIONS_ENABLED ?? Boolean(process.env.SUPERVISOR_TOKEN),
-      notifyService: env.NOTIFY_SERVICE,
+      notifyServices: parseNotifyServices(env.NOTIFY_SERVICE),
       maxNotifications: env.NOTIFICATIONS_MAX,
       token: env.HOME_ASSISTANT_TOKEN,
     },

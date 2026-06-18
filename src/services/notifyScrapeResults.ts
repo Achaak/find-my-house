@@ -14,7 +14,7 @@ import { ensurePropertyEnriched } from "./enrichmentService.js";
 import type { EnrichmentQueue } from "./enrichmentQueue.js";
 
 export type NotifyScrapeResultsOptions = {
-  notifyService: string;
+  notifyServices: string[];
   enabled?: boolean;
   maxNotifications?: number;
   repository?: ListingRepository;
@@ -106,7 +106,7 @@ export async function notifyScrapeResults(
 
   if (insertedListings.length > 0) {
     summary.newListingsSent = await sendNewListingNotifications(
-      options.notifyService,
+      options.notifyServices,
       insertedListings,
       limits
     );
@@ -117,7 +117,7 @@ export async function notifyScrapeResults(
 
   if (priceDropListings.length > 0) {
     summary.priceDropsSent = await sendPriceDropNotifications(
-      options.notifyService,
+      options.notifyServices,
       priceDropListings,
       limits
     );

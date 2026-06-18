@@ -83,9 +83,9 @@ describe("parseNotificationsConfig", () => {
     const config = parseNotificationsConfig({});
 
     expect(config.notifications.enabled).toBe(false);
-    expect(config.notifications.notifyService).toBe(
-      "persistent_notification.create"
-    );
+    expect(config.notifications.notifyServices).toEqual([
+      "persistent_notification.create",
+    ]);
     expect(config.notifications.maxNotifications).toBe(5);
   });
 
@@ -115,8 +115,23 @@ describe("parseNotificationsConfig", () => {
     });
 
     expect(config.notifications.enabled).toBe(true);
-    expect(config.notifications.notifyService).toBe("notify.mobile_app_iphone");
+    expect(config.notifications.notifyServices).toEqual([
+      "notify.mobile_app_iphone",
+    ]);
     expect(config.notifications.maxNotifications).toBe(3);
+  });
+
+  it("parses comma-separated notify services", () => {
+    const config = parseNotificationsConfig({
+      NOTIFY_SERVICE:
+        "notify.mobile_app_iphone, notify.mobile_app_pixel, persistent_notification.create",
+    });
+
+    expect(config.notifications.notifyServices).toEqual([
+      "notify.mobile_app_iphone",
+      "notify.mobile_app_pixel",
+      "persistent_notification.create",
+    ]);
   });
 });
 

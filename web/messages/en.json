@@ -188,7 +188,7 @@
   "admin_notifications_title": "Test notifications",
   "admin_notifications_desc": "Send a test notification through Home Assistant (same service as post-scrape alerts).",
   "admin_notifications_run": "Send test",
-  "admin_notifications_success": "Notification sent via {service}.",
+  "admin_notifications_success": "Notification sent via {services}.",
   "admin_notifications_hint": "With persistent_notification, check the bell at the top of the Home Assistant UI (not inside this panel).",
   "admin_diagnostics_title": "Property match diagnostics",
   "admin_diag_source": "Source",

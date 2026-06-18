@@ -188,7 +188,7 @@
   "admin_notifications_title": "Tester les notifications",
   "admin_notifications_desc": "Envoie une notification de test via Home Assistant (même service que les alertes après scrape).",
   "admin_notifications_run": "Envoyer un test",
-  "admin_notifications_success": "Notification envoyée via {service}.",
+  "admin_notifications_success": "Notification envoyée via {services}.",
   "admin_notifications_hint": "Avec persistent_notification, vérifiez la cloche en haut de l'interface Home Assistant (pas dans ce panneau).",
   "admin_diagnostics_title": "Diagnostics de matching",
   "admin_diag_source": "Source",

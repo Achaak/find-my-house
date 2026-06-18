@@ -45,7 +45,7 @@ vi.mock("../config/notifications.js", () => ({
   notificationsConfig: {
     notifications: {
       enabled: true,
-      notifyService: "persistent_notification.create",
+      notifyServices: ["persistent_notification.create"],
       maxNotifications: 5,
     },
   },
@@ -325,10 +325,10 @@ describe("createApiApp", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       sent: true,
-      notifyService: "persistent_notification.create",
+      notifyServices: ["persistent_notification.create"],
     });
     expect(sendTestNotification).toHaveBeenCalledWith(
-      "persistent_notification.create",
+      ["persistent_notification.create"],
       { token: undefined }
     );
   });

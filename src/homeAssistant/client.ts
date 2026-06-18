@@ -73,3 +73,43 @@ export async function callHaService(
     return { ok: false, error: message };
   }
 }
+
+export async function callHaServices(
+  services: string[],
+  data: Record<string, unknown>,
+  options?: { token?: string }
+): Promise<HaServiceCallResult> {
+  if (services.length === 0) {
+    return { ok: false, error: "No notify services configured" };
+  }
+
+  const results = await Promise.all(
+    services.map(async (service) => ({
+      service,
+      result: await callHaService(service, data, options),
+    }))
+  );
+
+  const failures = results.filter(
+    (
+      entry
+    ): entry is { service: string; result: { ok: false; error: string } } =>
+      !entry.result.ok
+  );
+  if (failures.length === results.length) {
+    return {
+      ok: false,
+      error: failures
+        .map(({ service, result }) => `${service}: ${result.error}`)
+        .join("; "),
+    };
+  }
+
+  if (failures.length > 0) {
+    log.warn(
+      `Notify partial failure: ${failures.map(({ service }) => service).join(", ")}`
+    );
+  }
+
+  return { ok: true };
+}
