@@ -1,6 +1,8 @@
 import { scrapeConfig } from "../config/scrape.js";
 import type { Listing, ListingSource } from "../types/listing.js";
 import { resolveBienIciTravelOrigin } from "../utils/bienici/place.js";
+import { ceilClassifiedTravelMinutes } from "../utils/classifiedPortal/place.js";
+import { applyPostalCodeCoordsToCard } from "../utils/classifiedPortal/cardCoords.js";
 import {
   filterByTravelTimeRadius,
   resolveGeoFilter,
@@ -71,25 +73,32 @@ export function createClassifiedPortalScraper(
         )
       ).map(deps.applySearchMetadata);
 
+      cards = cards.map(applyPostalCodeCoordsToCard);
+
       if (geoFilter.mode === "travel") {
-        const origin = (await resolveBienIciTravelOrigin(
-          options.city,
-          options.postalCode
-        )) ?? {
-          address: place.name,
-          center: place.center,
-        };
-        const before = cards.length;
-        cards = filterByTravelTimeRadius(
-          cards,
-          origin.center,
+        const searchMinutes = ceilClassifiedTravelMinutes(
           geoFilter.maxTravelMinutes
         );
-        const dropped = before - cards.length;
-        if (dropped > 0) {
-          createLogger(name).info(
-            `${String(dropped)} listing(s) outside ${String(geoFilter.maxTravelMinutes)} min drive — dropped`
+        if (searchMinutes > geoFilter.maxTravelMinutes) {
+          const origin = (await resolveBienIciTravelOrigin(
+            options.city,
+            options.postalCode
+          )) ?? {
+            address: place.name,
+            center: place.center,
+          };
+          const before = cards.length;
+          cards = filterByTravelTimeRadius(
+            cards,
+            origin.center,
+            geoFilter.maxTravelMinutes
           );
+          const dropped = before - cards.length;
+          if (dropped > 0) {
+            createLogger(name).info(
+              `${String(dropped)} listing(s) outside ${String(geoFilter.maxTravelMinutes)} min drive — dropped`
+            );
+          }
         }
       }
 

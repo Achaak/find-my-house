@@ -162,9 +162,7 @@ export function resolveClassifiedLocation(
 
     return buildClassifiedRadiusLocation(
       place,
-      travelTimeRadiusKm(
-        ceilClassifiedTravelMinutes(geoFilter.maxTravelMinutes)
-      ),
+      travelTimeRadiusKm(geoFilter.maxTravelMinutes),
       options.origin
     );
   }
@@ -199,23 +197,19 @@ export async function buildClassifiedLocation(
         (await resolveClassifiedStrtPlaceId(portal, origin.center)))
       : null;
 
-  if (geoFilter.mode === "travel" && !strtPlaceId) {
+  if (geoFilter.mode === "travel") {
     const searchMinutes = ceilClassifiedTravelMinutes(
       geoFilter.maxTravelMinutes
     );
-    const radiusKm = travelTimeRadiusKm(searchMinutes);
-    log.warn(
-      `STRT place unavailable for "${city}", falling back to estimated radius (~${String(Math.round(radiusKm))} km)`
-    );
-  }
+    const radiusKm = travelTimeRadiusKm(geoFilter.maxTravelMinutes);
 
-  if (geoFilter.mode === "travel" && strtPlaceId) {
-    const searchMinutes = ceilClassifiedTravelMinutes(
-      geoFilter.maxTravelMinutes
-    );
-    if (searchMinutes !== geoFilter.maxTravelMinutes) {
+    if (!strtPlaceId) {
+      log.warn(
+        `STRT place unavailable for "${city}", falling back to estimated radius (~${String(Math.round(radiusKm))} km)`
+      );
+    } else if (searchMinutes > geoFilter.maxTravelMinutes) {
       log.info(
-        `${String(geoFilter.maxTravelMinutes)} min filter → ${String(searchMinutes)} min search (${portal.label}: ${CLASSIFIED_TRAVEL_MINUTE_OPTIONS.join(", ")})`
+        `${String(geoFilter.maxTravelMinutes)} min requested → ${String(searchMinutes)} min isochrone search (${portal.label}: ${CLASSIFIED_TRAVEL_MINUTE_OPTIONS.join(", ")})`
       );
     }
   }

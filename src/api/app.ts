@@ -51,7 +51,6 @@ import { getBrowserReadiness } from "../utils/browser/client.js";
 import { isScrapeInProgress } from "../services/scraperService.js";
 import { scrapeFiltersToSearch } from "../utils/listing/scrapeFilters.js";
 import { sendTestNotification } from "../homeAssistant/notifications.js";
-import { resolveHaApiToken } from "../homeAssistant/client.js";
 import { PropertyMatchDiagnosticsRepository } from "../db/propertyMatchDiagnosticsRepository.js";
 import { parseDiagnosticsQuery } from "@find-my-house/api-types";
 
@@ -648,21 +647,13 @@ export function createApiApp(ctx: ApiContext) {
 
   app.post("/api/admin/notifications/test", requireAdmin(), async (c) => {
     const { notifications } = notificationsConfig;
+    const bearer = c.req.header("Authorization")?.replace(/^Bearer\s+/i, "");
+    const result = await sendTestNotification(notifications.notifyService, {
+      token: bearer ?? undefined,
+    });
 
-    if (!notifications.enabled) {
-      return c.json(
-        { error: "Notifications are disabled in configuration" },
-        503
-      );
-    }
-
-    if (!resolveHaApiToken()) {
-      return c.json({ error: "No Home Assistant token available" }, 503);
-    }
-
-    const sent = await sendTestNotification(notifications.notifyService);
-    if (!sent) {
-      return c.json({ error: "Failed to send test notification" }, 502);
+    if (!result.ok) {
+      return c.json({ error: result.error }, 502);
     }
 
     return c.json({

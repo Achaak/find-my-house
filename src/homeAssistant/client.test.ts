@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseHaService } from "./client.js";
+import { parseHaService, resolveHaApiToken } from "./client.js";
 
 describe("parseHaService", () => {
   it("parses domain.service notation", () => {
@@ -18,5 +18,11 @@ describe("parseHaService", () => {
       domain: "notify",
       service: "notify",
     });
+  });
+});
+
+describe("resolveHaApiToken", () => {
+  it("falls back to the request bearer token", () => {
+    expect(resolveHaApiToken("user-token")).toBe("user-token");
   });
 });

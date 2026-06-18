@@ -32,20 +32,34 @@ function decodeTravelDuration(encoded: string): string {
 }
 
 describe("resolveClassifiedLocation", () => {
-  it("uses STRT travel-time encoding when a start point is available", () => {
+  it("uses STRT isochrone when the duration matches a portal tier", () => {
     const location = resolveClassifiedLocation(
       samplePlace,
-      { mode: "travel", maxTravelMinutes: 40 },
+      { mode: "travel", maxTravelMinutes: 30 },
       {
         strtPlaceId: "STRTFR123",
         origin: { lat: 48.51, lng: 2.31 },
       }
     );
 
+    expect(location).toBe(buildClassifiedTravelLocation("STRTFR123", 30));
+  });
+
+  it("uses the next isochrone tier for intermediate travel durations", () => {
+    const origin = { lat: 48.51, lng: 2.31 };
+    const location = resolveClassifiedLocation(
+      samplePlace,
+      { mode: "travel", maxTravelMinutes: 40 },
+      {
+        strtPlaceId: "STRTFR123",
+        origin,
+      }
+    );
+
     expect(location).toBe(buildClassifiedTravelLocation("STRTFR123", 40));
   });
 
-  it("ceil unsupported travel durations to the next SeLoger option for search", () => {
+  it("ceil unsupported travel durations to the next SeLoger option for isochrone encoding", () => {
     expect(ceilClassifiedTravelMinutes(40)).toBe(45);
     expect(ceilClassifiedTravelMinutes(32)).toBe(45);
     expect(ceilClassifiedTravelMinutes(30)).toBe(30);
@@ -67,11 +81,7 @@ describe("resolveClassifiedLocation", () => {
     );
 
     expect(location).toBe(
-      buildClassifiedRadiusLocation(
-        samplePlace,
-        travelTimeRadiusKm(ceilClassifiedTravelMinutes(40)),
-        origin
-      )
+      buildClassifiedRadiusLocation(samplePlace, travelTimeRadiusKm(40), origin)
     );
   });
 

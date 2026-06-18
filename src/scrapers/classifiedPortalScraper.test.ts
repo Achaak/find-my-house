@@ -6,33 +6,33 @@ import type {
 } from "../utils/classifiedPortal/types.js";
 
 const place: ClassifiedPlace = {
-  name: "Paris",
-  center: { lat: 48.8566, lng: 2.3522 },
-  locationCode: "AD08FR75056",
+  name: "Lanquetot",
+  center: { lat: 49.5833, lng: 0.45 },
+  locationCode: "AD08FR76376",
 };
 
 vi.mock("../utils/bienici/place.js", () => ({
   resolveBienIciTravelOrigin: vi.fn(() =>
     Promise.resolve({
-      address: "Paris",
-      center: { lat: 48.8566, lng: 2.3522 },
+      address: "Lanquetot",
+      center: { lat: 49.5833, lng: 0.45 },
     })
   ),
 }));
 
 describe("createClassifiedPortalScraper", () => {
-  it("post-filters listings to the exact max travel minutes", async () => {
+  it("filters intermediate travel times using postal-code centroids", async () => {
     const nearby: ClassifiedCard = {
       id: "near",
       cardType: "classified",
-      latitude: 48.86,
-      longitude: 2.36,
+      zipCode: "76400",
+      cityLabel: "Fécamp",
     };
     const far: ClassifiedCard = {
       id: "far",
       cardType: "classified",
-      latitude: 49.5,
-      longitude: 3.0,
+      zipCode: "14000",
+      cityLabel: "Caen",
     };
 
     const scraper = createClassifiedPortalScraper("seloger", "SeLoger", {
@@ -53,8 +53,8 @@ describe("createClassifiedPortalScraper", () => {
         isNewProperty: null,
         latitude: card.latitude ?? null,
         longitude: card.longitude ?? null,
-        city: "Paris",
-        postalCode: null,
+        city: card.cityLabel ?? "Lanquetot",
+        postalCode: card.zipCode ?? null,
         url: `https://example.test/${String(card.id)}`,
         description: null,
         imageUrl: null,
@@ -75,10 +75,10 @@ describe("createClassifiedPortalScraper", () => {
     });
 
     const listings = await scraper.scrape({
-      city: "Paris",
+      city: "Lanquetot",
       maxPrice: 500_000,
       minSurface: 30,
-      maxTravelMinutes: 40,
+      maxTravelMinutes: 35,
     });
 
     expect(listings).toHaveLength(1);

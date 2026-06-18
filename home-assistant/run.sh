@@ -35,6 +35,8 @@ export_bool_opt() {
   value=$(jq -r --arg k "$option_key" '.[$k] // false' "$OPTIONS")
   if [ "$value" = "true" ]; then
     export "${env_name}=true"
+  else
+    export "${env_name}=false"
   fi
 }
 

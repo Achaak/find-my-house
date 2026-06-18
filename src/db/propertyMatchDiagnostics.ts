@@ -2,6 +2,7 @@ import type { Listing } from "../types/listing.js";
 import type { MatchDiagnostics } from "./propertyMatchPolicy.js";
 import { createLogger } from "../utils/logger.js";
 import type { PrismaClient } from "../generated/prisma/client.js";
+import { Prisma } from "../generated/prisma/client.js";
 
 export type PropertyMatchDiagnosticsSink = {
   recordCandidateMiss(
@@ -33,18 +34,31 @@ export class PrismaPropertyMatchDiagnosticsSink implements PropertyMatchDiagnost
     diagnostics: MatchDiagnostics
   ): Promise<void> {
     if (diagnostics.nearMisses.length === 0) return;
-    await this.prisma.propertyMatchDiagnostic.create({
-      data: {
-        listingSource: listing.source,
-        listingExternalId: listing.externalId,
-        postalCode: listing.postalCode,
-        threshold: diagnostics.threshold,
-        bestScore: diagnostics.bestScore,
-        bestCandidateId: diagnostics.bestCandidateId,
-        bestVeto: diagnostics.bestVeto,
-        nearMisses: diagnostics.nearMisses,
-      },
-    });
+    try {
+      await this.prisma.propertyMatchDiagnostic.create({
+        data: {
+          listingSource: listing.source,
+          listingExternalId: listing.externalId,
+          postalCode: listing.postalCode,
+          threshold: diagnostics.threshold,
+          bestScore: diagnostics.bestScore,
+          bestCandidateId: diagnostics.bestCandidateId,
+          bestVeto: diagnostics.bestVeto,
+          nearMisses: diagnostics.nearMisses,
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2021"
+      ) {
+        log.warn(
+          "property_match_diagnostics table missing — run `pnpm exec prisma migrate deploy`"
+        );
+        return;
+      }
+      throw error;
+    }
   }
 }
 

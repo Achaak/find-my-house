@@ -1,5 +1,6 @@
 import type { Listing } from "../../types/listing.js";
 import { normalizeEnergyClass } from "../energy/energyClass.js";
+import { lookupPostalCodeCoords } from "../geo/postalCodeLookup.js";
 import {
   buildClassifiedImageUrl,
   buildClassifiedListingUrl,
@@ -19,6 +20,19 @@ function classifiedScrapeImageUrl(
   return buildClassifiedImageUrl(portal, photo.trim());
 }
 
+function classifiedCardCoords(
+  card: ClassifiedCard
+): { lat: number; lng: number } | null {
+  if (card.latitude != null && card.longitude != null) {
+    return { lat: card.latitude, lng: card.longitude };
+  }
+
+  const postalCode = card.zipCode?.trim();
+  if (!postalCode) return null;
+
+  return lookupPostalCodeCoords(postalCode, card.cityLabel);
+}
+
 export function mapClassifiedCardToListing(
   portal: ClassifiedPortalConfig,
   card: ClassifiedCard,
@@ -26,6 +40,7 @@ export function mapClassifiedCardToListing(
   fallbackCity: string
 ): Listing {
   const extras = extractClassifiedListingExtras(card);
+  const coords = classifiedCardCoords(card);
 
   return {
     externalId: String(card.id),
@@ -38,8 +53,8 @@ export function mapClassifiedCardToListing(
     bedrooms: parseClassifiedBedrooms(card),
     isNewProperty:
       card.isNew === true ? true : card.isNew === false ? false : null,
-    latitude: card.latitude ?? null,
-    longitude: card.longitude ?? null,
+    latitude: coords?.lat ?? null,
+    longitude: coords?.lng ?? null,
     city: card.cityLabel ?? fallbackCity,
     postalCode: card.zipCode ?? null,
     url: buildClassifiedListingUrl(portal, card),

@@ -4,7 +4,8 @@ web/dist/
 web/src/routeTree.gen.ts
 web/src/paraglide/
 src/generated/
-data/
+/data/
+src/data/postal-codes.json
 pnpm-lock.yaml
 prisma.config.js
 prisma.config.d.ts

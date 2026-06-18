@@ -3,6 +3,8 @@ import { createLogger } from "../utils/logger.js";
 
 const log = createLogger("home-assistant");
 
+export type HaServiceCallResult = { ok: true } | { ok: false; error: string };
+
 export function parseHaService(service: string): {
   domain: string;
   service: string;
@@ -18,18 +20,25 @@ export function parseHaService(service: string): {
   };
 }
 
-export function resolveHaApiToken(): string | undefined {
-  return process.env.SUPERVISOR_TOKEN ?? process.env.HOME_ASSISTANT_TOKEN;
+export function resolveHaApiToken(requestToken?: string): string | undefined {
+  return (
+    process.env.SUPERVISOR_TOKEN ??
+    process.env.HOME_ASSISTANT_TOKEN ??
+    requestToken
+  );
 }
 
 export async function callHaService(
   service: string,
-  data: Record<string, unknown>
-): Promise<boolean> {
-  const token = resolveHaApiToken();
+  data: Record<string, unknown>,
+  options?: { token?: string }
+): Promise<HaServiceCallResult> {
+  const token = resolveHaApiToken(options?.token);
   if (!token) {
-    log.warn("No Home Assistant token — skipping service call");
-    return false;
+    const error =
+      "No Home Assistant token available (SUPERVISOR_TOKEN, HOME_ASSISTANT_TOKEN, or user bearer token)";
+    log.warn(error);
+    return { ok: false, error };
   }
 
   const { domain, service: serviceName } = parseHaService(service);
@@ -48,15 +57,16 @@ export async function callHaService(
 
     if (!response.ok) {
       const body = await response.text().catch(() => "");
-      log.error(
-        `Service call failed (${String(response.status)} ${service}): ${body}`
-      );
-      return false;
+      const error =
+        body.trim() || `${String(response.status)} ${response.statusText}`;
+      log.error(`Service call failed (${service}): ${error}`);
+      return { ok: false, error };
     }
 
-    return true;
+    return { ok: true };
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     log.error(`Service call error (${service}):`, error);
-    return false;
+    return { ok: false, error: message };
   }
 }

@@ -51,7 +51,9 @@ vi.mock("../config/notifications.js", () => ({
   },
 }));
 
-const sendTestNotification = vi.fn(() => Promise.resolve(true));
+const sendTestNotification = vi.fn(() =>
+  Promise.resolve({ ok: true as const })
+);
 
 vi.mock("../homeAssistant/notifications.js", () => ({
   sendTestNotification: (...args: unknown[]) => sendTestNotification(...args),
@@ -60,7 +62,7 @@ vi.mock("../homeAssistant/notifications.js", () => ({
 }));
 
 vi.mock("../homeAssistant/client.js", () => ({
-  resolveHaApiToken: () => "test-token",
+  resolveHaApiToken: (token?: string) => token ?? "test-token",
 }));
 
 function createMockEnrichmentQueue(): EnrichmentQueue {
@@ -325,7 +327,8 @@ describe("createApiApp", () => {
       notifyService: "persistent_notification.create",
     });
     expect(sendTestNotification).toHaveBeenCalledWith(
-      "persistent_notification.create"
+      "persistent_notification.create",
+      { token: undefined }
     );
   });
 });

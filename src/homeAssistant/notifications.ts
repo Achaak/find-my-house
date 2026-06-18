@@ -3,7 +3,7 @@ import type { PropertyRow } from "../types/listing.js";
 import { getListingCompatibilityCard } from "../services/compatibilityService.js";
 import { sortByCompatibility } from "../utils/compatibility/score.js";
 import { createLogger } from "../utils/logger.js";
-import { callHaService } from "./client.js";
+import { callHaService, type HaServiceCallResult } from "./client.js";
 import { formatPropertyNotification } from "./format.js";
 
 const log = createLogger("home-assistant");
@@ -37,11 +37,12 @@ async function sendPropertyNotification(
     priceDrop: options.priceDrop,
   });
 
-  return callHaService(notifyService, {
+  const result = await callHaService(notifyService, {
     title,
     message,
     data: url ? { url } : undefined,
   });
+  return result.ok;
 }
 
 async function sendListingNotifications(
@@ -85,11 +86,11 @@ async function sendListingNotifications(
   }
 
   if (hidden > 0) {
-    const ok = await callHaService(notifyService, {
+    const result = await callHaService(notifyService, {
       title: "Find My House",
       message: options.overflow(hidden),
     });
-    if (!ok) {
+    if (!result.ok) {
       log.error(`Summary send error ${options.logLabel}`);
     }
   }
@@ -151,11 +152,16 @@ export async function sendPriceDropNotifications(
 }
 
 export async function sendTestNotification(
-  notifyService: string
-): Promise<boolean> {
-  return callHaService(notifyService, {
-    title: "Find My House — test",
-    message:
-      "Notification de test envoyée depuis la page admin. Les alertes après scrape utilisent le même service.",
-  });
+  notifyService: string,
+  options?: { token?: string }
+): Promise<HaServiceCallResult> {
+  return callHaService(
+    notifyService,
+    {
+      title: "Find My House — test",
+      message:
+        "Notification de test envoyée depuis la page admin. Les alertes après scrape utilisent le même service.",
+    },
+    { token: options?.token }
+  );
 }

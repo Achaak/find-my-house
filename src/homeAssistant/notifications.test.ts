@@ -7,7 +7,9 @@ import {
 } from "./notifications.js";
 
 const callHaService =
-  vi.fn<(service: string, data: Record<string, unknown>) => Promise<boolean>>();
+  vi.fn<
+    (service: string, data: Record<string, unknown>) => Promise<{ ok: true }>
+  >();
 
 vi.mock("./client.js", () => ({
   callHaService: (service: string, data: Record<string, unknown>) =>
@@ -30,7 +32,7 @@ describe("sendPriceDropNotifications", () => {
   });
 
   it("sends a message for a property below first price", async () => {
-    callHaService.mockResolvedValue(true);
+    callHaService.mockResolvedValue({ ok: true });
 
     const sent = await sendPriceDropNotifications(
       "persistent_notification.create",
@@ -48,7 +50,7 @@ describe("sendNewListingNotifications", () => {
   });
 
   it("caps individual notifications and sends an overflow summary", async () => {
-    callHaService.mockResolvedValue(true);
+    callHaService.mockResolvedValue({ ok: true });
     const listings = Array.from({ length: 7 }, (_, index) =>
       makePropertyRow({ id: index + 1 })
     );
@@ -84,11 +86,11 @@ describe("sendTestNotification", () => {
   });
 
   it("sends a test notification via the configured service", async () => {
-    callHaService.mockResolvedValue(true);
+    callHaService.mockResolvedValue({ ok: true });
 
-    const sent = await sendTestNotification("persistent_notification.create");
+    const result = await sendTestNotification("persistent_notification.create");
 
-    expect(sent).toBe(true);
+    expect(result).toEqual({ ok: true });
     const [, payload] = callHaService.mock.calls[0] as [
       string,
       { title: string; message: string },

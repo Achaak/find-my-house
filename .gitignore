@@ -4,7 +4,7 @@ packages/api-types/dist/
 web/dist/
 .turbo/
 src/generated/
-data/
+/data/
 .env.local
 *.db
 *.db-journal

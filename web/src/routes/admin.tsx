@@ -238,6 +238,9 @@ function AdminPage() {
             <p className="text-sm text-muted-foreground">
               {m.admin_notifications_desc()}
             </p>
+            <p className="text-sm text-muted-foreground">
+              {m.admin_notifications_hint()}
+            </p>
             <Button
               type="button"
               variant="outline"
@@ -249,14 +252,20 @@ function AdminPage() {
                 : m.admin_notifications_run()}
             </Button>
             {notificationTestMutation.data ? (
-              <p className="text-sm text-muted-foreground">
+              <p
+                className="rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-sm text-green-800 dark:text-green-300"
+                role="status"
+              >
                 {m.admin_notifications_success({
                   service: notificationTestMutation.data.notifyService,
                 })}
               </p>
             ) : null}
             {notificationTestMutation.error ? (
-              <p className="text-sm text-destructive">
+              <p
+                className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
+                role="alert"
+              >
                 {getErrorMessage(notificationTestMutation.error)}
               </p>
             ) : null}
