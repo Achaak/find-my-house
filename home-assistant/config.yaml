@@ -9,6 +9,7 @@ arch:
 startup: application
 boot: auto
 init: false
+homeassistant_api: true
 image: ghcr.io/achaak/find-my-house-{arch}
 ingress: true
 ingress_port: 8099

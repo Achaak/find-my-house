@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseHaService, resolveHaApiToken } from "./client.js";
 
 describe("parseHaService", () => {
@@ -22,7 +22,16 @@ describe("parseHaService", () => {
 });
 
 describe("resolveHaApiToken", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("falls back to the request bearer token", () => {
     expect(resolveHaApiToken("user-token")).toBe("user-token");
+  });
+
+  it("prefers SUPERVISOR_TOKEN on the add-on", () => {
+    vi.stubEnv("SUPERVISOR_TOKEN", "supervisor-token");
+    expect(resolveHaApiToken("user-token")).toBe("supervisor-token");
   });
 });

@@ -51,6 +51,7 @@ import { getBrowserReadiness } from "../utils/browser/client.js";
 import { isScrapeInProgress } from "../services/scraperService.js";
 import { scrapeFiltersToSearch } from "../utils/listing/scrapeFilters.js";
 import { sendTestNotification } from "../homeAssistant/notifications.js";
+import { isHomeAssistantAddOn } from "../homeAssistant/client.js";
 import { PropertyMatchDiagnosticsRepository } from "../db/propertyMatchDiagnosticsRepository.js";
 import { parseDiagnosticsQuery } from "@find-my-house/api-types";
 
@@ -647,7 +648,9 @@ export function createApiApp(ctx: ApiContext) {
 
   app.post("/api/admin/notifications/test", requireAdmin(), async (c) => {
     const { notifications } = notificationsConfig;
-    const bearer = c.req.header("Authorization")?.replace(/^Bearer\s+/i, "");
+    const bearer = isHomeAssistantAddOn()
+      ? undefined
+      : c.req.header("Authorization")?.replace(/^Bearer\s+/i, "");
     const result = await sendTestNotification(notifications.notifyService, {
       token: bearer ?? undefined,
     });

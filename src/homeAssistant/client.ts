@@ -21,11 +21,14 @@ export function parseHaService(service: string): {
 }
 
 export function resolveHaApiToken(requestToken?: string): string | undefined {
-  return (
-    process.env.SUPERVISOR_TOKEN ??
-    process.env.HOME_ASSISTANT_TOKEN ??
-    requestToken
-  );
+  if (process.env.SUPERVISOR_TOKEN) {
+    return process.env.SUPERVISOR_TOKEN;
+  }
+  return process.env.HOME_ASSISTANT_TOKEN ?? requestToken;
+}
+
+export function isHomeAssistantAddOn(): boolean {
+  return Boolean(process.env.SUPERVISOR_TOKEN);
 }
 
 export async function callHaService(

@@ -63,6 +63,7 @@ vi.mock("../homeAssistant/notifications.js", () => ({
 
 vi.mock("../homeAssistant/client.js", () => ({
   resolveHaApiToken: (token?: string) => token ?? "test-token",
+  isHomeAssistantAddOn: () => false,
 }));
 
 function createMockEnrichmentQueue(): EnrichmentQueue {
