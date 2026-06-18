@@ -9,6 +9,12 @@ import {
   type HaServiceCallResult,
 } from "./client.js";
 import { formatPropertyNotification } from "./format.js";
+import {
+  buildListingNotificationPath,
+  buildListingsIndexPath,
+  notificationClickData,
+  resolveIngressBasePath,
+} from "./listingNotificationPath.js";
 
 const log = createLogger("home-assistant");
 
@@ -30,22 +36,28 @@ async function sendPropertyNotification(
     header?: string;
     priceDrop?: boolean;
     token?: string;
+    ingressBase?: string | null;
   }
 ): Promise<boolean> {
   const compatibility = options.compatibilityModel
     ? getListingCompatibilityCard(property, options.compatibilityModel)
     : undefined;
 
-  const { title, message, url } = formatPropertyNotification(property, {
+  const listingPath = buildListingNotificationPath(
+    property.id,
+    options.ingressBase ?? null
+  );
+  const { title, message } = formatPropertyNotification(property, {
     compatibility,
     header: options.header,
     priceDrop: options.priceDrop,
+    listingPath,
   });
 
   const payload = {
     title,
     message,
-    data: url ? { url } : undefined,
+    data: notificationClickData(listingPath),
   };
 
   const results = await Promise.all(
@@ -67,6 +79,7 @@ async function sendListingNotifications(
     : listings;
   if (eligible.length === 0) return 0;
 
+  const ingressBase = await resolveIngressBasePath();
   const maxNotifications = options.maxNotifications ?? eligible.length;
   const ranked = compatibilityModel
     ? sortByCompatibility(eligible, compatibilityModel)
@@ -87,6 +100,7 @@ async function sendListingNotifications(
       header,
       priceDrop: options.priceDrop,
       token: options.token,
+      ingressBase,
     });
 
     if (ok) {
@@ -98,11 +112,13 @@ async function sendListingNotifications(
   }
 
   if (hidden > 0) {
+    const listingsPath = buildListingsIndexPath(ingressBase);
     const result = await callHaServices(
       notifyServices,
       {
         title: "Find My House",
         message: options.overflow(hidden),
+        data: notificationClickData(listingsPath),
       },
       { token: options.token }
     );
@@ -174,12 +190,16 @@ export async function sendTestNotification(
   notifyServices: string[],
   options?: { token?: string }
 ): Promise<HaServiceCallResult> {
+  const ingressBase = await resolveIngressBasePath();
+  const listingsPath = buildListingsIndexPath(ingressBase);
+
   return callHaServices(
     notifyServices,
     {
       title: "Find My House — test",
       message:
         "Notification de test envoyée depuis la page admin. Les alertes après scrape utilisent les mêmes services.",
+      data: notificationClickData(listingsPath),
     },
     { token: options?.token }
   );

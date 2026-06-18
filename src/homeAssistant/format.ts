@@ -57,8 +57,11 @@ export function formatPropertyNotification(
     compatibility?: CompatibilityCard;
     header?: string;
     priceDrop?: boolean;
+    listingPath?: string;
   }
-): { title: string; message: string; url?: string } {
+): { title: string; message: string; listingPath: string } {
+  const listingPath =
+    options?.listingPath ?? `/listings/${String(property.id)}`;
   const lines: string[] = [];
 
   if (options?.header) {
@@ -98,6 +101,6 @@ export function formatPropertyNotification(
   return {
     title: property.title,
     message: lines.join("\n"),
-    url: property.url,
+    listingPath,
   };
 }

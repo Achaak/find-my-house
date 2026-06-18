@@ -55,6 +55,12 @@ describe("sendPriceDropNotifications", () => {
 
     expect(sent).toBe(1);
     expect(callHaService).toHaveBeenCalledOnce();
+    expect(callHaService).toHaveBeenCalledWith(
+      "persistent_notification.create",
+      expect.objectContaining({
+        data: { url: "/listings/2", clickAction: "/listings/2" },
+      })
+    );
   });
 
   it("fans out to every configured service", async () => {
@@ -93,7 +99,7 @@ describe("sendNewListingNotifications", () => {
     ];
     const [, overflowPayload] = callHaService.mock.calls[3] as [
       string,
-      { message: string },
+      { message: string; data?: { url: string; clickAction: string } },
     ];
     expect(firstPayload.message).toEqual(
       expect.stringContaining("7 nouvelles annonces")
@@ -101,6 +107,10 @@ describe("sendNewListingNotifications", () => {
     expect(overflowPayload.message).toEqual(
       expect.stringContaining("4 autres annonces")
     );
+    expect(overflowPayload.data).toEqual({
+      url: "/listings",
+      clickAction: "/listings",
+    });
   });
 });
 
