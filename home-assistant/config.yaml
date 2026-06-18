@@ -1,6 +1,6 @@
 name: Find My House
 description: Web UI and French real-estate listing scraper
-version: "4.1.1"
+version: "4.1.2"
 slug: find_my_house
 url: https://github.com/Achaak/find-my-house
 arch:
