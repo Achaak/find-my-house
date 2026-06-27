@@ -20,7 +20,7 @@ export function PropertyReactionActions({
         disabled={reactions.isPending}
         className={cn(
           property.reaction === "like" &&
-            "border-green-600 bg-green-50 text-green-800 hover:bg-green-100 hover:text-green-900"
+            "border-like bg-like/10 text-like hover:bg-like/15"
         )}
         aria-label={
           property.reaction === "like" ? m.aria_unlike() : m.aria_like()
@@ -45,7 +45,7 @@ export function PropertyReactionActions({
         disabled={reactions.isPending}
         className={cn(
           property.reaction === "dislike" &&
-            "border-gray-500 bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-800"
+            "border-dislike bg-dislike/10 text-dislike hover:bg-dislike/15"
         )}
         aria-label={
           property.reaction === "dislike"
@@ -60,7 +60,7 @@ export function PropertyReactionActions({
       >
         <ThumbsDown className="size-4" />
         {property.reaction === "dislike"
-          ? m.reaction_undo()
+          ? m.reaction_remove_dislike()
           : m.reaction_dislike()}
       </Button>
       {property.reaction === "like" ? (

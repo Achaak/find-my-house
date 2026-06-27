@@ -15,6 +15,11 @@ import {
 } from "./serialize.js";
 import type { ApiContext } from "./types.js";
 import { fetchStatsSection } from "../services/statsService.js";
+import {
+  fetchStatsSeries,
+  parseStatsSeriesRange,
+  recordDailySnapshot,
+} from "../services/statsSeriesService.js";
 import { scrapeConfig } from "../config/scrape.js";
 import { notificationsConfig } from "../config/notifications.js";
 import { getPrisma } from "../db/prisma.js";
@@ -35,6 +40,8 @@ import {
   getBrowseSession,
   getBrowseState,
   noteBrowseReaction,
+  rewindBrowseDislike,
+  setPendingDislikeUndo,
   startBrowseSession,
   type BrowseSession,
 } from "../services/browseSession.js";
@@ -55,6 +62,7 @@ import { sendTestNotification } from "../homeAssistant/notifications.js";
 import { isHomeAssistantAddOn } from "../homeAssistant/client.js";
 import { PropertyMatchDiagnosticsRepository } from "../db/propertyMatchDiagnosticsRepository.js";
 import { parseDiagnosticsQuery } from "@find-my-house/api-types";
+import { DISLIKE_UNDO_GRACE_MS } from "../config/reactions.js";
 
 const log = createLogger("api");
 
@@ -63,7 +71,10 @@ async function serializeBrowseResponse(
   userId: string,
   session: BrowseSession,
   state: InternalBrowseState,
-  options?: { reactionType?: "like" | "dislike" }
+  options?: {
+    reactionType?: "like" | "dislike";
+    dislikedPropertyId?: number;
+  }
 ) {
   const geoFilter = resolveGeoFilter(
     { maxTravelMinutes: session.filters.maxTravelMinutes },
@@ -97,6 +108,15 @@ async function serializeBrowseResponse(
     criteria: session.filters,
     zoneLabel:
       geoFilter.mode !== "city" ? geoFilterLabel(geoFilter) : undefined,
+    undoDislike:
+      options?.reactionType === "dislike" && options.dislikedPropertyId
+        ? {
+            propertyId: options.dislikedPropertyId,
+            undoUntil: new Date(
+              Date.now() + DISLIKE_UNDO_GRACE_MS
+            ).toISOString(),
+          }
+        : undefined,
   };
 }
 
@@ -299,6 +319,7 @@ export function createApiApp(ctx: ApiContext) {
       );
     }
 
+    const dislikedIsExplore = session.currentIsExplore;
     await ctx.reactionRepository.add(propertyId, action);
     noteBrowseReaction(session, propertyId);
 
@@ -309,11 +330,71 @@ export function createApiApp(ctx: ApiContext) {
       session
     );
 
+    if (action === "dislike") {
+      setPendingDislikeUndo(session, {
+        dislikedPropertyId: propertyId,
+        dislikedIsExplore,
+        advancedToPropertyId: state.property?.id ?? null,
+        advancedProperty: state.property,
+      });
+    }
+
     return c.json(
       await serializeBrowseResponse(ctx, user.id, session, state, {
         reactionType: action,
+        dislikedPropertyId: action === "dislike" ? propertyId : undefined,
       })
     );
+  });
+
+  app.post("/api/reactions/dislike/:propertyId/undo", async (c) => {
+    const user = getUser(c);
+    const propertyId = Number.parseInt(c.req.param("propertyId"), 10);
+    if (!Number.isInteger(propertyId) || propertyId <= 0) {
+      return c.json({ error: "Invalid property id" }, 400);
+    }
+
+    const session = getBrowseSession(user.id);
+    if (session?.pendingDislikeUndo?.dislikedPropertyId === propertyId) {
+      const result = await rewindBrowseDislike(
+        ctx.repository,
+        ctx.reactionRepository,
+        user.id,
+        session,
+        propertyId,
+        DISLIKE_UNDO_GRACE_MS
+      );
+
+      if (!result.ok) {
+        const status =
+          result.reason === "no_pending" ? "not_found" : result.reason;
+        if (result.reason === "grace_expired") {
+          return c.json({ status, error: "Undo grace period expired" }, 410);
+        }
+        return c.json({ status });
+      }
+
+      return c.json({
+        status: "removed" as const,
+        browse: await serializeBrowseResponse(
+          ctx,
+          user.id,
+          session,
+          result.state
+        ),
+      });
+    }
+
+    const status = await ctx.reactionRepository.removeDislikeWithinGrace(
+      propertyId,
+      DISLIKE_UNDO_GRACE_MS
+    );
+
+    if (status === "grace_expired") {
+      return c.json({ status, error: "Undo grace period expired" }, 410);
+    }
+
+    return c.json({ status });
   });
 
   app.get("/api/reactions/:type", async (c) => {
@@ -444,6 +525,12 @@ export function createApiApp(ctx: ApiContext) {
       body.enabled
     );
     return c.json({ enabled });
+  });
+
+  app.get("/api/stats/series", async (c) => {
+    const range = parseStatsSeriesRange(c.req.query("range") ?? undefined);
+    const data = await fetchStatsSeries(ctx.repository, range);
+    return c.json(data);
   });
 
   app.get("/api/stats/:section", async (c) => {
@@ -625,6 +712,7 @@ export function createApiApp(ctx: ApiContext) {
   app.post("/api/admin/scrape", requireAdmin(), async (c) => {
     const result = await ctx.scraperService.run(ctx.scrapeDefaults);
     await ctx.notifyScrapeResults(result);
+    await recordDailySnapshot(ctx.repository);
 
     const scrapeGeoFilter = resolveGeoFilter(
       { maxTravelMinutes: ctx.scrapeDefaults.maxTravelMinutes },
@@ -651,6 +739,11 @@ export function createApiApp(ctx: ApiContext) {
       getPrisma(scrapeConfig.database.url)
     );
     return c.json(result);
+  });
+
+  app.post("/api/admin/stats/snapshot", requireAdmin(), async (c) => {
+    await recordDailySnapshot(ctx.repository);
+    return c.json({ ok: true });
   });
 
   app.post("/api/admin/enrich", requireAdmin(), async (c) => {

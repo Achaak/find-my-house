@@ -265,6 +265,44 @@ export type StatsResponseMap = {
   activity: StatsActivity;
 };
 
+export type StatsSeriesRange = "7d" | "30d" | "90d";
+
+export type StatsDailyPoint = {
+  date: string;
+  value: number;
+};
+
+export type StatsReactionWeekPoint = {
+  week: string;
+  likes: number;
+  dislikes: number;
+};
+
+export type StatsPriceBucket = {
+  label: string;
+  min: number;
+  max: number;
+  count: number;
+};
+
+export type StatsDailySnapshotRow = {
+  date: string;
+  activeProperties: number;
+  activePublications: number;
+  medianPrice: number;
+  priceDropCount: number;
+};
+
+export type StatsSeriesData = {
+  range: StatsSeriesRange;
+  snapshots: StatsDailySnapshotRow[];
+  newProperties: StatsDailyPoint[];
+  scrapes: StatsDailyPoint[];
+  deactivations: StatsDailyPoint[];
+  reactions: StatsReactionWeekPoint[];
+  priceHistogram: StatsPriceBucket[];
+};
+
 export type NotificationDigest = {
   since: string;
   newListings: Property[];
@@ -290,6 +328,10 @@ export type BrowseState = {
   finished: boolean;
   criteria?: ListingSearchFilters;
   zoneLabel?: string;
+  undoDislike?: {
+    propertyId: number;
+    undoUntil: string;
+  };
 };
 
 export type DpeCandidate = {
@@ -337,6 +379,11 @@ export type CompatibilityProfileResponse = CompatibilityProfile;
 
 export type ReactionMutationResponse = {
   status: string;
+};
+
+export type UndoDislikeResponse = {
+  status: "removed" | "not_found" | "grace_expired" | "not_dislike";
+  browse?: BrowseState;
 };
 
 export type RemoveReactionResponse = {

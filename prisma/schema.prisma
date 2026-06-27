@@ -158,3 +158,15 @@ model UserNotificationPreference {
 
   @@map("user_notification_preferences")
 }
+
+model StatsDailySnapshot {
+  date               String @id
+  activeProperties   Int    @map("active_properties")
+  activePublications Int    @map("active_publications")
+  medianPrice        Int    @map("median_price")
+  priceDropCount     Int    @map("price_drop_count")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@map("stats_daily_snapshots")
+}

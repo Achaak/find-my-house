@@ -20,6 +20,10 @@ import {
   startBrowserWarmUp,
 } from "./utils/browser/client.js";
 import { createLogger } from "./utils/logger.js";
+import {
+  recordDailySnapshot,
+  ensureTodaySnapshot,
+} from "./services/statsSeriesService.js";
 
 const log = createLogger("app");
 const cronLog = createLogger("cron");
@@ -61,6 +65,10 @@ async function main(): Promise<void> {
 
   startBrowserWarmUp();
 
+  void ensureTodaySnapshot(repository).catch((error: unknown) => {
+    log.warn("Failed to ensure stats snapshot:", error);
+  });
+
   if (cron.validate(scrapeConfig.scrape.cron)) {
     cron.schedule(scrapeConfig.scrape.cron, async () => {
       cronLog.info("Scheduled scrape...");
@@ -83,6 +91,7 @@ async function main(): Promise<void> {
           enrichmentQueue,
           log: cronLog,
         });
+        await recordDailySnapshot(repository);
       } catch (error) {
         cronLog.error("Scrape error:", error);
       }

@@ -1,12 +1,22 @@
+import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { createFileRoute } from "@tanstack/react-router";
-import { ListingsMap } from "@/components/listings/listings-map";
+import { SlidersHorizontal } from "lucide-react";
+import { ListingsMapView } from "@/components/listings/listings-map-view";
 import { ListingSearchFiltersForm } from "@/components/listings/listing-search-filters-form";
-import { PropertyCard } from "@/components/listings/property-card";
+import { FilterChipsBar } from "@/components/listings/filter-chips-bar";
+import {
+  PropertyGridCard,
+  PropertyGridCardSkeleton,
+} from "@/components/listings/property-grid-card";
+import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Sheet } from "@/components/ui/sheet";
 import { useListingSearch } from "@/hooks/use-listing-search";
 import { getErrorMessage } from "@/lib/error-message";
-import { searchParamsToFilters } from "@/lib/listing-filters";
+import { clearFilterChip, searchParamsToFilters } from "@/lib/listing-filters";
 import * as m from "@/paraglide/messages.js";
 
 export const Route = createFileRoute("/listings/")({
@@ -14,18 +24,37 @@ export const Route = createFileRoute("/listings/")({
   component: ListingsPage,
 });
 
+function activeFilterCount(filters: ReturnType<typeof searchParamsToFilters>) {
+  return Object.entries(filters).filter(([key, value]) => {
+    if (key === "limit" || key === "sort" || key === "offset") return false;
+    if (typeof value === "boolean") return value;
+    return value !== undefined && value !== "";
+  }).length;
+}
+
 function ListingsPage() {
   const navigate = useNavigate({ from: Route.fullPath });
   const filters = Route.useSearch();
   const search = useListingSearch(filters);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [mapPreviewOpen, setMapPreviewOpen] = useState(false);
+  const filterCount = activeFilterCount(filters);
 
   const submitFilters = () => {
     const next = search.applyFilters(search.draft);
     void navigate({ search: next });
+    setFiltersOpen(false);
+  };
+
+  const selectMapProperty = (id: number | null) => {
+    search.setSelectedId(id);
+    if (search.view === "map" && id !== null) {
+      setMapPreviewOpen(true);
+    }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">{m.listings_title()}</h1>
@@ -33,7 +62,22 @@ function ListingsPage() {
             {m.listings_subtitle()}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="md:hidden"
+            onClick={() => setFiltersOpen(true)}
+          >
+            <SlidersHorizontal className="size-4" />
+            {m.listings_filters_open()}
+            {filterCount > 0 ? (
+              <Badge variant="secondary" className="ml-1">
+                {filterCount}
+              </Badge>
+            ) : null}
+          </Button>
           <Button
             type="button"
             size="sm"
@@ -53,17 +97,48 @@ function ListingsPage() {
         </div>
       </div>
 
-      <ListingSearchFiltersForm
-        draft={search.draft}
-        onDraftChange={search.setDraft}
-        onSubmit={submitFilters}
+      <div className="hidden md:block">
+        <ListingSearchFiltersForm
+          draft={search.draft}
+          onDraftChange={search.setDraft}
+          onSubmit={submitFilters}
+        />
+      </div>
+
+      <Sheet
+        open={filtersOpen}
+        onOpenChange={setFiltersOpen}
+        title={m.listings_filters_title()}
+      >
+        <ListingSearchFiltersForm
+          draft={search.draft}
+          onDraftChange={search.setDraft}
+          onSubmit={submitFilters}
+        />
+        <Button type="button" className="mt-4 w-full" onClick={submitFilters}>
+          {m.listings_filters_apply()}
+        </Button>
+      </Sheet>
+
+      <FilterChipsBar
+        className="md:hidden"
+        filters={filters}
+        onRemove={(key) => {
+          void navigate({ search: clearFilterChip(filters, key) });
+        }}
       />
 
-      {search.listQuery.isLoading ? <p>{m.common_loading()}</p> : null}
+      {search.listQuery.isLoading ? (
+        <div className="grid gap-4 md:grid-cols-2">
+          <PropertyGridCardSkeleton />
+          <PropertyGridCardSkeleton />
+        </div>
+      ) : null}
+
       {search.listQuery.error ? (
-        <p className="text-destructive">
+        <Alert variant="destructive">
           {getErrorMessage(search.listQuery.error)}
-        </p>
+        </Alert>
       ) : null}
 
       {search.listQuery.data ? (
@@ -73,11 +148,6 @@ function ListingsPage() {
             {search.view === "list" && search.items.length < search.total
               ? m.listings_showing_count({ count: search.items.length })
               : ""}
-            {search.view === "map" &&
-            search.mapQuery.isFetching &&
-            !search.mapQuery.data
-              ? m.listings_loading_map()
-              : ""}
             {(
               search.view === "map"
                 ? search.mapZone
@@ -86,83 +156,59 @@ function ListingsPage() {
               ? ` · ${search.view === "map" ? search.mapZone : search.listQuery.data.pages[0]?.zone}`
               : ""}
           </p>
+
           {search.view === "map" ? (
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-              <div className="order-2 lg:order-1 lg:w-2/5 lg:shrink-0">
-                <div className="lg:sticky lg:top-20 space-y-3">
-                  {search.selectedProperty ? (
-                    <>
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm text-muted-foreground">
-                          {search.selectedIndex + 1} / {search.mapItems.length}
-                        </p>
-                        <div className="flex gap-1">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            disabled={search.selectedIndex <= 0}
-                            onClick={() => {
-                              const previous =
-                                search.mapItems[search.selectedIndex - 1];
-                              if (previous) search.setSelectedId(previous.id);
-                            }}
-                          >
-                            {m.common_previous()}
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            disabled={
-                              search.selectedIndex < 0 ||
-                              search.selectedIndex >= search.mapItems.length - 1
-                            }
-                            onClick={() => {
-                              const next =
-                                search.mapItems[search.selectedIndex + 1];
-                              if (next) search.setSelectedId(next.id);
-                            }}
-                          >
-                            {m.common_next()}
-                          </Button>
-                        </div>
-                      </div>
-                      <PropertyCard property={search.selectedProperty} />
-                    </>
-                  ) : (
-                    <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
-                      {m.listings_map_select_prompt()}
-                    </div>
-                  )}
-                </div>
+            <>
+              <div className="lg:hidden">
+                <ListingsMapView
+                  layout="mobile"
+                  properties={search.mapItems}
+                  selectedId={search.selectedId}
+                  selectedProperty={search.selectedProperty}
+                  totalCount={search.total}
+                  mapBoundsKey={search.mapBoundsKey}
+                  mapLoading={
+                    search.mapQuery.isLoading && !search.mapQuery.data
+                  }
+                  mapPreviewOpen={mapPreviewOpen}
+                  onMapPreviewOpenChange={setMapPreviewOpen}
+                  onPropertySelect={selectMapProperty}
+                />
               </div>
-              <div className="order-1 lg:order-2 lg:sticky lg:top-20 lg:flex-1">
-                {search.mapQuery.isLoading && !search.mapQuery.data ? (
-                  <div
-                    className="flex items-center justify-center rounded-xl border bg-card text-sm text-muted-foreground"
-                    style={{ height: "min(70vh, 720px)" }}
-                  >
-                    {m.listings_map_loading()}
-                  </div>
-                ) : (
-                  <ListingsMap
-                    properties={search.mapItems}
-                    selectedId={search.selectedId}
-                    onPropertySelect={search.setSelectedId}
-                    totalCount={search.total}
-                    resetBoundsKey={search.mapBoundsKey}
-                  />
-                )}
+              <div className="hidden lg:block">
+                <ListingsMapView
+                  layout="desktop"
+                  properties={search.mapItems}
+                  selectedId={search.selectedId}
+                  selectedProperty={search.selectedProperty}
+                  totalCount={search.total}
+                  mapBoundsKey={search.mapBoundsKey}
+                  mapLoading={
+                    search.mapQuery.isLoading && !search.mapQuery.data
+                  }
+                  mapPreviewOpen={mapPreviewOpen}
+                  onMapPreviewOpenChange={setMapPreviewOpen}
+                  onPropertySelect={selectMapProperty}
+                />
               </div>
-            </div>
+            </>
+          ) : search.items.length === 0 ? (
+            <EmptyState
+              title={m.listings_empty_title()}
+              description={m.listings_empty_desc()}
+              action={{
+                label: m.listings_empty_action(),
+                to: "/listings",
+              }}
+            />
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {search.items.map((property) => (
-                <PropertyCard key={property.id} property={property} />
+                <PropertyGridCard key={property.id} property={property} />
               ))}
             </div>
           )}
+
           {search.view === "list" && search.listQuery.hasNextPage ? (
             <Button
               type="button"

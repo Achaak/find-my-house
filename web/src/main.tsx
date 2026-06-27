@@ -8,6 +8,9 @@ import { getIngressBasePath } from "@/lib/base-path";
 import { queryClient } from "@/lib/query-client";
 import { routeTree } from "./routeTree.gen";
 import "./index.css";
+import { initTheme } from "@/hooks/use-theme";
+
+initTheme();
 
 document.documentElement.lang = getLocale();
 

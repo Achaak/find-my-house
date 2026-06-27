@@ -7,6 +7,7 @@ import {
   noteBrowseReaction,
   pickNextFromBrowsePool,
   type BrowseSession,
+  type PendingDislikeUndo,
 } from "./browseCandidates.js";
 
 export type { BrowseSession };
@@ -26,6 +27,7 @@ function createBrowseSessionState(
     reactedPropertyIds: null,
     geoRankedIds: null,
     geoRankedCursor: 0,
+    pendingDislikeUndo: null,
   };
 }
 
@@ -174,4 +176,95 @@ export async function advanceBrowseSession(
     pick.property,
     pick.isExplore
   );
+}
+
+export function setPendingDislikeUndo(
+  session: BrowseSession,
+  undo: PendingDislikeUndo
+): void {
+  session.pendingDislikeUndo = undo;
+}
+
+export function clearPendingDislikeUndo(session: BrowseSession): void {
+  session.pendingDislikeUndo = null;
+}
+
+/** Rewind browse session after undoing a dislike within the grace window. */
+export async function rewindBrowseDislike(
+  repository: ListingRepository,
+  reactionRepository: ReactionRepository,
+  userId: string,
+  session: BrowseSession,
+  propertyId: number,
+  graceMs: number
+): Promise<
+  | { ok: true; state: BrowseState }
+  | {
+      ok: false;
+      reason: "no_pending" | "grace_expired" | "not_found" | "not_dislike";
+    }
+> {
+  const pending = session.pendingDislikeUndo;
+  if (pending?.dislikedPropertyId !== propertyId) {
+    return { ok: false, reason: "no_pending" };
+  }
+
+  const status = await reactionRepository.removeDislikeWithinGrace(
+    propertyId,
+    graceMs
+  );
+  if (status === "grace_expired") {
+    return { ok: false, reason: "grace_expired" };
+  }
+  if (status === "not_found") {
+    return { ok: false, reason: "not_found" };
+  }
+  if (status === "not_dislike") {
+    return { ok: false, reason: "not_dislike" };
+  }
+
+  if (pending.advancedToPropertyId !== null) {
+    const lastSeen = session.seenPropertyIds.at(-1);
+    if (lastSeen === pending.advancedToPropertyId) {
+      session.seenPropertyIds.pop();
+      session.shownCount = Math.max(0, session.shownCount - 1);
+    }
+    const advancedProperty = pending.advancedProperty;
+    if (
+      advancedProperty &&
+      !session.candidatePool.some(
+        (property) => property.id === advancedProperty.id
+      )
+    ) {
+      session.candidatePool.unshift(advancedProperty);
+    }
+  }
+
+  session.reactedPropertyIds?.delete(propertyId);
+  session.pendingDislikeUndo = null;
+
+  const property = await repository.findById(propertyId);
+  if (!property) {
+    session.currentPropertyId = null;
+    const model = await resolveCompatibilityModel(reactionRepository);
+    return {
+      ok: true,
+      state: buildBrowseState(userId, session, model, null, false),
+    };
+  }
+
+  session.currentPropertyId = propertyId;
+  session.currentIsExplore = pending.dislikedIsExplore;
+
+  const model = await resolveCompatibilityModel(reactionRepository);
+  return {
+    ok: true,
+    state: buildBrowseState(
+      userId,
+      session,
+      model,
+      property,
+      session.currentIsExplore
+    ),
+  };
 }

@@ -1,7 +1,6 @@
+import type { ReactNode } from "react";
 import type {
   ActivityStats,
-  CityCount,
-  PriceStats,
   SourcePublicationCounts,
   StatsActivity,
   StatsMine,
@@ -9,10 +8,19 @@ import type {
   StatsPrices,
   StatsResponseMap,
   StatsSection,
+  StatsSeriesData,
   StatsSources,
 } from "@find-my-house/api-types";
 import { LISTING_SOURCES } from "@find-my-house/api-types";
-import { PropertyCard } from "@/components/listings/property-card";
+import { PropertyGridCard } from "@/components/listings/property-grid-card";
+import {
+  ActivityCharts,
+  MineCharts,
+  OverviewCharts,
+  PricesCharts,
+  SourcesChart,
+} from "@/components/stats/stats-charts";
+import { StatsChartSkeleton } from "@/components/stats/stats-chart-skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatLocaleDateTime } from "@/lib/locale";
 import { formatPrice, formatSource } from "@/lib/utils";
@@ -31,32 +39,6 @@ function StatCard({ label, value }: { label: string; value: string }) {
       </CardContent>
     </Card>
   );
-}
-
-function formatPriceRange(stats: PriceStats | null): string {
-  if (!stats) return m.common_em_dash();
-  return m.stats_price_range({
-    min: formatPrice(stats.min),
-    max: formatPrice(stats.max),
-    median: formatPrice(stats.median),
-  });
-}
-
-function formatCitySummary(cities: CityCount[]): string {
-  if (cities.length === 0) return m.stats_no_cities();
-  return cities
-    .map((entry) => `${entry.city} (${String(entry.count)})`)
-    .join(" · ");
-}
-
-function formatSourceSummary(counts: SourcePublicationCounts): string {
-  return LISTING_SOURCES.map((source) => {
-    const active = counts[source].active;
-    if (active === 0) return null;
-    return `${formatSource(source)} ${String(active)}`;
-  })
-    .filter((line): line is string => line !== null)
-    .join(" · ");
 }
 
 function formatSourceLines(counts: SourcePublicationCounts): string {
@@ -125,7 +107,35 @@ function formatEnrichmentBlock(enrichment: {
   });
 }
 
-function OverviewPanel({ data }: { data: StatsOverview }) {
+function SeriesCharts({
+  series,
+  seriesLoading,
+  children,
+}: {
+  series?: StatsSeriesData;
+  seriesLoading?: boolean;
+  children: (series: StatsSeriesData) => ReactNode;
+}) {
+  if (seriesLoading) return <StatsChartSkeleton />;
+  if (!series) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        {m.stats_charts_unavailable()}
+      </p>
+    );
+  }
+  return <>{children(series)}</>;
+}
+
+function OverviewPanel({
+  data,
+  series,
+  seriesLoading,
+}: {
+  data: StatsOverview;
+  series?: StatsSeriesData;
+  seriesLoading?: boolean;
+}) {
   const priceDrops =
     data.priceDrops > 0
       ? m.stats_overview_price_drops({ count: data.priceDrops })
@@ -178,27 +188,13 @@ function OverviewPanel({ data }: { data: StatsOverview }) {
           value={String(data.dislikes)}
         />
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <InfoBlock title={m.stats_block_sources()}>
-          {formatSourceSummary(data.sourceCounts) || m.common_em_dash()}
-        </InfoBlock>
-        <InfoBlock title={m.stats_block_price()}>
-          {formatPriceRange(data.priceStats)}
-        </InfoBlock>
-        <InfoBlock title={m.stats_block_cities()}>
-          {formatCitySummary(data.topCities)}
-        </InfoBlock>
-        <InfoBlock title={m.stats_block_activity()}>
-          {formatActivityBlock(data.activity)}
-        </InfoBlock>
-        <InfoBlock title={m.stats_block_enrichment()}>
-          {formatEnrichmentBlock(data.enrichment)}
-        </InfoBlock>
-      </div>
+      <SeriesCharts series={series} seriesLoading={seriesLoading}>
+        {(resolved) => <OverviewCharts overview={data} series={resolved} />}
+      </SeriesCharts>
       {data.recent.length ? (
         <div className="grid gap-4 md:grid-cols-2">
           {data.recent.map((property) => (
-            <PropertyCard key={property.id} property={property} />
+            <PropertyGridCard key={property.id} property={property} />
           ))}
         </div>
       ) : null}
@@ -225,6 +221,7 @@ function SourcesPanel({ data }: { data: StatsSources }) {
           multi: data.multiSourceCount,
         })}
       </p>
+      <SourcesChart sourceCounts={data.sourceCounts} />
       <InfoBlock title={m.stats_by_portal()}>
         {formatSourceLines(data.sourceCounts) || m.stats_no_publications()}
       </InfoBlock>
@@ -232,7 +229,15 @@ function SourcesPanel({ data }: { data: StatsSources }) {
   );
 }
 
-function PricesPanel({ data }: { data: StatsPrices }) {
+function PricesPanel({
+  data,
+  series,
+  seriesLoading,
+}: {
+  data: StatsPrices;
+  series?: StatsSeriesData;
+  seriesLoading?: boolean;
+}) {
   const emDash = m.common_em_dash();
 
   return (
@@ -265,10 +270,13 @@ function PricesPanel({ data }: { data: StatsPrices }) {
           value={data.priceStats ? String(data.priceStats.count) : emDash}
         />
       </div>
+      <SeriesCharts series={series} seriesLoading={seriesLoading}>
+        {(resolved) => <PricesCharts series={resolved} />}
+      </SeriesCharts>
       {data.drops.length ? (
         <div className="grid gap-4 md:grid-cols-2">
           {data.drops.map((property) => (
-            <PropertyCard key={property.id} property={property} />
+            <PropertyGridCard key={property.id} property={property} />
           ))}
         </div>
       ) : (
@@ -280,7 +288,15 @@ function PricesPanel({ data }: { data: StatsPrices }) {
   );
 }
 
-function MinePanel({ data }: { data: StatsMine }) {
+function MinePanel({
+  data,
+  series,
+  seriesLoading,
+}: {
+  data: StatsMine;
+  series?: StatsSeriesData;
+  seriesLoading?: boolean;
+}) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
@@ -289,12 +305,15 @@ function MinePanel({ data }: { data: StatsMine }) {
           dislikes: data.dislikes,
         })}
       </p>
+      <SeriesCharts series={series} seriesLoading={seriesLoading}>
+        {(resolved) => <MineCharts series={resolved} />}
+      </SeriesCharts>
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-4">
           <h2 className="text-sm font-medium">{m.stats_recent_favorites()}</h2>
           {data.recentLikes.length ? (
             data.recentLikes.map((property) => (
-              <PropertyCard key={property.id} property={property} />
+              <PropertyGridCard key={property.id} property={property} />
             ))
           ) : (
             <p className="text-sm text-muted-foreground">
@@ -306,7 +325,7 @@ function MinePanel({ data }: { data: StatsMine }) {
           <h2 className="text-sm font-medium">{m.stats_recent_dislikes()}</h2>
           {data.recentDislikes.length ? (
             data.recentDislikes.map((property) => (
-              <PropertyCard key={property.id} property={property} />
+              <PropertyGridCard key={property.id} property={property} />
             ))
           ) : (
             <p className="text-sm text-muted-foreground">
@@ -319,7 +338,15 @@ function MinePanel({ data }: { data: StatsMine }) {
   );
 }
 
-function ActivityPanel({ data }: { data: StatsActivity }) {
+function ActivityPanel({
+  data,
+  series,
+  seriesLoading,
+}: {
+  data: StatsActivity;
+  series?: StatsSeriesData;
+  seriesLoading?: boolean;
+}) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
@@ -344,10 +371,13 @@ function ActivityPanel({ data }: { data: StatsActivity }) {
           {formatEnrichmentBlock(data.enrichment)}
         </InfoBlock>
       </div>
+      <SeriesCharts series={series} seriesLoading={seriesLoading}>
+        {(resolved) => <ActivityCharts series={resolved} />}
+      </SeriesCharts>
       {data.recent.length ? (
         <div className="grid gap-4 md:grid-cols-2">
           {data.recent.map((property) => (
-            <PropertyCard key={property.id} property={property} />
+            <PropertyGridCard key={property.id} property={property} />
           ))}
         </div>
       ) : null}
@@ -358,20 +388,48 @@ function ActivityPanel({ data }: { data: StatsActivity }) {
 export function StatsPanel({
   section,
   data,
+  series,
+  seriesLoading = false,
 }: {
   section: StatsSection;
   data: StatsResponseMap[StatsSection];
+  series?: StatsSeriesData;
+  seriesLoading?: boolean;
 }) {
   switch (section) {
     case "overview":
-      return <OverviewPanel data={data as StatsOverview} />;
+      return (
+        <OverviewPanel
+          data={data as StatsOverview}
+          series={series}
+          seriesLoading={seriesLoading}
+        />
+      );
     case "sources":
       return <SourcesPanel data={data as StatsSources} />;
     case "prices":
-      return <PricesPanel data={data as StatsPrices} />;
+      return (
+        <PricesPanel
+          data={data as StatsPrices}
+          series={series}
+          seriesLoading={seriesLoading}
+        />
+      );
     case "mine":
-      return <MinePanel data={data as StatsMine} />;
+      return (
+        <MinePanel
+          data={data as StatsMine}
+          series={series}
+          seriesLoading={seriesLoading}
+        />
+      );
     case "activity":
-      return <ActivityPanel data={data as StatsActivity} />;
+      return (
+        <ActivityPanel
+          data={data as StatsActivity}
+          series={series}
+          seriesLoading={seriesLoading}
+        />
+      );
   }
 }

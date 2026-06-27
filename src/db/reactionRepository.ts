@@ -59,6 +59,33 @@ export class ReactionRepository {
     return result.count > 0;
   }
 
+  async removeDislikeWithinGrace(
+    propertyId: number,
+    graceMs: number
+  ): Promise<"removed" | "not_found" | "grace_expired" | "not_dislike"> {
+    const reaction = await this.prisma.listingReaction.findUnique({
+      where: { propertyId },
+    });
+
+    if (!reaction) return "not_found";
+    if (reaction.type !== "dislike") return "not_dislike";
+
+    const ageMs = Date.now() - reaction.createdAt.getTime();
+    if (ageMs > graceMs) return "grace_expired";
+
+    await this.prisma.listingReaction.delete({ where: { propertyId } });
+    this.notifyMutation();
+    return "removed";
+  }
+
+  async getReactionCreatedAt(propertyId: number): Promise<Date | null> {
+    const reaction = await this.prisma.listingReaction.findUnique({
+      where: { propertyId },
+      select: { createdAt: true },
+    });
+    return reaction?.createdAt ?? null;
+  }
+
   async toggle(
     propertyId: number,
     type: ReactionType

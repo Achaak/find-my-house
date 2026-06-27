@@ -185,4 +185,224 @@ export class PropertyStatsRepository {
       multiSourceCount: Number(multiSource[0].count),
     };
   }
+
+  private calendarDateKey(date = new Date()): string {
+    return date.toISOString().slice(0, 10);
+  }
+
+  async upsertDailySnapshot(): Promise<void> {
+    const [activeProperties, activePublications, priceStats, priceDropCount] =
+      await Promise.all([
+        this.countActiveProperties(),
+        this.countPublications(),
+        this.getPriceStats(),
+        this.countPriceDrops(),
+      ]);
+
+    const date = this.calendarDateKey();
+    const medianPrice = priceStats?.median ?? 0;
+
+    await this.prisma.statsDailySnapshot.upsert({
+      where: { date },
+      create: {
+        date,
+        activeProperties,
+        activePublications,
+        medianPrice,
+        priceDropCount,
+      },
+      update: {
+        activeProperties,
+        activePublications,
+        medianPrice,
+        priceDropCount,
+      },
+    });
+  }
+
+  async getDailySnapshots(since: Date) {
+    const sinceKey = this.calendarDateKey(since);
+    return this.prisma.statsDailySnapshot.findMany({
+      where: { date: { gte: sinceKey } },
+      orderBy: { date: "asc" },
+    });
+  }
+
+  /** Fill missing daily snapshot rows (uses current metrics as bootstrap). */
+  async backfillDailySnapshots(days = 90): Promise<number> {
+    await this.upsertDailySnapshot();
+
+    const [activeProperties, activePublications, priceStats, priceDropCount] =
+      await Promise.all([
+        this.countActiveProperties(),
+        this.countPublications(),
+        this.getPriceStats(),
+        this.countPriceDrops(),
+      ]);
+    const medianPrice = priceStats?.median ?? 0;
+
+    const since = new Date();
+    since.setHours(0, 0, 0, 0);
+    since.setDate(since.getDate() - days + 1);
+    const existing = await this.getDailySnapshots(since);
+    const existingDates = new Set(existing.map((row) => row.date));
+
+    let filled = 0;
+    for (let offset = 0; offset < days; offset += 1) {
+      const day = new Date();
+      day.setHours(0, 0, 0, 0);
+      day.setDate(day.getDate() - offset);
+      const date = this.calendarDateKey(day);
+      if (existingDates.has(date)) continue;
+
+      await this.prisma.statsDailySnapshot.create({
+        data: {
+          date,
+          activeProperties,
+          activePublications,
+          medianPrice,
+          priceDropCount,
+        },
+      });
+      filled += 1;
+    }
+
+    return filled;
+  }
+
+  async getNewPropertiesByDay(
+    since: Date
+  ): Promise<{ date: string; value: number }[]> {
+    const rows = await this.prisma.$queryRaw<{ date: string; value: bigint }[]>`
+      SELECT date(first_seen_at) AS date, COUNT(*) AS value
+      FROM properties
+      WHERE first_seen_at >= ${since}
+      GROUP BY date(first_seen_at)
+      ORDER BY date ASC
+    `;
+    return rows.map((row) => ({
+      date: row.date,
+      value: Number(row.value),
+    }));
+  }
+
+  async getScrapesByDay(
+    since: Date
+  ): Promise<{ date: string; value: number }[]> {
+    const rows = await this.prisma.$queryRaw<{ date: string; value: bigint }[]>`
+      SELECT date(scraped_at) AS date, COUNT(*) AS value
+      FROM listing_publications
+      WHERE scraped_at >= ${since}
+      GROUP BY date(scraped_at)
+      ORDER BY date ASC
+    `;
+    return rows.map((row) => ({
+      date: row.date,
+      value: Number(row.value),
+    }));
+  }
+
+  async getDeactivationsByDay(
+    since: Date
+  ): Promise<{ date: string; value: number }[]> {
+    const rows = await this.prisma.$queryRaw<{ date: string; value: bigint }[]>`
+      SELECT date(updated_at) AS date, COUNT(*) AS value
+      FROM listing_publications
+      WHERE is_active = 0
+        AND updated_at >= ${since}
+      GROUP BY date(updated_at)
+      ORDER BY date ASC
+    `;
+    return rows.map((row) => ({
+      date: row.date,
+      value: Number(row.value),
+    }));
+  }
+
+  async getReactionsByWeek(
+    since: Date
+  ): Promise<{ week: string; likes: number; dislikes: number }[]> {
+    const rows = await this.prisma.$queryRaw<
+      { week: string; type: string; value: bigint }[]
+    >`
+      SELECT strftime('%Y-W%W', created_at) AS week, type, COUNT(*) AS value
+      FROM listing_reactions
+      WHERE created_at >= ${since}
+      GROUP BY week, type
+      ORDER BY week ASC
+    `;
+
+    const byWeek = new Map<string, { likes: number; dislikes: number }>();
+    for (const row of rows) {
+      const current = byWeek.get(row.week) ?? { likes: 0, dislikes: 0 };
+      if (row.type === "like") current.likes = Number(row.value);
+      if (row.type === "dislike") current.dislikes = Number(row.value);
+      byWeek.set(row.week, current);
+    }
+
+    return [...byWeek.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([week, counts]) => ({ week, ...counts }));
+  }
+
+  async getPriceHistogram(
+    bucketCount = 8
+  ): Promise<{ label: string; min: number; max: number; count: number }[]> {
+    const stats = await this.getPriceStats();
+    if (!stats || stats.count === 0) return [];
+
+    const rows = await this.prisma.$queryRaw<{ price: number }[]>`
+      SELECT p.price AS price
+      FROM properties p
+      WHERE EXISTS (
+        SELECT 1
+        FROM listing_publications lp
+        WHERE lp.property_id = p.id
+          AND lp.is_active = 1
+      )
+    `;
+
+    const prices = rows.map((row) => row.price);
+    const min = stats.min;
+    const max = stats.max;
+    if (min === max) {
+      return [
+        {
+          label: formatPriceBucketLabel(min, max),
+          min,
+          max,
+          count: prices.length,
+        },
+      ];
+    }
+
+    const step = Math.ceil((max - min) / bucketCount);
+    const buckets = Array.from({ length: bucketCount }, (_, index) => {
+      const bucketMin = min + index * step;
+      const bucketMax = index === bucketCount - 1 ? max : bucketMin + step - 1;
+      return {
+        label: formatPriceBucketLabel(bucketMin, bucketMax),
+        min: bucketMin,
+        max: bucketMax,
+        count: 0,
+      };
+    });
+
+    for (const price of prices) {
+      const index = Math.min(Math.floor((price - min) / step), bucketCount - 1);
+      buckets[index].count += 1;
+    }
+
+    return buckets.filter((bucket) => bucket.count > 0);
+  }
+}
+
+function formatPriceBucketLabel(min: number, max: number): string {
+  const fmt = (value: number) =>
+    new Intl.NumberFormat("fr-FR", {
+      style: "currency",
+      currency: "EUR",
+      maximumFractionDigits: 0,
+    }).format(value);
+  return min === max ? fmt(min) : `${fmt(min)} – ${fmt(max)}`;
 }

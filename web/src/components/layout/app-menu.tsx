@@ -1,4 +1,12 @@
-import { Bell, BellOff, Check, ChevronDown, User } from "lucide-react";
+import {
+  Bell,
+  BellOff,
+  Check,
+  ChevronDown,
+  Moon,
+  Sun,
+  User,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -10,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useNotificationPreferences } from "@/hooks/use-notification-preferences";
+import { useTheme } from "@/hooks/use-theme";
 import type { ApiUser } from "@find-my-house/api-types";
 import * as m from "@/paraglide/messages.js";
 import { getLocale, locales, setLocale } from "@/paraglide/runtime.js";
@@ -31,6 +40,12 @@ export function AppMenu({
 }) {
   const currentLocale = getLocale();
   const notifications = useNotificationPreferences();
+  const { theme, toggle } = useTheme();
+  const isDark =
+    theme === "dark" ||
+    (theme === "system" &&
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches);
 
   const versionLabel = version
     ? commit
@@ -46,7 +61,7 @@ export function AppMenu({
             variant="ghost"
             size="sm"
             className="max-w-40 gap-1.5 px-2"
-            aria-label={m.app_menu()}
+            aria-label={m.nav_settings()}
           />
         }
       >
@@ -79,6 +94,11 @@ export function AppMenu({
           {notifications.enabled
             ? m.nav_notifications_disable()
             : m.nav_notifications_enable()}
+        </DropdownMenuItem>
+
+        <DropdownMenuItem className="whitespace-nowrap" onClick={toggle}>
+          {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
+          {m.theme_toggle()}
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />

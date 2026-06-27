@@ -1,12 +1,18 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { invalidatePropertyQueries } from "@/lib/property-invalidation";
+import {
+  invalidatePropertyQueries,
+  invalidateReactionSideEffects,
+} from "@/lib/property-invalidation";
 import type { Property } from "@find-my-house/api-types";
 
 export function usePropertyReactions(property: Property) {
   const queryClient = useQueryClient();
 
-  const onSuccess = () => invalidatePropertyQueries(queryClient, property.id);
+  const onSuccess = () => {
+    invalidatePropertyQueries(queryClient, property.id);
+    invalidateReactionSideEffects(queryClient);
+  };
 
   const likeMutation = useMutation({
     mutationFn: () => api.addReaction("like", property.id),

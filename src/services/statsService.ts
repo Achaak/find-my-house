@@ -113,7 +113,7 @@ async function fetchOverview(
     ctx.repository.countPriceDrops(),
     ctx.repository.getPublicationCountsBySource(),
     ctx.repository.getPriceStats(),
-    ctx.repository.getTopCities(3),
+    ctx.repository.getTopCities(5),
     ctx.repository.getActivityStats(),
     ctx.repository.findRecent(3),
     ctx.reactionRepository.countByType("like"),

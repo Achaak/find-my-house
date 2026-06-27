@@ -16,11 +16,14 @@ import type {
   PropertyAddressSearchResponse,
   ReactionMutationResponse,
   ReactionsResponse,
+  UndoDislikeResponse,
   RemoveReactionResponse,
   EnrichmentBackfillResult,
   ReconcileResult,
   StatsResponseMap,
   StatsSection,
+  StatsSeriesData,
+  StatsSeriesRange,
   PropertyMatchDiagnosticsPage,
   DiagnosticsQuery,
   VersionResponse,
@@ -120,6 +123,12 @@ export const api = {
       }
     ),
 
+  undoDislike: (propertyId: number) =>
+    apiFetch<UndoDislikeResponse>(
+      `/api/reactions/dislike/${String(propertyId)}/undo`,
+      { method: "POST" }
+    ),
+
   archiveLike: (propertyId: number) =>
     apiFetch<ReactionMutationResponse>(
       `/api/reactions/like/${String(propertyId)}/archive`,
@@ -134,6 +143,9 @@ export const api = {
 
   stats: <T extends StatsSection>(section: T) =>
     apiFetch<StatsResponseMap[T]>(`/api/stats/${section}`),
+
+  statsSeries: (range: StatsSeriesRange = "30d") =>
+    apiFetch<StatsSeriesData>(`/api/stats/series?range=${range}`),
 
   notificationsDigest: (since?: string) => {
     const query = since ? `?since=${encodeURIComponent(since)}` : "";
@@ -198,6 +210,7 @@ export const queryKeys = {
     options?: { includeArchived?: boolean; archivedOnly?: boolean }
   ) => ["reactions", type, options ?? {}] as const,
   stats: (section: StatsSection) => ["stats", section] as const,
+  statsSeries: (range: StatsSeriesRange) => ["stats-series", range] as const,
   address: (id: number) => ["address", id] as const,
   compatibilityProfile: ["compatibility-profile"] as const,
   notificationPreferences: ["notification-preferences"] as const,

@@ -26,28 +26,44 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-like: var(--like);
+  --color-like-foreground: var(--like-foreground);
+  --color-dislike: var(--dislike);
+  --color-dislike-foreground: var(--dislike-foreground);
+  --color-pass: var(--pass);
+  --color-pass-foreground: var(--pass-foreground);
+  --color-price-drop: var(--price-drop);
+  --color-price-drop-foreground: var(--price-drop-foreground);
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(0.985 0.002 247);
-  --foreground: oklch(0.145 0.02 264);
+  --radius: 0.75rem;
+  --background: oklch(0.985 0.004 75);
+  --foreground: oklch(0.22 0.02 265);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0.02 264);
+  --card-foreground: oklch(0.22 0.02 265);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0.02 264);
-  --primary: oklch(0.45 0.14 255);
-  --primary-foreground: oklch(0.985 0.002 247);
-  --secondary: oklch(0.955 0.01 255);
-  --secondary-foreground: oklch(0.25 0.03 264);
-  --muted: oklch(0.955 0.01 255);
-  --muted-foreground: oklch(0.5 0.02 264);
-  --accent: oklch(0.955 0.02 255);
-  --accent-foreground: oklch(0.25 0.03 264);
+  --popover-foreground: oklch(0.22 0.02 265);
+  --primary: oklch(0.42 0.08 250);
+  --primary-foreground: oklch(0.985 0.004 75);
+  --secondary: oklch(0.955 0.008 75);
+  --secondary-foreground: oklch(0.28 0.02 265);
+  --muted: oklch(0.955 0.008 75);
+  --muted-foreground: oklch(0.5 0.02 265);
+  --accent: oklch(0.945 0.012 75);
+  --accent-foreground: oklch(0.28 0.02 265);
   --destructive: oklch(0.55 0.2 25);
-  --border: oklch(0.9 0.01 255);
-  --input: oklch(0.9 0.01 255);
-  --ring: oklch(0.45 0.14 255);
+  --border: oklch(0.9 0.008 75);
+  --input: oklch(0.9 0.008 75);
+  --ring: oklch(0.42 0.08 250);
+  --like: oklch(0.58 0.14 150);
+  --like-foreground: oklch(0.985 0.004 75);
+  --dislike: oklch(0.52 0.03 265);
+  --dislike-foreground: oklch(0.985 0.004 75);
+  --pass: oklch(0.62 0.06 250);
+  --pass-foreground: oklch(0.985 0.004 75);
+  --price-drop: oklch(0.52 0.12 155);
+  --price-drop-foreground: oklch(0.985 0.004 75);
 }
 
 .dark {
@@ -81,6 +97,64 @@
   }
 }
 
+.safe-bottom {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+.page-with-tab-bar {
+  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 1024px) {
+  .page-with-tab-bar {
+    padding-bottom: 1.5rem;
+  }
+}
+
+.page-immersive {
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 1024px) {
+  .page-immersive {
+    padding-bottom: 1.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .browse-card-exit,
+  .browse-card-exit-left,
+  .browse-card-exit-right,
+  .browse-card-exit-up {
+    transition: opacity 150ms ease !important;
+    transform: none !important;
+  }
+}
+
+.browse-card-exit-left {
+  transition:
+    transform 220ms ease,
+    opacity 220ms ease;
+  transform: translateX(-120%) rotate(-8deg);
+  opacity: 0;
+}
+
+.browse-card-exit-right {
+  transition:
+    transform 220ms ease,
+    opacity 220ms ease;
+  transform: translateX(120%) rotate(8deg);
+  opacity: 0;
+}
+
+.browse-card-exit-up {
+  transition:
+    transform 220ms ease,
+    opacity 220ms ease;
+  transform: translateY(-120%);
+  opacity: 0;
+}
+
 .fmh-map-marker-wrap {
   background: transparent;
   border: none;
@@ -92,10 +166,10 @@
   justify-content: center;
   min-width: 2.75rem;
   padding: 0.2rem 0.45rem;
-  border: 2px solid #2563eb;
+  border: 2px solid var(--primary);
   border-radius: 9999px;
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: color-mix(in oklch, var(--primary) 12%, white);
+  color: var(--primary);
   font-size: 0.7rem;
   font-weight: 700;
   line-height: 1.1;
@@ -109,27 +183,27 @@
 }
 
 .fmh-map-marker--liked {
-  border-color: #16a34a;
-  background: #ecfdf5;
-  color: #15803d;
+  border-color: var(--like);
+  background: color-mix(in oklch, var(--like) 12%, white);
+  color: var(--like);
 }
 
 .fmh-map-marker--disliked {
-  border-color: #6b7280;
-  background: #f3f4f6;
-  color: #4b5563;
+  border-color: var(--dislike);
+  background: color-mix(in oklch, var(--dislike) 12%, white);
+  color: var(--dislike);
 }
 
 .fmh-map-marker--price-drop {
   box-shadow:
-    0 0 0 2px #10b981,
+    0 0 0 2px var(--price-drop),
     0 2px 8px rgb(15 23 42 / 18%);
 }
 
 .fmh-map-marker--selected {
   transform: translate(-50%, -100%) scale(1.08);
   box-shadow:
-    0 0 0 3px rgb(37 99 235 / 35%),
+    0 0 0 3px color-mix(in oklch, var(--primary) 35%, transparent),
     0 4px 12px rgb(15 23 42 / 22%);
   z-index: 1000 !important;
 }
@@ -139,24 +213,24 @@
   width: 0.75rem;
   height: 0.75rem;
   border-radius: 9999px;
-  border: 2px solid #2563eb;
-  background: #eff6ff;
+  border: 2px solid var(--primary);
+  background: color-mix(in oklch, var(--primary) 12%, var(--background));
 }
 
 .fmh-map-legend-swatch--liked {
-  border-color: #16a34a;
-  background: #ecfdf5;
+  border-color: var(--like);
+  background: color-mix(in oklch, var(--like) 12%, var(--background));
 }
 
 .fmh-map-legend-swatch--disliked {
-  border-color: #6b7280;
-  background: #f3f4f6;
+  border-color: var(--dislike);
+  background: color-mix(in oklch, var(--dislike) 12%, var(--background));
 }
 
 .fmh-map-legend-swatch--price-drop {
-  border-color: #2563eb;
-  background: #eff6ff;
-  box-shadow: 0 0 0 1px #10b981;
+  border-color: var(--primary);
+  background: color-mix(in oklch, var(--primary) 12%, var(--background));
+  box-shadow: 0 0 0 1px var(--price-drop);
 }
 
 .fmh-map-popup-container .leaflet-popup-content-wrapper {
@@ -188,8 +262,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f1f5f9;
-  color: #64748b;
+  background: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.75rem;
 }
 
@@ -208,30 +282,30 @@
   display: inline-flex;
   align-items: center;
   border-radius: 9999px;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
+  border: 1px solid var(--border);
+  background: var(--muted);
   padding: 0.1rem 0.45rem;
   font-size: 0.65rem;
   font-weight: 600;
-  color: #334155;
+  color: var(--foreground);
 }
 
 .fmh-map-popup__badge--liked {
-  border-color: #86efac;
-  background: #ecfdf5;
-  color: #166534;
+  border-color: color-mix(in oklch, var(--like) 40%, var(--border));
+  background: color-mix(in oklch, var(--like) 12%, var(--background));
+  color: var(--like);
 }
 
 .fmh-map-popup__badge--disliked {
-  border-color: #d1d5db;
-  background: #f3f4f6;
-  color: #4b5563;
+  border-color: color-mix(in oklch, var(--dislike) 40%, var(--border));
+  background: color-mix(in oklch, var(--dislike) 12%, var(--background));
+  color: var(--dislike);
 }
 
 .fmh-map-popup__drop {
-  border-color: #6ee7b7;
-  background: #059669;
-  color: #fff;
+  border-color: color-mix(in oklch, var(--price-drop) 40%, var(--border));
+  background: var(--price-drop);
+  color: var(--price-drop-foreground);
 }
 
 .fmh-map-popup__title {
@@ -249,7 +323,7 @@
 .fmh-map-popup__specs {
   margin: 0 0 0.35rem;
   font-size: 0.75rem;
-  color: #64748b;
+  color: var(--muted-foreground);
 }
 
 .fmh-map-popup__price {
@@ -260,7 +334,7 @@
 .fmh-map-popup__first-price {
   margin-left: 0.35rem;
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: var(--muted-foreground);
   text-decoration: line-through;
 }
 
@@ -277,22 +351,22 @@
   align-items: center;
   justify-content: center;
   border-radius: 0.5rem;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   padding: 0.5rem 0.65rem;
   font-size: 0.8rem;
   font-weight: 600;
   line-height: 1.2;
-  color: #334155 !important;
-  background: #fff;
+  color: var(--foreground) !important;
+  background: var(--background);
   text-decoration: none !important;
   cursor: pointer;
   box-shadow: 0 1px 2px rgb(15 23 42 / 8%);
 }
 
 .fmh-map-popup-container a.fmh-map-popup__btn--primary {
-  border-color: #2563eb;
-  background: #2563eb !important;
-  color: #fff !important;
+  border-color: var(--primary);
+  background: var(--primary) !important;
+  color: var(--primary-foreground) !important;
 }
 
 .fmh-map-popup-container a.fmh-map-popup__btn:hover {

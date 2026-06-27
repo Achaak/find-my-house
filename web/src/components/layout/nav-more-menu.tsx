@@ -1,11 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import {
-  BarChart3,
-  CircleHelp,
-  Ellipsis,
-  Settings,
-  ThumbsDown,
-} from "lucide-react";
+import { Ellipsis } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -13,29 +7,29 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  adminNavItem,
+  navItemActive,
+  secondaryNavItems,
+  secondaryNavPaths,
+} from "@/lib/nav-items";
 import * as m from "@/paraglide/messages.js";
 import { cn } from "@/lib/utils";
-
-const secondaryNavItems = [
-  { to: "/dislikes", label: () => m.nav_dislikes(), icon: ThumbsDown },
-  { to: "/stats", label: () => m.nav_stats(), icon: BarChart3 },
-  { to: "/help", label: () => m.nav_help(), icon: CircleHelp },
-] as const;
-
-const secondaryPaths = secondaryNavItems.map((item) => item.to);
 
 export function NavMoreMenu({
   pathname,
   isAdmin,
-  compact = false,
+  tabStyle = false,
 }: {
   pathname: string;
   isAdmin?: boolean;
-  compact?: boolean;
+  tabStyle?: boolean;
 }) {
-  const isActive =
-    secondaryPaths.some((path) => pathname.startsWith(path)) ||
-    (isAdmin && pathname.startsWith("/admin"));
+  const adminItem = adminNavItem(isAdmin);
+  const isActive = secondaryNavPaths(isAdmin).some((path) =>
+    pathname.startsWith(path)
+  );
+  const AdminIcon = adminItem?.icon;
 
   return (
     <DropdownMenu>
@@ -43,45 +37,46 @@ export function NavMoreMenu({
         render={
           <Button
             variant="ghost"
-            size={compact ? "sm" : "default"}
+            size={tabStyle ? "default" : "sm"}
             className={cn(
-              compact
-                ? "shrink-0 gap-1 px-2.5 py-1.5 text-xs"
-                : "px-3 py-2 text-sm",
-              isActive && "bg-accent text-accent-foreground"
+              tabStyle
+                ? "h-auto w-full flex-col gap-0.5 rounded-lg px-2 py-2 text-[11px] font-medium"
+                : "gap-1 px-2.5 py-1.5 text-xs",
+              isActive &&
+                (tabStyle ? "text-primary" : "bg-accent text-accent-foreground")
             )}
             aria-label={m.nav_more()}
           />
         }
       >
-        <Ellipsis className={compact ? "size-3.5" : "size-4"} />
-        <span>{m.nav_more()}</span>
+        <Ellipsis className={tabStyle ? "size-5" : "size-3.5"} />
+        {tabStyle ? <span>{m.nav_more()}</span> : null}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
+      <DropdownMenuContent align={tabStyle ? "end" : "start"}>
         {secondaryNavItems.map(({ to, label, icon: Icon }) => (
           <DropdownMenuItem
             key={to}
             render={<Link to={to} />}
             nativeButton={false}
             className={cn(
-              pathname.startsWith(to) && "bg-accent text-accent-foreground"
+              navItemActive(pathname, to) && "bg-accent text-accent-foreground"
             )}
           >
             <Icon />
             {label()}
           </DropdownMenuItem>
         ))}
-        {isAdmin ? (
+        {adminItem && AdminIcon ? (
           <DropdownMenuItem
-            render={<Link to="/admin" />}
+            render={<Link to={adminItem.to} />}
             nativeButton={false}
             className={cn(
-              pathname.startsWith("/admin") &&
+              navItemActive(pathname, adminItem.to) &&
                 "bg-accent text-accent-foreground"
             )}
           >
-            <Settings />
-            {m.nav_admin()}
+            <AdminIcon />
+            {adminItem.label()}
           </DropdownMenuItem>
         ) : null}
       </DropdownMenuContent>

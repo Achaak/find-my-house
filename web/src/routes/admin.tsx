@@ -1,9 +1,11 @@
 import { useMutation } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Label } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { api, queryKeys } from "@/lib/api";
 import { getErrorMessage } from "@/lib/error-message";
 import { formatLocaleDateTime } from "@/lib/locale";
@@ -160,9 +162,9 @@ function AdminPage() {
               </pre>
             ) : null}
             {scrapeMutation.error ? (
-              <p className="text-sm text-destructive">
+              <Alert variant="destructive">
                 {getErrorMessage(scrapeMutation.error)}
-              </p>
+              </Alert>
             ) : null}
           </CardContent>
         </Card>
@@ -188,9 +190,9 @@ function AdminPage() {
               </pre>
             ) : null}
             {reconcileMutation.error ? (
-              <p className="text-sm text-destructive">
+              <Alert variant="destructive">
                 {getErrorMessage(reconcileMutation.error)}
-              </p>
+              </Alert>
             ) : null}
           </CardContent>
         </Card>
@@ -223,9 +225,9 @@ function AdminPage() {
               </p>
             ) : null}
             {enrichMutation.error ? (
-              <p className="text-sm text-destructive">
+              <Alert variant="destructive">
                 {getErrorMessage(enrichMutation.error)}
-              </p>
+              </Alert>
             ) : null}
           </CardContent>
         </Card>
@@ -252,23 +254,17 @@ function AdminPage() {
                 : m.admin_notifications_run()}
             </Button>
             {notificationTestMutation.data ? (
-              <p
-                className="rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-sm text-green-800 dark:text-green-300"
-                role="status"
-              >
+              <Alert>
                 {m.admin_notifications_success({
                   services:
                     notificationTestMutation.data.notifyServices.join(", "),
                 })}
-              </p>
+              </Alert>
             ) : null}
             {notificationTestMutation.error ? (
-              <p
-                className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
-                role="alert"
-              >
+              <Alert variant="destructive">
                 {getErrorMessage(notificationTestMutation.error)}
-              </p>
+              </Alert>
             ) : null}
           </CardContent>
         </Card>
@@ -387,16 +383,16 @@ function AdminPage() {
 
             {diagnosticsMutation.isPending ? (
               <div className="space-y-2">
-                <div className="h-8 animate-pulse rounded bg-muted" />
-                <div className="h-8 animate-pulse rounded bg-muted" />
-                <div className="h-8 animate-pulse rounded bg-muted" />
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
               </div>
             ) : null}
 
             {diagnosticsMutation.error ? (
-              <p className="text-sm text-destructive">
+              <Alert variant="destructive">
                 {getErrorMessage(diagnosticsMutation.error)}
-              </p>
+              </Alert>
             ) : null}
 
             {diagnostics.length > 0 ? (

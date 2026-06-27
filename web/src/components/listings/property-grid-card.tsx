@@ -1,8 +1,9 @@
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { CompatibilityBadge } from "@/components/listings/compatibility-badge";
 import { PropertyReactionActions } from "@/components/listings/property-reactions";
-import { Badge } from "@/components/ui/badge";
+import { PropertySummaryBadges } from "@/components/listings/property-summary-badges";
+import { PropertyPortalLinks } from "@/components/listings/property-portal-links";
+import { PropertyImageSkeleton } from "@/components/listings/listing-detail-skeleton";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
@@ -16,24 +17,24 @@ import { usePropertyReactions } from "@/hooks/use-property-reactions";
 import { getErrorMessage } from "@/lib/error-message";
 import { buildPropertySummary } from "@/lib/property-summary";
 import type { Property } from "@find-my-house/api-types";
-import { PropertyImageSkeleton } from "@/components/listings/listing-detail-skeleton";
-import { PropertyPortalLinks } from "@/components/listings/property-portal-links";
-import { cn, formatPrice, formatSource } from "@/lib/utils";
+import { cn, formatPrice } from "@/lib/utils";
 import * as m from "@/paraglide/messages.js";
 
-const propertyCardImageClass = "aspect-video w-full";
+const imageClass = "aspect-[4/3] w-full";
 
-export function PropertyCard({
+export function PropertyGridCard({
   property,
   selected = false,
   imageSkeleton = false,
   hideReactions = false,
+  compact = false,
   onSelect,
 }: {
   property: Property;
   selected?: boolean;
   imageSkeleton?: boolean;
   hideReactions?: boolean;
+  compact?: boolean;
   onSelect?: () => void;
 }) {
   const [imageFailed, setImageFailed] = useState(false);
@@ -68,7 +69,7 @@ export function PropertyCard({
       role={onSelect ? "button" : undefined}
       tabIndex={onSelect ? 0 : undefined}
     >
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden border-border/80 shadow-sm">
         {imageSkeleton ? (
           <PropertyImageSkeleton />
         ) : (
@@ -86,15 +87,15 @@ export function PropertyCard({
                 decoding="async"
                 onError={() => setImageFailed(true)}
                 className={cn(
-                  propertyCardImageClass,
+                  imageClass,
                   "object-cover transition-opacity hover:opacity-95"
                 )}
               />
             ) : (
               <div
                 className={cn(
-                  propertyCardImageClass,
-                  "flex items-center justify-center bg-muted text-sm text-muted-foreground transition-colors hover:bg-muted/80"
+                  imageClass,
+                  "flex items-center justify-center bg-muted text-sm text-muted-foreground"
                 )}
               >
                 {m.property_no_photo()}
@@ -102,55 +103,17 @@ export function PropertyCard({
             )}
           </Link>
         )}
-        <CardHeader>
-          <div className="flex flex-wrap items-start gap-2">
-            {summary.badges.map((badge) => {
-              switch (badge.kind) {
-                case "id":
-                  return (
-                    <Badge key="id" variant="secondary">
-                      #{badge.id}
-                    </Badge>
-                  );
-                case "source":
-                  return (
-                    <Badge key={badge.source} variant="outline">
-                      {formatSource(badge.source)}
-                    </Badge>
-                  );
-                case "publications-unavailable":
-                  return (
-                    <Badge key="unavailable" variant="outline">
-                      {m.publications_unavailable_badge()}
-                    </Badge>
-                  );
-                case "compatibility":
-                  return property.compatibility ? (
-                    <CompatibilityBadge
-                      key="compat"
-                      compatibility={property.compatibility}
-                    />
-                  ) : null;
-                case "price-drop":
-                  return (
-                    <Badge
-                      key="price-drop"
-                      variant="default"
-                      className="bg-emerald-600"
-                    >
-                      {badge.label}
-                    </Badge>
-                  );
-                default:
-                  return null;
-              }
-            })}
-          </div>
-          <CardTitle className="line-clamp-2">{summary.title}</CardTitle>
+        <CardHeader className={cn(compact && "p-4 pb-2")}>
+          <PropertySummaryBadges property={property} badges={summary.badges} />
+          <CardTitle className={cn("line-clamp-2", compact && "text-base")}>
+            {summary.title}
+          </CardTitle>
           <CardDescription>{summary.locationLine}</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          <div className="text-2xl font-semibold">
+        <CardContent
+          className={cn("space-y-2 text-sm", compact && "px-4 pb-2")}
+        >
+          <div className="text-2xl font-semibold tracking-tight">
             {formatPrice(summary.price)}
             {summary.priceDropLabel ? (
               <span className="ml-2 text-sm font-normal text-muted-foreground line-through">
@@ -169,23 +132,41 @@ export function PropertyCard({
             </p>
           ) : null}
         </CardContent>
-        <CardFooter className="flex flex-wrap gap-2">
-          <Link
-            to="/listings/$id"
-            params={{ id: String(property.id) }}
-            className={cn(buttonVariants())}
-          >
-            {m.property_details()}
-          </Link>
-          {hideReactions ? null : (
-            <PropertyReactionActions
-              property={property}
-              reactions={reactions}
-            />
-          )}
-          <PropertyPortalLinks property={property} />
-        </CardFooter>
+        {!compact ? (
+          <CardFooter className="flex flex-wrap gap-2">
+            <Link
+              to="/listings/$id"
+              params={{ id: String(property.id) }}
+              className={cn(buttonVariants())}
+            >
+              {m.property_details()}
+            </Link>
+            {hideReactions ? null : (
+              <PropertyReactionActions
+                property={property}
+                reactions={reactions}
+              />
+            )}
+            <PropertyPortalLinks property={property} />
+          </CardFooter>
+        ) : null}
       </Card>
     </div>
+  );
+}
+
+export function PropertyGridCardSkeleton() {
+  return (
+    <Card className="overflow-hidden">
+      <PropertyImageSkeleton />
+      <CardHeader className="space-y-3">
+        <div className="h-5 w-24 animate-pulse rounded bg-muted" />
+        <div className="h-6 w-3/4 animate-pulse rounded bg-muted" />
+        <div className="h-4 w-1/3 animate-pulse rounded bg-muted" />
+      </CardHeader>
+      <CardContent>
+        <div className="h-8 w-32 animate-pulse rounded bg-muted" />
+      </CardContent>
+    </Card>
   );
 }

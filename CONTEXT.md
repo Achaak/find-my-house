@@ -39,3 +39,11 @@ _Avoid_: Skip (too generic), defer, maybe
 **Reaction**:
 A household like or dislike on a property — one reaction per property, shared across the web UI.
 _Avoid_: Vote, rating, per-user reaction
+
+**Dislike undo** (browse):
+After a dislike in browse, the client may call undo within a grace period (`DISLIKE_UNDO_GRACE_MS` in `src/config/reactions.ts`). The API removes the dislike and rewinds the in-memory browse session so the same property is shown again.
+_Avoid_: Generic undo without session context
+
+**Stats daily snapshot**:
+Once per day (after scrape or on startup), aggregate metrics are stored in `stats_daily_snapshots`. `GET /api/stats/series?range=7d|30d|90d` serves chart series; sparse history is bootstrapped on startup when fewer than seven days exist.
+_Avoid_: Live-only stats without history

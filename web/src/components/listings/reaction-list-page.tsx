@@ -1,5 +1,10 @@
 import type { UseQueryResult } from "@tanstack/react-query";
-import { PropertyCard } from "@/components/listings/property-card";
+import {
+  PropertyGridCard,
+  PropertyGridCardSkeleton,
+} from "@/components/listings/property-grid-card";
+import { Alert } from "@/components/ui/alert";
+import { EmptyState } from "@/components/ui/empty-state";
 import { getErrorMessage } from "@/lib/error-message";
 import type { Property } from "@find-my-house/api-types";
 import * as m from "@/paraglide/messages.js";
@@ -19,18 +24,26 @@ export function ReactionListPage({
         <h1 className="text-2xl font-semibold">{title}</h1>
         <p className="text-sm text-muted-foreground">{description}</p>
       </div>
-      {query.isLoading ? <p>{m.common_loading()}</p> : null}
+      {query.isLoading ? (
+        <div className="grid gap-4 md:grid-cols-2">
+          <PropertyGridCardSkeleton />
+          <PropertyGridCardSkeleton />
+        </div>
+      ) : null}
       {query.error ? (
-        <p className="text-destructive">{getErrorMessage(query.error)}</p>
+        <Alert variant="destructive">{getErrorMessage(query.error)}</Alert>
       ) : null}
       {query.data?.items.length ? (
         <div className="grid gap-4 md:grid-cols-2">
           {query.data.items.map((property) => (
-            <PropertyCard key={property.id} property={property} />
+            <PropertyGridCard key={property.id} property={property} />
           ))}
         </div>
       ) : query.data ? (
-        <p className="text-muted-foreground">{m.reactions_empty()}</p>
+        <EmptyState
+          title={m.reactions_empty()}
+          action={{ label: m.home_go_listings(), to: "/listings" }}
+        />
       ) : null}
     </div>
   );

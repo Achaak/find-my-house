@@ -1,9 +1,3 @@
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-} from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 function Bone({ className }: { className?: string }) {
@@ -13,7 +7,7 @@ function Bone({ className }: { className?: string }) {
 export function ListingDetailSkeleton() {
   return (
     <div className="space-y-6">
-      <ListingCardSkeleton />
+      <PropertyHeroSkeleton />
       <DetailsSectionSkeleton />
       <AddressSectionSkeleton />
     </div>
@@ -21,32 +15,31 @@ export function ListingDetailSkeleton() {
 }
 
 export function PropertyImageSkeleton() {
-  return <Bone className="aspect-video w-full rounded-none" />;
+  return (
+    <Bone className="aspect-[16/10] w-full rounded-none md:aspect-[21/9]" />
+  );
 }
 
-export function ListingCardSkeleton() {
+export function PropertyHeroSkeleton() {
   return (
-    <Card className="overflow-hidden">
+    <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
       <PropertyImageSkeleton />
-      <CardHeader className="space-y-3">
+      <div className="space-y-3 p-4 md:hidden">
         <div className="flex gap-2">
           <Bone className="h-5 w-12" />
           <Bone className="h-5 w-20" />
         </div>
-        <Bone className="h-6 w-3/4" />
-        <Bone className="h-4 w-1/3" />
-      </CardHeader>
-      <CardContent className="space-y-2">
-        <Bone className="h-8 w-32" />
+        <Bone className="h-7 w-3/4" />
+        <Bone className="h-4 w-1/2" />
+        <Bone className="h-9 w-36" />
         <Bone className="h-4 w-48" />
-      </CardContent>
-      <CardFooter className="flex flex-wrap gap-2">
-        <Bone className="h-9 w-20" />
-        <Bone className="h-9 w-16" />
-        <Bone className="h-9 w-20" />
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   );
+}
+
+export function ListingCardSkeleton() {
+  return <PropertyHeroSkeleton />;
 }
 
 export function DetailsSectionSkeleton() {

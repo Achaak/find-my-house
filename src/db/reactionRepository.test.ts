@@ -1,6 +1,7 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createTestRepository } from "../test/db.js";
 import { makeListing } from "../test/listingFixtures.js";
+import { DISLIKE_UNDO_GRACE_MS } from "../config/reactions.js";
 import type { ReactionRepository } from "./reactionRepository.js";
 import type { ListingRepository } from "./listingRepository.js";
 
@@ -163,6 +164,52 @@ describe("ReactionRepository", () => {
 
       expect(activeLikes).toBe(0);
       expect(allLikes).toBe(1);
+    });
+  });
+
+  describe("removeDislikeWithinGrace", () => {
+    it("removes a fresh dislike within the grace window", async () => {
+      await reactionRepository.remove(propertyId, "like");
+      await reactionRepository.remove(propertyId, "dislike");
+      await reactionRepository.add(propertyId, "dislike");
+
+      const status = await reactionRepository.removeDislikeWithinGrace(
+        propertyId,
+        DISLIKE_UNDO_GRACE_MS
+      );
+
+      expect(status).toBe("removed");
+      expect(await reactionRepository.getReaction(propertyId)).toBeNull();
+    });
+
+    it("returns grace_expired after the window", async () => {
+      await reactionRepository.add(propertyId, "dislike");
+      vi.useFakeTimers();
+      vi.setSystemTime(Date.now() + DISLIKE_UNDO_GRACE_MS + 1);
+
+      const status = await reactionRepository.removeDislikeWithinGrace(
+        propertyId,
+        DISLIKE_UNDO_GRACE_MS
+      );
+
+      expect(status).toBe("grace_expired");
+      expect((await reactionRepository.getReaction(propertyId))?.type).toBe(
+        "dislike"
+      );
+
+      vi.useRealTimers();
+    });
+
+    it("returns not_dislike for a like reaction", async () => {
+      await reactionRepository.remove(propertyId, "dislike");
+      await reactionRepository.add(propertyId, "like");
+
+      const status = await reactionRepository.removeDislikeWithinGrace(
+        propertyId,
+        DISLIKE_UNDO_GRACE_MS
+      );
+
+      expect(status).toBe("not_dislike");
     });
   });
 });

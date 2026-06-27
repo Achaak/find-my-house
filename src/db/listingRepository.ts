@@ -137,6 +137,38 @@ export class ListingRepository implements ListingRepositoryRoles {
     return this.statsRepo.getActivityStats();
   }
 
+  async upsertDailySnapshot(): Promise<void> {
+    return this.statsRepo.upsertDailySnapshot();
+  }
+
+  async getDailySnapshots(since: Date) {
+    return this.statsRepo.getDailySnapshots(since);
+  }
+
+  async backfillDailySnapshots(days = 90): Promise<number> {
+    return this.statsRepo.backfillDailySnapshots(days);
+  }
+
+  async getNewPropertiesByDay(since: Date) {
+    return this.statsRepo.getNewPropertiesByDay(since);
+  }
+
+  async getScrapesByDay(since: Date) {
+    return this.statsRepo.getScrapesByDay(since);
+  }
+
+  async getDeactivationsByDay(since: Date) {
+    return this.statsRepo.getDeactivationsByDay(since);
+  }
+
+  async getReactionsByWeek(since: Date) {
+    return this.statsRepo.getReactionsByWeek(since);
+  }
+
+  async getPriceHistogram(bucketCount?: number) {
+    return this.statsRepo.getPriceHistogram(bucketCount);
+  }
+
   async findById(id: number): Promise<PropertyRow | undefined> {
     return this.searchRepo.findById(id);
   }

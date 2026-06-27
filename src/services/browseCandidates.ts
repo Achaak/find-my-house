@@ -15,6 +15,14 @@ export type BrowseSession = {
   reactedPropertyIds: Set<number> | null;
   geoRankedIds: number[] | null;
   geoRankedCursor: number;
+  pendingDislikeUndo: PendingDislikeUndo | null;
+};
+
+export type PendingDislikeUndo = {
+  dislikedPropertyId: number;
+  dislikedIsExplore: boolean;
+  advancedToPropertyId: number | null;
+  advancedProperty: PropertyRow | null;
 };
 
 export const BROWSE_POOL_TARGET = 100;

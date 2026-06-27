@@ -6,8 +6,11 @@ import {
   advanceBrowseSession,
   clearBrowseSession,
   getBrowseState,
+  rewindBrowseDislike,
+  setPendingDislikeUndo,
   startBrowseSession,
 } from "./browseSession.js";
+import { noteBrowseReaction } from "./browseCandidates.js";
 
 vi.mock("../services/compatibilityService.js", () => ({
   resolveCompatibilityModel: vi.fn(() => Promise.resolve(null)),
@@ -44,11 +47,15 @@ function createMocks() {
     listRankedPropertyIds,
   } as unknown as ListingRepository;
 
+  const removeDislikeWithinGrace = vi.fn(() =>
+    Promise.resolve("removed" as const)
+  );
   const reactionRepository = {
     getReactedPropertyIds: vi.fn(() => Promise.resolve(new Set<number>())),
+    removeDislikeWithinGrace,
   } as unknown as ReactionRepository;
 
-  return { repository, reactionRepository, search };
+  return { repository, reactionRepository, search, removeDislikeWithinGrace };
 }
 
 describe("browseSession", () => {
@@ -102,6 +109,45 @@ describe("browseSession", () => {
     expect(first.property?.id).toBe(propertyA.id);
     expect(second.property?.id).not.toBe(propertyA.id);
     expect(session.shownCount).toBe(2);
+    expect(search).toHaveBeenCalledTimes(1);
+  });
+
+  it("rewindBrowseDislike restores the disliked property in session", async () => {
+    const { repository, reactionRepository, search, removeDislikeWithinGrace } =
+      createMocks();
+    const session = startBrowseSession(userId, {});
+
+    await getBrowseState(repository, reactionRepository, userId, session);
+    noteBrowseReaction(session, propertyA.id);
+    const advanced = await advanceBrowseSession(
+      repository,
+      reactionRepository,
+      userId,
+      session
+    );
+
+    setPendingDislikeUndo(session, {
+      dislikedPropertyId: propertyA.id,
+      dislikedIsExplore: false,
+      advancedToPropertyId: advanced.property?.id ?? null,
+      advancedProperty: advanced.property,
+    });
+
+    const result = await rewindBrowseDislike(
+      repository,
+      reactionRepository,
+      userId,
+      session,
+      propertyA.id,
+      5_000
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.state.property?.id).toBe(propertyA.id);
+    }
+    expect(session.currentPropertyId).toBe(propertyA.id);
+    expect(removeDislikeWithinGrace).toHaveBeenCalled();
     expect(search).toHaveBeenCalledTimes(1);
   });
 });

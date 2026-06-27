@@ -42,3 +42,88 @@ export function formatBrowseCriteria(
   if (criteria.neufOnly) parts.push(m.browse_criteria_neuf());
   return parts.length > 0 ? parts.join(" · ") : m.browse_criteria_default();
 }
+
+export type FilterChip = {
+  key: string;
+  label: string;
+};
+
+export function formatFilterChips(filters: ListingSearchFilters): FilterChip[] {
+  const chips: FilterChip[] = [];
+  if (filters.city) chips.push({ key: "city", label: filters.city });
+  if (filters.postalCode) {
+    chips.push({ key: "postalCode", label: filters.postalCode });
+  }
+  if (filters.maxPrice !== undefined) {
+    chips.push({
+      key: "maxPrice",
+      label: m.browse_criteria_max_price({
+        price: formatLocaleNumber(filters.maxPrice),
+      }),
+    });
+  }
+  if (filters.minPrice !== undefined) {
+    chips.push({
+      key: "minPrice",
+      label: m.filter_min_price_chip({
+        price: formatLocaleNumber(filters.minPrice),
+      }),
+    });
+  }
+  if (filters.minSurface !== undefined) {
+    chips.push({
+      key: "minSurface",
+      label: m.browse_criteria_min_surface({
+        surface: String(filters.minSurface),
+      }),
+    });
+  }
+  if (filters.source) {
+    chips.push({ key: "source", label: filters.source });
+  }
+  if (filters.priceDropOnly) {
+    chips.push({ key: "priceDrop", label: m.filter_price_drop_only() });
+  }
+  if (filters.ancienOnly)
+    chips.push({ key: "ancien", label: m.filter_ancien_only() });
+  if (filters.neufOnly)
+    chips.push({ key: "neuf", label: m.filter_neuf_only() });
+  return chips;
+}
+
+export function clearFilterChip(
+  filters: ListingSearchFilters,
+  key: string
+): ListingSearchFilters {
+  const next = { ...filters };
+  switch (key) {
+    case "city":
+      delete next.city;
+      break;
+    case "postalCode":
+      delete next.postalCode;
+      break;
+    case "maxPrice":
+      delete next.maxPrice;
+      break;
+    case "minPrice":
+      delete next.minPrice;
+      break;
+    case "minSurface":
+      delete next.minSurface;
+      break;
+    case "source":
+      delete next.source;
+      break;
+    case "priceDrop":
+      next.priceDropOnly = false;
+      break;
+    case "ancien":
+      next.ancienOnly = false;
+      break;
+    case "neuf":
+      next.neufOnly = false;
+      break;
+  }
+  return next;
+}
