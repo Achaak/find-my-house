@@ -1,7 +1,6 @@
 import { withBasePath } from "@/lib/base-path";
-import { formatPriceDrop, hasPriceDrop } from "@/lib/price-drop";
-import { getDisplayPublications } from "@/lib/publications";
-import { formatCompatibilityBadge } from "@/lib/compatibility";
+import { hasPriceDrop } from "@/lib/price-drop";
+import { buildPropertySummary } from "@/lib/property-summary";
 import type { Property } from "@find-my-house/api-types";
 import { formatPrice, formatSource } from "@/lib/utils";
 import * as m from "@/paraglide/messages.js";
@@ -55,58 +54,42 @@ export function buildMarkerHtml(
 }
 
 export function buildPopupHtml(property: Property): string {
-  const detailUrl = withBasePath(`/listings/${String(property.id)}`);
-  const priceDrop = formatPriceDrop(property);
-  const location = [
-    property.city,
-    property.postalCode ? `(${property.postalCode})` : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-  const specs = [
-    property.surface ? `${String(property.surface)} m²` : null,
-    property.rooms ? m.property_rooms({ count: property.rooms }) : null,
-    property.bedrooms ? m.property_beds({ count: property.bedrooms }) : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const summary = buildPropertySummary(property);
+  const detailUrl = withBasePath(summary.detailPath);
 
   const imageBlock = property.imageUrl
     ? `<img class="fmh-map-popup__image" src="${escapeHtml(property.imageUrl)}" alt="" loading="lazy" />`
     : `<div class="fmh-map-popup__image fmh-map-popup__image--placeholder">${escapeHtml(m.property_no_photo())}</div>`;
 
-  const priceDropBlock = priceDrop
-    ? `<span class="fmh-map-popup__drop">${escapeHtml(priceDrop)}</span>`
-    : "";
-
-  const firstPriceBlock =
-    priceDrop && property.firstPrice > property.price
-      ? `<span class="fmh-map-popup__first-price">${escapeHtml(formatPrice(property.firstPrice))}</span>`
-      : "";
-
-  const compatLabel = property.compatibility?.tier
-    ? formatCompatibilityBadge(property.compatibility)
-    : null;
-  const compatBlock = compatLabel
-    ? `<span class="fmh-map-popup__badge">${escapeHtml(compatLabel)}</span>`
-    : "";
-
-  const reactionBlock =
-    property.reaction === "like"
-      ? `<span class="fmh-map-popup__badge fmh-map-popup__badge--liked">${escapeHtml(m.reaction_liked())}</span>`
-      : property.reaction === "dislike"
-        ? `<span class="fmh-map-popup__badge fmh-map-popup__badge--disliked">${escapeHtml(m.reaction_disliked())}</span>`
-        : "";
-
-  const portalPublications = getDisplayPublications(property);
-  const sourceBadges = portalPublications
-    .map(
-      (publication) =>
-        `<span class="fmh-map-popup__badge">${escapeHtml(formatSource(publication.source))}</span>`
-    )
+  const badgeHtml = summary.badges
+    .map((badge) => {
+      switch (badge.kind) {
+        case "id":
+          return `<span class="fmh-map-popup__badge">#${String(badge.id)}</span>`;
+        case "source":
+          return `<span class="fmh-map-popup__badge">${escapeHtml(formatSource(badge.source))}</span>`;
+        case "publications-unavailable":
+          return `<span class="fmh-map-popup__badge">${escapeHtml(m.publications_unavailable_badge())}</span>`;
+        case "compatibility":
+          return `<span class="fmh-map-popup__badge">${escapeHtml(badge.label)}</span>`;
+        case "price-drop":
+          return `<span class="fmh-map-popup__drop">${escapeHtml(badge.label)}</span>`;
+        case "reaction-like":
+          return `<span class="fmh-map-popup__badge fmh-map-popup__badge--liked">${escapeHtml(m.reaction_liked())}</span>`;
+        case "reaction-dislike":
+          return `<span class="fmh-map-popup__badge fmh-map-popup__badge--disliked">${escapeHtml(m.reaction_disliked())}</span>`;
+        default:
+          return "";
+      }
+    })
     .join("");
 
-  const portalLinks = portalPublications
+  const firstPriceBlock =
+    summary.priceDropLabel && summary.firstPrice > summary.price
+      ? `<span class="fmh-map-popup__first-price">${escapeHtml(formatPrice(summary.firstPrice))}</span>`
+      : "";
+
+  const portalLinks = summary.portalPublications
     .map(
       (publication) =>
         `<a class="fmh-map-popup__btn" href="${escapeHtml(publication.url)}" target="_blank" rel="noreferrer noopener">${escapeHtml(formatSource(publication.source))} ↗</a>`
@@ -118,19 +101,15 @@ export function buildPopupHtml(property: Property): string {
       ${imageBlock}
       <div class="fmh-map-popup__body">
         <div class="fmh-map-popup__badges">
-          <span class="fmh-map-popup__badge">#${String(property.id)}</span>
-          ${sourceBadges}
-          ${compatBlock}
-          ${reactionBlock}
-          ${priceDropBlock}
+          ${badgeHtml}
         </div>
-        <p class="fmh-map-popup__title">${escapeHtml(property.title)}</p>
-        <p class="fmh-map-popup__location">${escapeHtml(location)}</p>
+        <p class="fmh-map-popup__title">${escapeHtml(summary.title)}</p>
+        <p class="fmh-map-popup__location">${escapeHtml(summary.locationLine)}</p>
         <p class="fmh-map-popup__price">
-          <strong>${escapeHtml(formatPrice(property.price))}</strong>
+          <strong>${escapeHtml(formatPrice(summary.price))}</strong>
           ${firstPriceBlock}
         </p>
-        ${specs ? `<p class="fmh-map-popup__specs">${escapeHtml(specs)}</p>` : ""}
+        ${summary.specsLine ? `<p class="fmh-map-popup__specs">${escapeHtml(summary.specsLine)}</p>` : ""}
         <div class="fmh-map-popup__actions">
           <a class="fmh-map-popup__btn fmh-map-popup__btn--primary" href="${escapeHtml(detailUrl)}">${escapeHtml(m.property_details())}</a>
           ${portalLinks}

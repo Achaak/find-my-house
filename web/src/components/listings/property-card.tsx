@@ -1,10 +1,9 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Archive, Heart, ThumbsDown } from "lucide-react";
 import { useState } from "react";
 import { CompatibilityBadge } from "@/components/listings/compatibility-badge";
+import { PropertyReactionActions } from "@/components/listings/property-reactions";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -13,14 +12,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { api, queryKeys } from "@/lib/api";
+import { usePropertyReactions } from "@/hooks/use-property-reactions";
 import { getErrorMessage } from "@/lib/error-message";
-import { formatPriceDrop } from "@/lib/price-drop";
+import { buildPropertySummary } from "@/lib/property-summary";
 import type { Property } from "@find-my-house/api-types";
 import { PropertyImageSkeleton } from "@/components/listings/listing-detail-skeleton";
 import { PropertyPortalLinks } from "@/components/listings/property-portal-links";
 import { cn, formatPrice, formatSource } from "@/lib/utils";
-import { getDisplayPublications } from "@/lib/publications";
 import * as m from "@/paraglide/messages.js";
 
 const propertyCardImageClass = "aspect-video w-full";
@@ -38,64 +36,13 @@ export function PropertyCard({
   hideReactions?: boolean;
   onSelect?: () => void;
 }) {
-  const queryClient = useQueryClient();
   const [imageFailed, setImageFailed] = useState(false);
+  const reactions = usePropertyReactions(property);
+  const summary = buildPropertySummary(property);
   const imageAlt = m.property_image_alt({
     title: property.title,
     city: property.city,
   });
-
-  const invalidateProperty = () => {
-    void queryClient.invalidateQueries({
-      queryKey: queryKeys.listing(property.id),
-    });
-    void queryClient.invalidateQueries({ queryKey: ["listings"] });
-    void queryClient.invalidateQueries({
-      queryKey: queryKeys.reactions("like"),
-    });
-    void queryClient.invalidateQueries({
-      queryKey: queryKeys.reactions("dislike"),
-    });
-  };
-
-  const likeMutation = useMutation({
-    mutationFn: () => api.addReaction("like", property.id),
-    onSuccess: invalidateProperty,
-  });
-
-  const dislikeMutation = useMutation({
-    mutationFn: () => api.addReaction("dislike", property.id),
-    onSuccess: invalidateProperty,
-  });
-
-  const removeMutation = useMutation({
-    mutationFn: (type: "like" | "dislike") =>
-      api.removeReaction(type, property.id),
-    onSuccess: invalidateProperty,
-  });
-
-  const archiveMutation = useMutation({
-    mutationFn: () =>
-      property.archived
-        ? api.unarchiveLike(property.id)
-        : api.archiveLike(property.id),
-    onSuccess: invalidateProperty,
-  });
-
-  const isPending =
-    likeMutation.isPending ||
-    dislikeMutation.isPending ||
-    removeMutation.isPending ||
-    archiveMutation.isPending;
-
-  const mutationError =
-    likeMutation.error ??
-    dislikeMutation.error ??
-    removeMutation.error ??
-    archiveMutation.error ??
-    null;
-
-  const portalPublications = getDisplayPublications(property);
 
   return (
     <div
@@ -157,58 +104,69 @@ export function PropertyCard({
         )}
         <CardHeader>
           <div className="flex flex-wrap items-start gap-2">
-            <Badge variant="secondary">#{property.id}</Badge>
-            {portalPublications.length > 0 ? (
-              portalPublications.map((publication) => (
-                <Badge key={publication.key} variant="outline">
-                  {formatSource(publication.source)}
-                </Badge>
-              ))
-            ) : (
-              <Badge variant="outline">
-                {m.publications_unavailable_badge()}
-              </Badge>
-            )}
-            {property.compatibility ? (
-              <CompatibilityBadge compatibility={property.compatibility} />
-            ) : null}
-            {formatPriceDrop(property) ? (
-              <Badge variant="default" className="bg-emerald-600">
-                {formatPriceDrop(property)}
-              </Badge>
-            ) : null}
+            {summary.badges.map((badge) => {
+              switch (badge.kind) {
+                case "id":
+                  return (
+                    <Badge key="id" variant="secondary">
+                      #{badge.id}
+                    </Badge>
+                  );
+                case "source":
+                  return (
+                    <Badge key={badge.source} variant="outline">
+                      {formatSource(badge.source)}
+                    </Badge>
+                  );
+                case "publications-unavailable":
+                  return (
+                    <Badge key="unavailable" variant="outline">
+                      {m.publications_unavailable_badge()}
+                    </Badge>
+                  );
+                case "compatibility":
+                  return property.compatibility ? (
+                    <CompatibilityBadge
+                      key="compat"
+                      compatibility={property.compatibility}
+                    />
+                  ) : null;
+                case "price-drop":
+                  return (
+                    <Badge
+                      key="price-drop"
+                      variant="default"
+                      className="bg-emerald-600"
+                    >
+                      {badge.label}
+                    </Badge>
+                  );
+                default:
+                  return null;
+              }
+            })}
           </div>
-          <CardTitle className="line-clamp-2">{property.title}</CardTitle>
-          <CardDescription>
-            {property.city}
-            {property.postalCode ? ` (${property.postalCode})` : ""}
-          </CardDescription>
+          <CardTitle className="line-clamp-2">{summary.title}</CardTitle>
+          <CardDescription>{summary.locationLine}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <div className="text-2xl font-semibold">
-            {formatPrice(property.price)}
-            {formatPriceDrop(property) ? (
+            {formatPrice(summary.price)}
+            {summary.priceDropLabel ? (
               <span className="ml-2 text-sm font-normal text-muted-foreground line-through">
-                {formatPrice(property.firstPrice)}
+                {formatPrice(summary.firstPrice)}
               </span>
             ) : null}
           </div>
           <div className="flex flex-wrap gap-3 text-muted-foreground">
-            {property.surface ? <span>{property.surface} m²</span> : null}
-            {property.landSurface ? (
-              <span>
-                {m.property_land_surface({ surface: property.landSurface })}
-              </span>
-            ) : null}
-            {property.rooms ? (
-              <span>{m.property_rooms({ count: property.rooms })}</span>
-            ) : null}
-            {property.bedrooms ? (
-              <span>{m.property_beds({ count: property.bedrooms })}</span>
-            ) : null}
+            {summary.specs.map((spec) => (
+              <span key={spec.key}>{spec.label}</span>
+            ))}
           </div>
-          {mutationError ? (
-            <p className="text-destructive">{getErrorMessage(mutationError)}</p>
+          {!hideReactions && reactions.error ? (
+            <p className="text-destructive">
+              {getErrorMessage(reactions.error)}
+            </p>
           ) : null}
         </CardContent>
         <CardFooter className="flex flex-wrap gap-2">
@@ -220,79 +178,10 @@ export function PropertyCard({
             {m.property_details()}
           </Link>
           {hideReactions ? null : (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={isPending}
-                className={cn(
-                  property.reaction === "like" &&
-                    "border-green-600 bg-green-50 text-green-800 hover:bg-green-100 hover:text-green-900"
-                )}
-                aria-label={
-                  property.reaction === "like" ? m.aria_unlike() : m.aria_like()
-                }
-                onClick={() =>
-                  property.reaction === "like"
-                    ? removeMutation.mutate("like")
-                    : likeMutation.mutate()
-                }
-              >
-                <Heart
-                  className={cn(
-                    "size-4",
-                    property.reaction === "like" && "fill-current"
-                  )}
-                />
-                {property.reaction === "like"
-                  ? m.reaction_unlike()
-                  : m.reaction_like()}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={isPending}
-                className={cn(
-                  property.reaction === "dislike" &&
-                    "border-gray-500 bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-800"
-                )}
-                aria-label={
-                  property.reaction === "dislike"
-                    ? m.aria_remove_dislike()
-                    : m.aria_dislike()
-                }
-                onClick={() =>
-                  property.reaction === "dislike"
-                    ? removeMutation.mutate("dislike")
-                    : dislikeMutation.mutate()
-                }
-              >
-                <ThumbsDown className="size-4" />
-                {property.reaction === "dislike"
-                  ? m.reaction_undo()
-                  : m.reaction_dislike()}
-              </Button>
-              {property.reaction === "like" ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={isPending}
-                  className={cn(
-                    property.archived &&
-                      "border-amber-600 bg-amber-50 text-amber-800 hover:bg-amber-100 hover:text-amber-900"
-                  )}
-                  aria-label={
-                    property.archived ? m.aria_unarchive() : m.aria_archive()
-                  }
-                  onClick={() => archiveMutation.mutate()}
-                >
-                  <Archive className="size-4" />
-                  {property.archived
-                    ? m.reaction_unarchive()
-                    : m.reaction_archive()}
-                </Button>
-              ) : null}
-            </>
+            <PropertyReactionActions
+              property={property}
+              reactions={reactions}
+            />
           )}
           <PropertyPortalLinks property={property} />
         </CardFooter>

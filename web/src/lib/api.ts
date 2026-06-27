@@ -25,45 +25,27 @@ import type {
   DiagnosticsQuery,
   VersionResponse,
 } from "@find-my-house/api-types";
+import { serializeListingSearchFilters } from "@find-my-house/api-types";
 import { serializeDiagnosticsQuery } from "@find-my-house/api-types";
 
 type ListingsWithPropertyResponse = Omit<ListingsResponse, "items"> & {
   items: Property[];
 };
 
-function searchParams(filters: ListingSearchFilters): string {
+function searchParams(
+  filters: ListingSearchFilters,
+  options: { map?: boolean } = {}
+): string {
   const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(filters)) {
-    if (value === undefined || value === null || value === "") continue;
-    params.set(key, String(value));
+  for (const [key, value] of Object.entries(
+    serializeListingSearchFilters(filters)
+  )) {
+    params.set(key, value);
+  }
+  if (options.map) {
+    params.set("map", "true");
   }
   return params.toString();
-}
-
-async function fetchAllListings(filters: ListingSearchFilters = {}) {
-  const pageLimit = 100;
-  const query = searchParams({ ...filters, offset: 0, limit: pageLimit });
-  const first = await apiFetch<ListingsWithPropertyResponse>(
-    `/api/listings${query ? `?${query}` : ""}`
-  );
-  const items = [...first.items];
-  let offset = items.length;
-
-  while (offset < first.total) {
-    const pageQuery = searchParams({
-      ...filters,
-      offset,
-      limit: pageLimit,
-    });
-    const page = await apiFetch<ListingsWithPropertyResponse>(
-      `/api/listings?${pageQuery}`
-    );
-    if (page.items.length === 0) break;
-    items.push(...page.items);
-    offset += page.items.length;
-  }
-
-  return { items, total: first.total, zone: first.zone };
 }
 
 export const api = {
@@ -78,7 +60,13 @@ export const api = {
     );
   },
 
-  listingsAll: fetchAllListings,
+  listingsMap: (filters: ListingSearchFilters = {}) => {
+    const mapFilters: ListingSearchFilters = { ...filters };
+    delete mapFilters.offset;
+    delete mapFilters.limit;
+    const query = searchParams(mapFilters, { map: true });
+    return apiFetch<ListingsWithPropertyResponse>(`/api/listings?${query}`);
+  },
 
   listing: (id: number) =>
     apiFetch<ListingDetailResponse>(`/api/listings/${String(id)}`),

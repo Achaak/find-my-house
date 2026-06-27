@@ -1,7 +1,6 @@
 import type {
   ActivityStats,
   CityCount,
-  ListingSource,
   PriceStats,
   SourcePublicationCounts,
   StatsActivity,
@@ -12,18 +11,12 @@ import type {
   StatsSection,
   StatsSources,
 } from "@find-my-house/api-types";
+import { LISTING_SOURCES } from "@find-my-house/api-types";
 import { PropertyCard } from "@/components/listings/property-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatLocaleDateTime } from "@/lib/locale";
 import { formatPrice, formatSource } from "@/lib/utils";
 import * as m from "@/paraglide/messages.js";
-
-const LISTING_SOURCES: ListingSource[] = [
-  "bienici",
-  "leboncoin",
-  "seloger",
-  "logicimmo",
-];
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (

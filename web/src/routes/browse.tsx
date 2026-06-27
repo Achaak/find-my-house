@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { BrowseReviewActions } from "@/components/listings/browse-review-actions";
 import { PropertyCard } from "@/components/listings/property-card";
 import { Button } from "@/components/ui/button";
 import { api, queryKeys } from "@/lib/api";
@@ -124,48 +125,27 @@ function BrowsePage() {
           ) : (
             <div className="mx-auto w-full max-w-md space-y-4">
               <PropertyCard property={state.item} hideReactions />
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    disabled={isReacting}
-                    onClick={() =>
-                      reactMutation.mutate({
-                        action: "like",
-                        propertyId: state.item!.id,
-                      })
-                    }
-                  >
-                    {isReacting ? m.common_saving() : m.browse_like_next()}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={isReacting}
-                    onClick={() =>
-                      reactMutation.mutate({
-                        action: "dislike",
-                        propertyId: state.item!.id,
-                      })
-                    }
-                  >
-                    {isReacting ? m.common_saving() : m.browse_dislike_next()}
-                  </Button>
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  disabled={isReacting}
-                  onClick={() =>
-                    reactMutation.mutate({
-                      action: "pass",
-                      propertyId: state.item!.id,
-                    })
-                  }
-                >
-                  {isReacting ? m.common_saving() : m.browse_pass_next()}
-                </Button>
-              </div>
+              <BrowseReviewActions
+                disabled={isReacting}
+                onLike={() =>
+                  reactMutation.mutate({
+                    action: "like",
+                    propertyId: state.item!.id,
+                  })
+                }
+                onDislike={() =>
+                  reactMutation.mutate({
+                    action: "dislike",
+                    propertyId: state.item!.id,
+                  })
+                }
+                onPass={() =>
+                  reactMutation.mutate({
+                    action: "pass",
+                    propertyId: state.item!.id,
+                  })
+                }
+              />
             </div>
           )}
         </div>

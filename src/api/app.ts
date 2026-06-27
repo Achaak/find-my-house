@@ -6,6 +6,7 @@ import {
   type AuthVariables,
 } from "./auth.js";
 import { parseListingSearchFilters } from "./searchFilters.js";
+import { LISTING_MAP_LIMIT_MAX } from "@find-my-house/api-types";
 import {
   serializeDpeCandidate,
   serializeProperties,
@@ -145,7 +146,7 @@ export function createApiApp(ctx: ApiContext) {
       return c.json({ error: parsed.error }, 400);
     }
 
-    const { filters } = parsed;
+    const { filters, map: isMapMode } = parsed;
     const geoFilter = resolveGeoFilter(
       { maxTravelMinutes: filters.maxTravelMinutes },
       true
@@ -156,13 +157,14 @@ export function createApiApp(ctx: ApiContext) {
     }
 
     const sort = filters.sort;
-    const limit = filters.limit ?? 20;
+    const limit = isMapMode ? LISTING_MAP_LIMIT_MAX : (filters.limit ?? 20);
+    const offset = isMapMode ? 0 : (filters.offset ?? 0);
 
     const { items: listings, total } = await ctx.repository.search({
       ...filters,
       sort: sort === "compat_desc" ? undefined : sort,
       limit: sort === "compat_desc" ? Math.max(limit, 50) : limit,
-      offset: filters.offset,
+      offset,
     });
 
     const model = await resolveCompatibilityModel(ctx.reactionRepository);
@@ -172,8 +174,15 @@ export function createApiApp(ctx: ApiContext) {
         ? sortByCompatibility(listings, model).slice(0, limit)
         : listings;
 
+    const listingsForResponse = isMapMode
+      ? rankedListings.filter(
+          (property) =>
+            property.latitude !== null && property.longitude !== null
+        )
+      : rankedListings;
+
     const items = await serializeProperties(
-      rankedListings,
+      listingsForResponse,
       ctx.reactionRepository,
       { includeRanks: sort === "compat_desc" }
     );
