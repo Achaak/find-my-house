@@ -1,11 +1,7 @@
 import * as m from "@/paraglide/messages.js";
 
 export type DiagnosticsPreset =
-  | "price"
-  | "last24h"
-  | "bienici"
-  | "custom"
-  | null;
+  "price" | "last24h" | "bienici" | "custom" | null;
 
 export function diagnosticsEmptyMessage(
   hasLoadedDiagnostics: boolean,

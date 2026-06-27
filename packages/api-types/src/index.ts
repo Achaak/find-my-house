@@ -3,11 +3,7 @@
 export type ListingSource = "bienici" | "seloger" | "leboncoin" | "logicimmo";
 
 export type ListingSearchSort =
-  | "price_asc"
-  | "price_desc"
-  | "date_desc"
-  | "surface_desc"
-  | "compat_desc";
+  "price_asc" | "price_desc" | "date_desc" | "surface_desc" | "compat_desc";
 
 export type PropertyReactionState = "like" | "dislike" | null;
 
@@ -275,11 +271,7 @@ export type StatsActivity = {
 };
 
 export type StatsSection =
-  | "overview"
-  | "sources"
-  | "prices"
-  | "mine"
-  | "activity";
+  "overview" | "sources" | "prices" | "mine" | "activity";
 
 export type StatsResponseMap = {
   overview: StatsOverview;

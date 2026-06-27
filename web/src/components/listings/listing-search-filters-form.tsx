@@ -74,8 +74,7 @@ export function ListingSearchFiltersForm({
             setDraft((current) => ({
               ...current,
               source: (event.target.value || undefined) as
-                | ListingSource
-                | undefined,
+                ListingSource | undefined,
             }))
           }
         >

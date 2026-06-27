@@ -112,7 +112,7 @@ describe("parseSeLogerSearchHtml", () => {
   it("throws a descriptive error for unparseable HTML", () => {
     expect(() =>
       parseSeLogerSearchHtml("<html><title>Blocked</title></html>")
-    ).toThrowError(/Blocked/);
+    ).toThrow(/Blocked/);
   });
 
   it("throws a descriptive error when UFRN has no search payload", () => {
@@ -122,7 +122,7 @@ describe("parseSeLogerSearchHtml", () => {
         <script id="__UFRN_FETCHER__">window["__UFRN_FETCHER__"]=JSON.parse("{\\"data\\":{},\\"errors\\":{}}");</script>
         </html>
       `)
-    ).toThrowError(/empty shell page/);
+    ).toThrow(/empty shell page/);
   });
 
   it("parses listings from embedded initialData JSON", () => {
