@@ -137,7 +137,7 @@ export function propertyRecordToPublicationInputs(property: {
         rooms: property.rooms,
         bedrooms: property.bedrooms,
         landSurface: property.landSurface,
-        propertyType: property.propertyType,
+        propertyType: null,
         isNewProperty: property.isNewProperty,
       }),
     ];

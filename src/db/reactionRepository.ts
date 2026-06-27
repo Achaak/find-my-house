@@ -2,7 +2,7 @@ import type { PrismaClient, ReactionType } from "../generated/prisma/client.js";
 import type { PropertyRow } from "../types/listing.js";
 import {
   toCompatibilityTrainingProperty,
-  toPropertyRow,
+  tryToPropertyRow,
 } from "./listingMapper.js";
 
 export type { ReactionType };
@@ -180,7 +180,10 @@ export class ReactionRepository {
       take: options.limit ?? 200,
     });
 
-    return reactions.map((reaction) => toPropertyRow(reaction.property));
+    return reactions.flatMap((reaction) => {
+      const property = tryToPropertyRow(reaction.property);
+      return property ? [property] : [];
+    });
   }
 
   async loadCompatibilityTrainingData(): Promise<{

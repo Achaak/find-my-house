@@ -29,6 +29,7 @@ export type Listing = {
   url: string;
   description: string | null;
   imageUrl: string | null;
+  imageUrls: string[] | null;
   propertyType: string | null;
   dpeClass: string | null;
   gesClass: string | null;
@@ -64,6 +65,10 @@ export type PublicationRow = {
   dpeNumero: string | null;
   description: string | null;
   imageUrl: string | null;
+  imageUrls: string[] | null;
+  imageLocalHashes: Record<string, string> | null;
+  imagePerceptualHashes: Record<string, string> | null;
+  enrichedAt: string | null;
   propertyType: string | null;
   dpeClass: string | null;
   gesClass: string | null;
@@ -76,8 +81,6 @@ export type PublicationRow = {
   propertyCondition: string | null;
   parkingSpaces: number | null;
   highlights: string[] | null;
-  displayEnrichedAt: string | null;
-  addressEnrichedAt: string | null;
   isActive: boolean;
   scrapedAt: string;
 };
@@ -98,8 +101,6 @@ export type PropertyRow = {
   postalCode: string | null;
   address: string | null;
   dpeNumero: string | null;
-  description: string | null;
-  imageUrl: string | null;
   propertyType: string | null;
   dpeClass: string | null;
   gesClass: string | null;
@@ -112,7 +113,6 @@ export type PropertyRow = {
   propertyCondition: string | null;
   parkingSpaces: number | null;
   highlights: string[] | null;
-  displayEnrichedAt: string | null;
   addressEnrichedAt: string | null;
   firstSeenAt: string;
   publications: PublicationRow[];

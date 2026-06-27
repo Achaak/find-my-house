@@ -1,11 +1,11 @@
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { PropertyPhotoCarousel } from "@/components/listings/property-photo-carousel";
 import { PropertySummaryBadges } from "@/components/listings/property-summary-badges";
 import { PropertyImageSkeleton } from "@/components/listings/listing-detail-skeleton";
 import { buttonVariants } from "@/components/ui/button";
 import { buildPropertySummary } from "@/lib/property-summary";
-import type { Property } from "@find-my-house/api-types";
-import { cn, formatPrice } from "@/lib/utils";
+import type { Property, PropertyDetail } from "@find-my-house/api-types";
+import { cn, formatPrice, formatSource } from "@/lib/utils";
 import * as m from "@/paraglide/messages.js";
 
 export function PropertyHero({
@@ -15,7 +15,6 @@ export function PropertyHero({
   property: Property;
   imageSkeleton?: boolean;
 }) {
-  const [imageFailed, setImageFailed] = useState(false);
   const summary = buildPropertySummary(property);
   const imageAlt = m.property_image_alt({
     title: property.title,
@@ -27,19 +26,15 @@ export function PropertyHero({
       <div className="relative">
         {imageSkeleton ? (
           <PropertyImageSkeleton />
-        ) : property.imageUrl && !imageFailed ? (
-          <img
-            src={property.imageUrl}
-            alt={imageAlt}
-            className="aspect-[16/10] w-full object-cover md:aspect-[21/9]"
-            onError={() => setImageFailed(true)}
-          />
         ) : (
-          <div className="flex aspect-[16/10] w-full items-center justify-center bg-muted text-muted-foreground md:aspect-[21/9]">
-            {m.property_no_photo()}
-          </div>
+          <PropertyPhotoCarousel
+            photos={property.photos}
+            alt={imageAlt}
+            imageClassName="aspect-[16/10] md:aspect-[21/9]"
+            overlayFriendly
+          />
         )}
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/35 to-transparent p-4 text-white [&_.border]:border-white/30 [&_.bg-secondary]:bg-white/15 [&_.text-foreground]:text-white">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/35 to-transparent p-4 text-white [&_.border]:border-white/30 [&_.bg-secondary]:bg-white/15 [&_.text-foreground]:text-white">
           <PropertySummaryBadges property={property} badges={summary.badges} />
           <h1 className="mt-2 text-xl font-semibold leading-tight md:text-2xl">
             {summary.title}
@@ -64,24 +59,67 @@ export function PropertyHero({
   );
 }
 
+export function PropertyPublicationsSection({
+  property,
+}: {
+  property: PropertyDetail;
+}) {
+  if (!property.publicationDetails?.length) return null;
+
+  return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold">
+        {m.property_publications_section_title()}
+      </h2>
+      <div className="space-y-3">
+        {property.publicationDetails.map((publication) => (
+          <article
+            key={publication.id}
+            className="rounded-xl border bg-card p-4 shadow-sm"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="font-medium">
+                {formatSource(publication.source)}
+              </h3>
+              <a
+                href={publication.url}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="text-sm text-primary underline-offset-4 hover:underline"
+              >
+                {m.portal_dropdown_label()}
+              </a>
+            </div>
+            <dl className="mt-3 space-y-2 text-sm">
+              {publication.price !== property.price ? (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-muted-foreground">
+                    {m.listing_publication_price()}
+                  </dt>
+                  <dd className="font-medium">
+                    {formatPrice(publication.price)}
+                  </dd>
+                </div>
+              ) : null}
+            </dl>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function PropertyMapPreview({ property }: { property: Property }) {
-  const [imageFailed, setImageFailed] = useState(false);
   const summary = buildPropertySummary(property);
 
   return (
     <div className="space-y-3">
-      {property.imageUrl && !imageFailed ? (
-        <img
-          src={property.imageUrl}
-          alt={summary.title}
-          className="aspect-video w-full rounded-lg object-cover"
-          onError={() => setImageFailed(true)}
-        />
-      ) : (
-        <div className="flex aspect-video items-center justify-center rounded-lg bg-muted text-sm text-muted-foreground">
-          {m.property_no_photo()}
-        </div>
-      )}
+      <PropertyPhotoCarousel
+        photos={property.photos}
+        alt={summary.title}
+        imageClassName="aspect-video rounded-lg"
+        className="rounded-lg"
+      />
       <PropertySummaryBadges property={property} badges={summary.badges} />
       <div>
         <p className="line-clamp-2 font-semibold">{summary.title}</p>

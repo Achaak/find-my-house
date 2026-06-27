@@ -1,8 +1,10 @@
 import type { ClassifiedData, ClassifiedListingDetails } from "../types.js";
+import { pickLongestDescription } from "../../../domain/descriptionEquivalence.js";
 import { extractClassifiedListingExtras } from "../extras.js";
 import { parseClassifiedBedrooms, parseClassifiedRooms } from "../helpers.js";
 import { parseConstructionYearFromText } from "../../listing/amenities.js";
 import {
+  extractClassifiedGalleryPhotos,
   parseClassifiedDetailCard,
   parseClassifiedLandSurface,
 } from "./classifiedCard.js";
@@ -12,7 +14,9 @@ import {
 } from "./coordinates.js";
 import { parseEmbeddedWindowJson } from "./embeddedJson.js";
 import { parseClassifiedDetailEnergy } from "./detailEnergy.js";
+import { extractClassifiedMainDescriptionFromHtml } from "./detailDescription.js";
 import { parseClassifiedOgImageFromHtml } from "./ogImage.js";
+import { syncListingImageFields } from "../../images/scrapeImageUrls.js";
 
 function extractClassifiedDataFromDetailHtml(
   html: string
@@ -46,17 +50,32 @@ export function parseClassifiedDetailPage(
     (classifiedData ? extractClassifiedCoordsFromData(classifiedData) : null) ??
     parseClassifiedCoordinatesFromHtml(html);
   const extras = card ? extractClassifiedListingExtras(card) : null;
+  const galleryUrls = classifiedData
+    ? extractClassifiedGalleryPhotos(classifiedData.gallery)
+    : (card?.photos ?? null);
+  const images = syncListingImageFields(
+    galleryUrls?.length ? galleryUrls : null
+  );
+  const fallbackImageUrl =
+    images.imageUrl ?? parseClassifiedOgImageFromHtml(html);
+
+  const fallbackDescription = extractClassifiedMainDescriptionFromHtml(html);
 
   return {
     ...energy,
-    description: card?.description ?? null,
+    description: pickLongestDescription([
+      card?.description,
+      fallbackDescription,
+    ]),
     surface: card?.surface ?? null,
     bedrooms: card ? parseClassifiedBedrooms(card) : null,
     rooms: card ? parseClassifiedRooms(card) : null,
     landSurface: parseClassifiedLandSurface(text),
     latitude: coords?.lat ?? null,
     longitude: coords?.lng ?? null,
-    imageUrl: parseClassifiedOgImageFromHtml(html),
+    imageUrl: fallbackImageUrl,
+    imageUrls:
+      images.imageUrls ?? (fallbackImageUrl ? [fallbackImageUrl] : null),
     bathrooms: extras?.bathrooms ?? null,
     constructionYear:
       extras?.constructionYear ?? parseConstructionYearFromText(text),

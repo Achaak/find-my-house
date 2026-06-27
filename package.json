@@ -16,7 +16,8 @@
     "start": "node dist/index.js",
     "scrape": "tsx src/scripts/scrape-once.ts",
     "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
+    "db:migrate": "tsx src/scripts/migrate-with-backup.ts",
+    "db:migrate:deploy": "tsx src/scripts/migrate-with-backup.ts deploy",
     "db:push": "prisma db push",
     "db:reconcile": "tsx src/scripts/reconcile-properties.ts",
     "db:backfill:publication-centric": "tsx src/scripts/backfill-publication-centric.ts",
@@ -54,6 +55,7 @@
     "dotenv": "^17.4.2",
     "got": "^15.0.5",
     "hono": "^4.12.25",
+    "imghash": "^1.1.4",
     "node-cron": "^4.2.1",
     "playwright-core": "^1.60.0",
     "zod": "^4.4.3"
@@ -83,7 +85,8 @@
       "@prisma/engines",
       "better-sqlite3",
       "esbuild",
-      "prisma"
+      "prisma",
+      "sharp"
     ]
   },
   "packageManager": "pnpm@9.15.3+sha256.c1da43727ccbc1ed42aff4fd6bdb4b1e91e65a818e6efff5b240fbf070ba4eaf"

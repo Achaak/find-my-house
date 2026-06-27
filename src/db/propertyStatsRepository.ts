@@ -7,7 +7,7 @@ import type {
 } from "../types/stats.js";
 import { displayEnrichmentPendingWhere } from "../domain/enrichmentCriteria.js";
 import { propertyInclude } from "./propertyInclude.js";
-import { toPropertyRow } from "./listingMapper.js";
+import { tryToPropertyRow } from "./listingMapper.js";
 
 export class PropertyStatsRepository {
   constructor(private readonly prisma: PrismaClient) {}
@@ -128,12 +128,12 @@ export class PropertyStatsRepository {
 
     const byId = new Map(properties.map((property) => [property.id, property]));
 
-    return rows
-      .map((row) => byId.get(row.id))
-      .filter((property): property is NonNullable<typeof property> =>
-        Boolean(property)
-      )
-      .map(toPropertyRow);
+    return rows.flatMap((row) => {
+      const propertyRow = byId.get(row.id);
+      if (!propertyRow) return [];
+      const property = tryToPropertyRow(propertyRow);
+      return property ? [property] : [];
+    });
   }
 
   async getTopCities(limit = 5): Promise<CityCount[]> {

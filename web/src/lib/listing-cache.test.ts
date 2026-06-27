@@ -23,6 +23,7 @@ function makeProperty(id: number): Property {
     dpeNumero: null,
     description: null,
     imageUrl: null,
+    photos: [],
     propertyType: "house",
     dpeClass: null,
     gesClass: null,

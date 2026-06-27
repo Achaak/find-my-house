@@ -1,6 +1,10 @@
 import { buildScrapeFilters, scrapeConfig } from "../config/scrape.js";
 import { createListingRepository } from "../db/listingRepository.js";
-import { disconnectPrisma, getPrisma } from "../db/prisma.js";
+import {
+  disconnectPrisma,
+  ensurePrismaRuntime,
+  getPrisma,
+} from "../db/prisma.js";
 import { createScrapers } from "../scrapers/index.js";
 import { ScraperService } from "../services/scraperService.js";
 import { createLogger } from "../utils/logger.js";
@@ -10,6 +14,7 @@ const log = createLogger("scrape-once");
 
 async function main(): Promise<void> {
   const prisma = getPrisma(scrapeConfig.database.url);
+  await ensurePrismaRuntime(prisma);
   const repository = createListingRepository(prisma);
   const scraperService = new ScraperService(createScrapers(), repository);
 

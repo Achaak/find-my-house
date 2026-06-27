@@ -5,7 +5,11 @@ import { notificationsConfig } from "./config/notifications.js";
 import { createListingRepository } from "./db/listingRepository.js";
 import { NotificationPreferenceRepository } from "./db/notificationPreferenceRepository.js";
 import { ReactionRepository } from "./db/reactionRepository.js";
-import { disconnectPrisma, getPrisma } from "./db/prisma.js";
+import {
+  disconnectPrisma,
+  ensurePrismaRuntime,
+  getPrisma,
+} from "./db/prisma.js";
 import { createScrapers } from "./scrapers/index.js";
 import { formatScrapeErrors } from "./services/formatScrapeSummary.js";
 import { notifyScrapeResults } from "./services/notifyScrapeResults.js";
@@ -36,6 +40,7 @@ async function shutdown(): Promise<void> {
 async function main(): Promise<void> {
   const scrapers = createScrapers();
   const prisma = getPrisma(scrapeConfig.database.url);
+  await ensurePrismaRuntime(prisma);
   const repository = createListingRepository(prisma);
   const reactionRepository = new ReactionRepository(
     prisma,

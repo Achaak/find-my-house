@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { PropertyPhotoCarousel } from "@/components/listings/property-photo-carousel";
 import { PropertySummaryBadges } from "@/components/listings/property-summary-badges";
 import { buildPropertySummary } from "@/lib/property-summary";
 import type { Property } from "@find-my-house/api-types";
@@ -15,7 +15,6 @@ export function BrowsePropertyCard({
   property: Property;
   exitDirection?: BrowseExitDirection | null;
 }) {
-  const [imageFailed, setImageFailed] = useState(false);
   const summary = buildPropertySummary(property);
 
   return (
@@ -28,18 +27,7 @@ export function BrowsePropertyCard({
       )}
     >
       <div className="overflow-hidden rounded-2xl border bg-card shadow-lg">
-        {property.imageUrl && !imageFailed ? (
-          <img
-            src={property.imageUrl}
-            alt={summary.title}
-            className="aspect-[4/3] w-full object-cover"
-            onError={() => setImageFailed(true)}
-          />
-        ) : (
-          <div className="flex aspect-[4/3] w-full items-center justify-center bg-muted text-muted-foreground">
-            {m.property_no_photo()}
-          </div>
-        )}
+        <PropertyPhotoCarousel photos={property.photos} alt={summary.title} />
         <div className="space-y-2 p-4">
           <PropertySummaryBadges property={property} badges={summary.badges} />
           <h2 className="line-clamp-2 text-lg font-semibold">

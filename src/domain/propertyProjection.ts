@@ -1,7 +1,10 @@
 import type { ListingSource } from "@find-my-house/api-types";
 import type { ListingPublication } from "../generated/prisma/client.js";
 import { mergeHighlights } from "../utils/listing/amenities.js";
-import type { PropertyProjectionShape } from "./propertyFieldManifest.js";
+import type {
+  PropertyDisplayProjectionShape,
+  PropertyProjectionShape,
+} from "./propertyFieldManifest.js";
 
 const SOURCE_PRIORITY: ListingSource[] = [
   "bienici",
@@ -29,8 +32,6 @@ type PublicationLike = Pick<
   | "postalCode"
   | "address"
   | "dpeNumero"
-  | "description"
-  | "imageUrl"
   | "propertyType"
   | "dpeClass"
   | "gesClass"
@@ -70,12 +71,9 @@ export function selectProjectionPublications(
   );
 }
 
-export function computePropertyProjection(
-  publications: readonly PublicationLike[]
-): PropertyProjection | null {
-  if (publications.length === 0) return null;
-  const ordered = selectProjectionPublications(publications);
-  if (ordered.length === 0) return null;
+function projectFromOrdered(
+  ordered: readonly PublicationLike[]
+): PropertyProjection {
   const primary = ordered[0];
   const mergedHighlights = mergeHighlights(
     ...ordered.map((publication) =>
@@ -111,8 +109,6 @@ export function computePropertyProjection(
     postalCode: pick((publication) => publication.postalCode),
     address: pick((publication) => publication.address),
     dpeNumero: pick((publication) => publication.dpeNumero),
-    description: pick((publication) => publication.description),
-    imageUrl: pick((publication) => publication.imageUrl),
     propertyType: pick((publication) => publication.propertyType),
     dpeClass: pick((publication) => publication.dpeClass),
     gesClass: pick((publication) => publication.gesClass),
@@ -125,5 +121,43 @@ export function computePropertyProjection(
     propertyCondition: pick((publication) => publication.propertyCondition),
     parkingSpaces: pick((publication) => publication.parkingSpaces),
     highlights: mergedHighlights,
+  };
+}
+
+export function computePropertyProjection(
+  publications: readonly PublicationLike[]
+): PropertyProjection | null {
+  if (publications.length === 0) return null;
+  const ordered = selectProjectionPublications(publications);
+  if (ordered.length === 0) return null;
+  return projectFromOrdered(ordered);
+}
+
+/** Active publications first; falls back to inactive rows when all are delisted. */
+export function computePropertyDisplayProjection(
+  publications: readonly PublicationLike[]
+): PropertyDisplayProjectionShape | null {
+  if (publications.length === 0) return null;
+
+  let ordered = selectProjectionPublications(publications);
+  if (ordered.length === 0) {
+    ordered = sortForProjection(publications);
+  }
+  if (ordered.length === 0) return null;
+
+  const projection = projectFromOrdered(ordered);
+  return {
+    address: projection.address,
+    dpeNumero: projection.dpeNumero,
+    propertyType: projection.propertyType,
+    dpeConsumptionKwhM2: projection.dpeConsumptionKwhM2,
+    gesEmissionKgM2: projection.gesEmissionKgM2,
+    bathrooms: projection.bathrooms,
+    constructionYear: projection.constructionYear,
+    heating: projection.heating,
+    orientation: projection.orientation,
+    propertyCondition: projection.propertyCondition,
+    parkingSpaces: projection.parkingSpaces,
+    highlights: projection.highlights,
   };
 }

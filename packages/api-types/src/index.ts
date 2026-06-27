@@ -20,6 +20,26 @@ export type PropertyPublication = {
   scrapedAt: string;
 };
 
+export type PropertyPhoto = {
+  url: string;
+  source: ListingSource;
+  publicationId: number;
+};
+
+export type PropertyPublicationDetail = PropertyPublication & {
+  price: number;
+  description: string | null;
+  surface: number | null;
+  landSurface: number | null;
+  rooms: number | null;
+  bedrooms: number | null;
+  photos: PropertyPhoto[];
+};
+
+export type PropertyPublicationDescription = PropertyPublication & {
+  description: string;
+};
+
 export type CompatibilityReadiness = "none" | "scoring" | "tier" | "full";
 
 export type CompatibilityTier = "strong" | "good" | "moderate" | "weak";
@@ -98,6 +118,7 @@ export type Property = {
   dpeNumero: string | null;
   description: string | null;
   imageUrl: string | null;
+  photos: PropertyPhoto[];
   propertyType: string | null;
   dpeClass: string | null;
   gesClass: string | null;
@@ -139,7 +160,10 @@ export type PropertyCard = Pick<
   compatibility?: CompatibilityCard;
 };
 
-export type PropertyDetail = Property;
+export type PropertyDetail = Property & {
+  publicationDetails?: PropertyPublicationDetail[];
+  publicationDescriptions?: PropertyPublicationDescription[];
+};
 
 export type EnrichmentStatus = "pending" | "complete";
 

@@ -8,6 +8,10 @@ import {
 import type { GeoPoint } from "../geo/geo.js";
 import { sanitizePositiveNumber } from "../listing/amenities.js";
 import { extractBienIciListingExtras } from "./extras.js";
+import {
+  bienIciScrapeImageUrls,
+  syncListingImageFields,
+} from "../images/scrapeImageUrls.js";
 
 export type BienIciBlurInfo = {
   position?: { lat: number; lon: number };
@@ -55,11 +59,6 @@ export function extractBienIciAdCoords(ad: BienIciAd): GeoPoint | null {
   return { lat: position.lat, lng: position.lon };
 }
 
-function bienIciScrapeImageUrl(ad: BienIciAd): string | null {
-  const photo = ad.photos?.find((entry) => entry.url_photo.trim());
-  return photo?.url_photo.trim() ?? null;
-}
-
 function bienIciEnergyMetrics(ad: BienIciAd) {
   return mergeEnergyMetrics(
     {
@@ -85,6 +84,7 @@ export function mapBienIciAdToListing(
     trimmedTitle !== ""
       ? trimmedTitle
       : (ad.propertyType?.trim() ?? "Property listing");
+  const images = syncListingImageFields(bienIciScrapeImageUrls(ad));
 
   return {
     externalId: ad.id,
@@ -104,7 +104,7 @@ export function mapBienIciAdToListing(
     postalCode: ad.postalCode ?? null,
     url,
     description: ad.description ?? null,
-    imageUrl: bienIciScrapeImageUrl(ad),
+    ...images,
     propertyType: ad.propertyType ?? null,
     dpeClass: normalizeEnergyClass(ad.energyClassification),
     gesClass: normalizeEnergyClass(ad.greenhouseGazClassification),
@@ -121,6 +121,7 @@ export function mapBienIciAdToEnrichmentPatch(
   const position = ad.blurInfo?.position ?? ad.blurInfo?.centroid;
   const metrics = bienIciEnergyMetrics(ad);
   const extras = extractBienIciListingExtras(ad);
+  const images = syncListingImageFields(bienIciScrapeImageUrls(ad));
 
   return {
     description: ad.description ?? null,
@@ -135,5 +136,6 @@ export function mapBienIciAdToEnrichmentPatch(
     dpeConsumptionKwhM2: metrics.dpeConsumptionKwhM2,
     gesEmissionKgM2: metrics.gesEmissionKgM2,
     ...extras,
+    ...images,
   };
 }

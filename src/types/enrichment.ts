@@ -7,6 +7,9 @@ export type PropertyEnrichmentPatch = {
   latitude?: number | null;
   longitude?: number | null;
   imageUrl?: string | null;
+  imageUrls?: string[] | null;
+  imageLocalHashes?: Record<string, string> | null;
+  imagePerceptualHashes?: Record<string, string> | null;
   dpeClass?: string | null;
   gesClass?: string | null;
   dpeConsumptionKwhM2?: number | null;

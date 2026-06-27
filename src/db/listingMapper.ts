@@ -3,6 +3,12 @@ import type {
   Property as PrismaProperty,
 } from "../generated/prisma/client.js";
 import type { PropertyRow, PublicationRow } from "../types/listing.js";
+import {
+  parseImageLocalHashes,
+  parseImagePerceptualHashes,
+  parseImageUrls,
+} from "../domain/publicationImages.js";
+import { computePropertyDisplayProjection } from "../domain/propertyProjection.js";
 import { InvariantError } from "../utils/errors/invariantError.js";
 
 type PropertyWithPublications = PrismaProperty & {
@@ -30,6 +36,12 @@ function toPublicationRow(row: PrismaPublication): PublicationRow {
     dpeNumero: row.dpeNumero,
     description: row.description,
     imageUrl: row.imageUrl,
+    imageUrls: parseImageUrls(row.imageUrls),
+    imageLocalHashes: parseImageLocalHashes(row.imageLocalHashes),
+    imagePerceptualHashes: parseImagePerceptualHashes(
+      row.imagePerceptualHashes
+    ),
+    enrichedAt: row.enrichedAt?.toISOString() ?? null,
     propertyType: row.propertyType,
     dpeClass: row.dpeClass,
     gesClass: row.gesClass,
@@ -42,8 +54,6 @@ function toPublicationRow(row: PrismaPublication): PublicationRow {
     propertyCondition: row.propertyCondition,
     parkingSpaces: row.parkingSpaces,
     highlights: parseHighlights(row.highlights),
-    displayEnrichedAt: row.displayEnrichedAt?.toISOString() ?? null,
-    addressEnrichedAt: row.addressEnrichedAt?.toISOString() ?? null,
     isActive: row.isActive,
     scrapedAt: row.scrapedAt.toISOString(),
   };
@@ -64,6 +74,13 @@ function sortPublications(publications: PublicationRow[]): PublicationRow[] {
   );
 }
 
+export function tryToPropertyRow(
+  row: PropertyWithPublications
+): PropertyRow | null {
+  if (row.publications.length === 0) return null;
+  return toPropertyRow(row);
+}
+
 export function toPropertyRow(row: PropertyWithPublications): PropertyRow {
   const allPublications = sortPublications(
     row.publications.map(toPublicationRow)
@@ -76,6 +93,7 @@ export function toPropertyRow(row: PropertyWithPublications): PropertyRow {
   const publications = allPublications.filter(
     (publication) => publication.isActive
   );
+  const display = computePropertyDisplayProjection(row.publications);
 
   return {
     id: row.id,
@@ -91,23 +109,20 @@ export function toPropertyRow(row: PropertyWithPublications): PropertyRow {
     longitude: row.longitude,
     city: row.city,
     postalCode: row.postalCode,
-    address: row.address,
-    dpeNumero: row.dpeNumero,
-    description: row.description,
-    imageUrl: row.imageUrl,
-    propertyType: row.propertyType,
+    address: display?.address ?? null,
+    dpeNumero: display?.dpeNumero ?? null,
+    propertyType: display?.propertyType ?? null,
     dpeClass: row.dpeClass,
     gesClass: row.gesClass,
-    dpeConsumptionKwhM2: row.dpeConsumptionKwhM2,
-    gesEmissionKgM2: row.gesEmissionKgM2,
-    bathrooms: row.bathrooms,
-    constructionYear: row.constructionYear,
-    heating: row.heating,
-    orientation: row.orientation,
-    propertyCondition: row.propertyCondition,
-    parkingSpaces: row.parkingSpaces,
-    highlights: parseHighlights(row.highlights),
-    displayEnrichedAt: row.displayEnrichedAt?.toISOString() ?? null,
+    dpeConsumptionKwhM2: display?.dpeConsumptionKwhM2 ?? null,
+    gesEmissionKgM2: display?.gesEmissionKgM2 ?? null,
+    bathrooms: display?.bathrooms ?? null,
+    constructionYear: display?.constructionYear ?? null,
+    heating: display?.heating ?? null,
+    orientation: display?.orientation ?? null,
+    propertyCondition: display?.propertyCondition ?? null,
+    parkingSpaces: display?.parkingSpaces ?? null,
+    highlights: display?.highlights ?? null,
     addressEnrichedAt: row.addressEnrichedAt?.toISOString() ?? null,
     firstSeenAt: row.firstSeenAt.toISOString(),
     publications,
@@ -134,23 +149,20 @@ export function toCompatibilityTrainingProperty(
     longitude: row.longitude,
     city: row.city,
     postalCode: row.postalCode,
-    address: row.address,
-    dpeNumero: row.dpeNumero,
-    description: row.description,
-    imageUrl: row.imageUrl,
-    propertyType: row.propertyType,
+    address: null,
+    dpeNumero: null,
+    propertyType: null,
     dpeClass: row.dpeClass,
     gesClass: row.gesClass,
-    dpeConsumptionKwhM2: row.dpeConsumptionKwhM2,
-    gesEmissionKgM2: row.gesEmissionKgM2,
-    bathrooms: row.bathrooms,
-    constructionYear: row.constructionYear,
-    heating: row.heating,
-    orientation: row.orientation,
-    propertyCondition: row.propertyCondition,
-    parkingSpaces: row.parkingSpaces,
-    highlights: parseHighlights(row.highlights),
-    displayEnrichedAt: row.displayEnrichedAt?.toISOString() ?? null,
+    dpeConsumptionKwhM2: null,
+    gesEmissionKgM2: null,
+    bathrooms: null,
+    constructionYear: null,
+    heating: null,
+    orientation: null,
+    propertyCondition: null,
+    parkingSpaces: null,
+    highlights: null,
     addressEnrichedAt: row.addressEnrichedAt?.toISOString() ?? null,
     firstSeenAt: row.firstSeenAt.toISOString(),
     publications: [],

@@ -2,19 +2,18 @@ import type { PropertyEnrichmentPatch } from "../types/enrichment.js";
 import type { ListingSource, PublicationRow } from "../types/listing.js";
 import {
   fetchBienIciAdById,
-  fetchBienIciListingHtml,
   mapBienIciAdToEnrichmentPatch,
   type BienIciAd,
 } from "../utils/bienici/index.js";
-import { ClassifiedPortalAccessBlockedError } from "../utils/classifiedPortal/index.js";
-import type { ClassifiedListingDetails } from "../utils/classifiedPortal/types.js";
-import { parseOgImageFromHtml } from "../utils/html/ogImage.js";
 import { normalizeEnergyClass } from "../utils/energy/energyClass.js";
 import {
   fetchLeboncoinAdById,
   fetchLeboncoinDetailById,
   mapLeboncoinAdToEnrichmentPatch,
 } from "../utils/leboncoin/index.js";
+import { leboncoinScrapeImageUrls } from "../utils/images/scrapeImageUrls.js";
+import { ClassifiedPortalAccessBlockedError } from "../utils/classifiedPortal/index.js";
+import type { ClassifiedListingDetails } from "../utils/classifiedPortal/types.js";
 import { fetchLogicImmoListingDetails } from "../utils/logicimmo/index.js";
 import { fetchSeLogerListingDetails } from "../utils/seloger/index.js";
 
@@ -85,7 +84,12 @@ function mapClassifiedDetailsToEnrichmentPatch(
     propertyCondition: details.propertyCondition,
     parkingSpaces: details.parkingSpaces,
     highlights: details.highlights,
-    ...(options.skipImage ? {} : { imageUrl: details.imageUrl }),
+    ...(options.skipImage
+      ? {}
+      : {
+          imageUrl: details.imageUrl,
+          imageUrls: details.imageUrls,
+        }),
   });
 }
 
@@ -111,17 +115,11 @@ const bieniciAdapter: EnrichmentAdapter = {
 
     const patch = mapBienIciAdToEnrichmentPatch(ad);
     if (purpose === "address" || options.skipImage) {
-      return pickPatchForPurpose(pickDefined(patch), purpose);
+      const { imageUrl: _imageUrl, imageUrls: _imageUrls, ...rest } = patch;
+      return pickPatchForPurpose(pickDefined(rest), purpose);
     }
 
-    const html = await fetchBienIciListingHtml(publication.url);
-    return pickPatchForPurpose(
-      pickDefined({
-        ...patch,
-        imageUrl: parseOgImageFromHtml(html),
-      }),
-      purpose
-    );
+    return pickPatchForPurpose(pickDefined(patch), purpose);
   },
 };
 
@@ -139,6 +137,9 @@ const leboncoinAdapter: EnrichmentAdapter = {
     return pickDefined({
       ...mapLeboncoinAdToEnrichmentPatch(detail.ad),
       imageUrl: detail.imageUrl,
+      imageUrls:
+        leboncoinScrapeImageUrls(detail.ad) ??
+        (detail.imageUrl ? [detail.imageUrl] : null),
     });
   },
 };

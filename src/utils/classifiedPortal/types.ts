@@ -124,6 +124,7 @@ export type ClassifiedListingDetails = ClassifiedEnergyDetails & {
   latitude: number | null;
   longitude: number | null;
   imageUrl: string | null;
+  imageUrls: string[] | null;
   bathrooms: number | null;
   constructionYear: number | null;
   heating: string | null;

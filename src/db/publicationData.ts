@@ -3,6 +3,23 @@ import { parseBieniciAgency } from "../utils/bienici/agency.js";
 import { Prisma } from "../generated/prisma/client.js";
 import { toPropertyScalarData } from "./propertyFieldManifest.js";
 
+function imageUrlListsEqual(
+  left: string[] | null | undefined,
+  right: string[] | null | undefined
+): boolean {
+  const a = left ?? [];
+  const b = right ?? [];
+  if (a.length !== b.length) return false;
+  return a.every((url, index) => url === b[index]);
+}
+
+export function publicationImageUrlsChanged(
+  existing: string[] | null | undefined,
+  listing: Listing
+): boolean {
+  return !imageUrlListsEqual(existing, listing.imageUrls);
+}
+
 export type PublicationCreateData = {
   externalId: string;
   source: ListingSource;
@@ -22,6 +39,7 @@ export type PublicationCreateData = {
   dpeNumero: string | null;
   description: string | null;
   imageUrl: string | null;
+  imageUrls: string[] | null;
   propertyType: string | null;
   dpeClass: string | null;
   gesClass: string | null;
@@ -53,6 +71,7 @@ export function toPublicationCreateData(
     source: listing.source,
     url: listing.url,
     ...toPropertyScalarData(listing),
+    imageUrls: listing.imageUrls,
     address: null,
     dpeNumero: null,
     scrapedAt,
@@ -65,5 +84,6 @@ export function toPrismaPublicationData(data: PublicationCreateData) {
   return {
     ...data,
     highlights: data.highlights ?? Prisma.DbNull,
+    imageUrls: data.imageUrls ?? Prisma.DbNull,
   };
 }

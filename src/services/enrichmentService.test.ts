@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestRepository } from "../test/db.js";
+import { computePropertyDescription } from "../domain/propertyDisplayFields.js";
 import { makeListing, makePropertyRow } from "../test/listingFixtures.js";
+import type { PropertyEnrichmentPatch } from "../types/enrichment.js";
+import type { EnrichmentResult } from "./enrichmentService.js";
 import type { ListingRepository } from "../db/listingRepository.js";
 import {
   fetchBienIciAdById,
@@ -49,6 +52,19 @@ vi.mock("../utils/seloger/index.js", async (importOriginal) => {
   };
 });
 
+vi.mock("./imageDownloadService.js", () => ({
+  downloadPublicationImages: vi.fn(
+    (
+      urls: string[] | null,
+      existing: Record<string, string> | null,
+      existingPerceptual: Record<string, string> | null = null
+    ) => ({
+      localHashes: { ...(existing ?? {}) },
+      perceptualHashes: { ...(existingPerceptual ?? {}) },
+    })
+  ),
+}));
+
 const mockFetchBienIci = vi.mocked(fetchBienIciAdById);
 const mockFetchBienIciListingHtml = vi.mocked(fetchBienIciListingHtml);
 const mockFetchLeboncoin = vi.mocked(fetchLeboncoinDetailById);
@@ -58,8 +74,10 @@ const mockFetchSeLoger = vi.mocked(fetchSeLogerListingDetails);
 function publication(
   source: "seloger" | "bienici" | "leboncoin",
   id: number,
-  externalId: string
+  externalId: string,
+  overrides: Partial<import("../types/listing.js").PublicationRow> = {}
 ) {
+  const scrapedAt = "2026-01-15T10:00:00.000Z";
   const urls: Record<typeof source, string> = {
     seloger: `https://www.seloger.com/annonces/achat/${externalId}.htm`,
     bienici: `https://www.bienici.com/annonce/${externalId}`,
@@ -71,23 +89,99 @@ function publication(
     externalId,
     source,
     url: urls[source],
-    scrapedAt: "2026-01-15T10:00:00.000Z",
+    title: "Maison de test",
+    price: 300_000,
+    surface: 90,
+    landSurface: 500,
+    rooms: 5,
+    bedrooms: 3,
+    isNewProperty: false,
+    latitude: 48.8566,
+    longitude: 2.3522,
+    city: "Paris",
+    postalCode: "75001",
+    address: null,
+    dpeNumero: null,
+    description: null,
+    imageUrl: null,
+    imageUrls: null,
+    imageLocalHashes: null,
+    imagePerceptualHashes: null,
+    enrichedAt: null,
+    propertyType: "house",
+    dpeClass: "C",
+    gesClass: "D",
+    dpeConsumptionKwhM2: 120,
+    gesEmissionKgM2: 25,
+    bathrooms: null,
+    constructionYear: null,
+    heating: null,
+    orientation: null,
+    propertyCondition: null,
+    parkingSpaces: null,
+    highlights: null,
+    isActive: true,
+    scrapedAt,
+    ...overrides,
   };
 }
 
-describe("propertyNeedsEnrichment", () => {
-  it("requires DPE/GES classes for display energy", () => {
-    const property = makePropertyRow({
-      dpeClass: null,
-      gesClass: "D",
-      dpeConsumptionKwhM2: 120,
-      gesEmissionKgM2: 25,
-    });
+function publicationPatch(
+  result: EnrichmentResult,
+  publicationId: number
+): PropertyEnrichmentPatch {
+  return (
+    result.patches.find((entry) => entry.publicationId === publicationId)
+      ?.patch ?? {}
+  );
+}
 
-    expect(propertyNeedsEnrichment(property, "display")).toBe(true);
+function displayFieldsPatch(result: EnrichmentResult): PropertyEnrichmentPatch {
+  return result.patches.reduce<PropertyEnrichmentPatch>(
+    (merged, entry) => ({ ...merged, ...entry.patch }),
+    {}
+  );
+}
+
+async function markDisplayAndGalleryComplete(
+  repository: ListingRepository,
+  propertyId: number
+) {
+  const property = await repository.findById(propertyId);
+  if (!property) throw new Error("Expected property");
+
+  for (const publicationRow of property.publications) {
+    await repository.applyPublicationGallery(publicationRow.id, {
+      imageUrls:
+        publicationRow.imageUrls ??
+        (publicationRow.imageUrl ? [publicationRow.imageUrl] : null),
+      imageLocalHashes: publicationRow.imageLocalHashes ?? {},
+    });
+  }
+
+  for (const publicationRow of property.publications) {
+    await repository.markPublicationEnrichmentAttempted(
+      publicationRow.id,
+      "display"
+    );
+  }
+}
+
+describe("propertyNeedsEnrichment", () => {
+  it("requires display enrichment when an active publication has null enrichedAt", () => {
+    expect(
+      propertyNeedsEnrichment(
+        makePropertyRow({
+          publications: [
+            publication("bienici", 1, "bi-1", { enrichedAt: null }),
+          ],
+        }),
+        "display"
+      )
+    ).toBe(true);
   });
 
-  it("does not require numeric energy metrics for display", () => {
+  it("does not require numeric energy metrics for display when publications are enriched", () => {
     expect(
       propertyNeedsEnrichment(
         makePropertyRow({
@@ -95,29 +189,43 @@ describe("propertyNeedsEnrichment", () => {
           gesClass: "A",
           dpeConsumptionKwhM2: null,
           gesEmissionKgM2: null,
-          imageUrl: "https://example.com/photo.jpg",
+          publications: [
+            publication("leboncoin", 1, "lbc-1", {
+              enrichedAt: "2026-01-15T10:00:00.000Z",
+              imageUrl: "https://example.com/photo.jpg",
+            }),
+          ],
         }),
         "display"
       )
     ).toBe(false);
   });
 
-  it("requires land surface and description for display", () => {
+  it("ignores missing land surface on the property for display purpose", () => {
     expect(
       propertyNeedsEnrichment(makePropertyRow({ landSurface: null }), "display")
-    ).toBe(true);
+    ).toBe(false);
     expect(
-      propertyNeedsEnrichment(makePropertyRow({ description: null }), "display")
+      propertyNeedsEnrichment(
+        makePropertyRow({
+          landSurface: null,
+          publications: [
+            publication("bienici", 1, "bi-1", { enrichedAt: null }),
+          ],
+        }),
+        "display"
+      )
     ).toBe(true);
   });
 
-  it("requires coords for SeLoger publications on display", () => {
+  it("requires display enrichment for SeLoger truncated descriptions", () => {
     const property = makePropertyRow({
-      latitude: null,
-      longitude: null,
-      publications: [publication("seloger", 1, "sl-1")],
-      source: "seloger",
-      url: "https://www.seloger.com/annonces/achat/sl-1.htm",
+      publications: [
+        publication("seloger", 1, "sl-1", {
+          enrichedAt: "2026-01-15T10:00:00.000Z",
+          description: "Court résumé...",
+        }),
+      ],
     });
 
     expect(propertyNeedsEnrichment(property, "display")).toBe(true);
@@ -128,23 +236,37 @@ describe("propertyNeedsEnrichment", () => {
       propertyNeedsEnrichment(makePropertyRow({ surface: null }), "address")
     ).toBe(true);
     expect(
-      propertyNeedsEnrichment(
-        makePropertyRow({ landSurface: null, description: null }),
-        "address"
-      )
+      propertyNeedsEnrichment(makePropertyRow({ landSurface: null }), "address")
     ).toBe(false);
   });
 
-  it("requires image URL for display", () => {
+  it("requires display enrichment when publication imageUrl is missing", () => {
     expect(
-      propertyNeedsEnrichment(makePropertyRow({ imageUrl: null }), "display")
+      propertyNeedsEnrichment(
+        makePropertyRow({
+          publications: [
+            publication("bienici", 1, "bi-1", {
+              enrichedAt: null,
+              imageUrl: null,
+            }),
+          ],
+        }),
+        "display"
+      )
     ).toBe(true);
   });
 
-  it("returns false when display fields are complete", () => {
+  it("returns false when all active publications are display-enriched", () => {
     expect(
       propertyNeedsEnrichment(
-        makePropertyRow({ imageUrl: "https://example.com/photo.jpg" }),
+        makePropertyRow({
+          publications: [
+            publication("leboncoin", 1, "lbc-1", {
+              enrichedAt: "2026-01-15T10:00:00.000Z",
+              imageUrl: "https://example.com/photo.jpg",
+            }),
+          ],
+        }),
         "display"
       )
     ).toBe(false);
@@ -155,7 +277,11 @@ describe("propertyNeedsEnrichment", () => {
       propertyNeedsEnrichment(
         makePropertyRow({
           landSurface: null,
-          displayEnrichedAt: "2026-06-15T10:00:00.000Z",
+          publications: [
+            publication("bienici", 1, "bi-1", {
+              enrichedAt: "2026-06-15T10:00:00.000Z",
+            }),
+          ],
         }),
         "display"
       )
@@ -167,11 +293,12 @@ describe("propertyNeedsEnrichment", () => {
       propertyNeedsEnrichment(
         makePropertyRow({
           landSurface: null,
-          displayEnrichedAt: null,
           addressEnrichedAt: null,
           publications: [
-            publication("leboncoin", 1, "lbc-1"),
-            publication("bienici", 2, "bi-1"),
+            publication("leboncoin", 1, "lbc-1", {
+              enrichedAt: "2026-06-15T10:00:00.000Z",
+            }),
+            publication("bienici", 2, "bi-1", { enrichedAt: null }),
           ],
         }),
         "display"
@@ -226,7 +353,6 @@ describe("enrichProperty", () => {
     });
 
     const property = makePropertyRow({
-      description: null,
       dpeClass: null,
       gesClass: null,
       dpeConsumptionKwhM2: null,
@@ -241,11 +367,15 @@ describe("enrichProperty", () => {
     const result = await enrichProperty(property);
 
     expect(result.warnings).toEqual([]);
-    expect(result.patch.description).toBe("Description SeLoger");
+    expect(publicationPatch(result, 2).description).toBe(
+      "Description Leboncoin"
+    );
     expect(result.patch.dpeClass).toBe("B");
     expect(result.patch.gesClass).toBe("C");
     expect(result.patch.dpeConsumptionKwhM2).toBe(90);
-    expect(result.updatedFields).toContain("description");
+    expect(result.patches.some((entry) => "description" in entry.patch)).toBe(
+      true
+    );
     expect(result.updatedFields).toContain("dpeClass");
   });
 
@@ -276,7 +406,6 @@ describe("enrichProperty", () => {
 
     const result = await enrichProperty(
       makePropertyRow({
-        imageUrl: null,
         publications: [
           publication("bienici", 1, "bi-1"),
           publication("seloger", 2, "sl-1"),
@@ -284,7 +413,9 @@ describe("enrichProperty", () => {
       })
     );
 
-    expect(result.patch.imageUrl).toBe("https://example.com/seloger-og.jpg");
+    expect(displayFieldsPatch(result).imageUrl).toBe(
+      "https://example.com/seloger-og.jpg"
+    );
     expect(mockFetchBienIciListingHtml).not.toHaveBeenCalled();
   });
 
@@ -313,7 +444,6 @@ describe("enrichProperty", () => {
 
     const result = await enrichProperty(
       makePropertyRow({
-        imageUrl: null,
         publications: [
           publication("bienici", 1, "bi-1"),
           publication("leboncoin", 2, "lbc-1"),
@@ -321,7 +451,9 @@ describe("enrichProperty", () => {
       })
     );
 
-    expect(result.patch.imageUrl).toBe("https://example.com/leboncoin-og.jpg");
+    expect(displayFieldsPatch(result).imageUrl).toBe(
+      "https://example.com/leboncoin-og.jpg"
+    );
     expect(mockFetchBienIciListingHtml).not.toHaveBeenCalled();
   });
 
@@ -345,17 +477,13 @@ describe("enrichProperty", () => {
       price: 300_000,
       city: "Paris",
       landSurfaceArea: 750,
+      photos: [{ url_photo: "https://example.com/og-photo.jpg" }],
     });
-    mockFetchBienIciListingHtml.mockResolvedValue(
-      '<meta property="og:image" content="https://example.com/og-photo.jpg">'
-    );
     mockFetchLeboncoin.mockResolvedValue(null);
     mockFetchLeboncoinAd.mockResolvedValue(null);
 
     const property = makePropertyRow({
-      description: null,
       landSurface: null,
-      imageUrl: null,
       publications: [
         publication("bienici", 1, "bi-1"),
         publication("seloger", 2, "sl-1"),
@@ -365,8 +493,10 @@ describe("enrichProperty", () => {
     const result = await enrichProperty(property);
 
     expect(result.patch.landSurface).toBe(750);
-    expect(result.patch.imageUrl).toBe("https://example.com/og-photo.jpg");
-    expect(result.patch.description).toBe("Description SeLoger");
+    expect(displayFieldsPatch(result).imageUrl).toBe(
+      "https://example.com/og-photo.jpg"
+    );
+    expect(displayFieldsPatch(result).description).toBe("Description SeLoger");
   });
 
   it("keeps existing property values and fills gaps from other sources", async () => {
@@ -397,13 +527,14 @@ describe("enrichProperty", () => {
 
     const result = await enrichProperty(
       makePropertyRow({
-        description: "Description existante",
         dpeClass: "D",
         gesClass: "A",
         dpeConsumptionKwhM2: null,
         gesEmissionKgM2: null,
         publications: [
-          publication("bienici", 1, "bi-1"),
+          publication("bienici", 1, "bi-1", {
+            description: "Description existante",
+          }),
           publication("seloger", 2, "sl-1"),
         ],
       })
@@ -455,7 +586,6 @@ describe("enrichProperty", () => {
     mockFetchLeboncoinAd.mockResolvedValue(null);
 
     const property = makePropertyRow({
-      description: null,
       dpeClass: null,
       publications: [
         publication("seloger", 1, "sl-1"),
@@ -467,7 +597,9 @@ describe("enrichProperty", () => {
 
     expect(result.warnings).toHaveLength(1);
     expect(result.warnings[0]).toContain("SeLoger is blocking enrichment");
-    expect(result.patch.description).toBe("Description de secours");
+    expect(displayFieldsPatch(result).description).toBe(
+      "Description de secours"
+    );
     expect(result.patch.dpeClass).toBe("A");
   });
 
@@ -488,7 +620,6 @@ describe("enrichProperty", () => {
     });
 
     const property = makePropertyRow({
-      description: null,
       publications: [
         publication("bienici", 1, "bi-1"),
         publication("seloger", 2, "sl-1"),
@@ -498,7 +629,7 @@ describe("enrichProperty", () => {
     const result = await enrichProperty(property);
 
     expect(result.warnings).toEqual(["bienici: API indisponible"]);
-    expect(result.patch.description).toBe("OK");
+    expect(displayFieldsPatch(result).description).toBe("OK");
   });
 
   it("skips display-only fetches for address purpose", async () => {
@@ -519,13 +650,12 @@ describe("enrichProperty", () => {
 
     const property = makePropertyRow({
       surface: null,
-      publications: [publication("seloger", 1, "sl-1")],
-      source: "seloger",
-      url: "https://www.seloger.com/annonces/achat/sl-1.htm",
+      publications: [publication("seloger", 1, "sl-1", { surface: null })],
     });
 
     const result = await enrichProperty(property, "address");
 
+    expect(publicationPatch(result, 1).surface).toBe(90);
     expect(result.patch.surface).toBe(90);
     expect(result.patch.description).toBeUndefined();
     expect(result.patch.imageUrl).toBeUndefined();
@@ -567,6 +697,8 @@ describe("ensurePropertyEnriched", () => {
       throw new Error("Expected inserted property row");
     }
 
+    await markDisplayAndGalleryComplete(repository, inserted.row.id);
+
     const result = await ensurePropertyEnriched(
       repository,
       inserted.row.id,
@@ -574,7 +706,11 @@ describe("ensurePropertyEnriched", () => {
     );
 
     expect(result.warnings).toEqual([]);
-    expect(result.property?.description).toBe("Description complète");
+    expect(result.property).toBeDefined();
+    if (!result.property) return;
+    expect(computePropertyDescription(result.property.publications)).toBe(
+      "Description complète"
+    );
     expect(mockFetchSeLoger).not.toHaveBeenCalled();
     expect(mockFetchBienIci).not.toHaveBeenCalled();
   });
@@ -617,11 +753,17 @@ describe("ensurePropertyEnriched", () => {
     );
 
     expect(result.warnings).toEqual([]);
-    expect(result.property?.description).toBe("Nouvelle description");
-    expect(result.property?.dpeClass).toBe("B");
-    expect(result.property?.gesClass).toBe("C");
-    expect(result.property?.dpeConsumptionKwhM2).toBe(88);
-    expect(result.property?.displayEnrichedAt).not.toBeNull();
+    expect(result.property).toBeDefined();
+    if (!result.property) return;
+    expect(computePropertyDescription(result.property.publications)).toBe(
+      "Nouvelle description"
+    );
+    expect(result.property.dpeClass).toBe("B");
+    expect(result.property.gesClass).toBe("C");
+    expect(result.property.dpeConsumptionKwhM2).toBe(88);
+    expect(
+      result.property.publications.every((row) => row.enrichedAt !== null)
+    ).toBe(true);
   });
 
   it("marks display enrichment as attempted when enrichment cannot fill remaining gaps", async () => {
@@ -665,7 +807,9 @@ describe("ensurePropertyEnriched", () => {
     );
 
     expect(result.warnings).toEqual([]);
-    expect(result.property?.displayEnrichedAt).not.toBeNull();
+    expect(
+      result.property?.publications.every((row) => row.enrichedAt !== null)
+    ).toBe(true);
     expect(result.property?.landSurface).toBeNull();
     if (!result.property) {
       throw new Error("Expected enriched property");
@@ -691,6 +835,12 @@ describe("ensurePropertyEnriched", () => {
       throw new Error("Expected inserted property row");
     }
 
+    await markDisplayAndGalleryComplete(repository, inserted.row.id);
+    const marked = await repository.findById(inserted.row.id);
+    expect(marked?.publications.every((row) => row.enrichedAt !== null)).toBe(
+      true
+    );
+
     const result = await ensurePropertyEnriched(
       repository,
       inserted.row.id,
@@ -698,7 +848,9 @@ describe("ensurePropertyEnriched", () => {
     );
 
     expect(result.warnings).toEqual([]);
-    expect(result.property?.displayEnrichedAt).toBeNull();
+    expect(
+      result.property?.publications.every((row) => row.enrichedAt !== null)
+    ).toBe(true);
     expect(mockFetchLeboncoin).not.toHaveBeenCalled();
   });
 

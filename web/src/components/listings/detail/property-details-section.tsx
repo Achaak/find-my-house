@@ -1,10 +1,15 @@
 import { PropertyPortalLinks } from "@/components/listings/property-portal-links";
+import { PropertyDescriptionTabs } from "@/components/listings/detail/property-description-tabs";
 import { formatLocaleDateTime } from "@/lib/locale";
-import type { Property } from "@find-my-house/api-types";
+import type { PropertyDetail } from "@find-my-house/api-types";
 import { formatPrice } from "@/lib/utils";
 import * as m from "@/paraglide/messages.js";
 
-export function PropertyDetailsSection({ property }: { property: Property }) {
+export function PropertyDetailsSection({
+  property,
+}: {
+  property: PropertyDetail;
+}) {
   const emDash = m.common_em_dash();
 
   return (
@@ -90,7 +95,12 @@ export function PropertyDetailsSection({ property }: { property: Property }) {
           ))}
         </ul>
       ) : null}
-      {property.description ? (
+      {property.publicationDescriptions?.length ? (
+        <PropertyDescriptionTabs
+          descriptions={property.publicationDescriptions}
+          projectedDescription={property.description}
+        />
+      ) : property.description ? (
         <p className="mt-4 whitespace-pre-wrap text-sm text-muted-foreground">
           {property.description}
         </p>

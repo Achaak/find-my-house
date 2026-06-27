@@ -1,4 +1,5 @@
 import type { PropertyRow } from "../../types/listing.js";
+import { computePropertyDescription } from "../../domain/propertyDisplayFields.js";
 import { haversineDistanceKm } from "../geo/geo.js";
 import type { DpeSearchResult } from "./ademeDpeApi.js";
 import {
@@ -340,9 +341,10 @@ export function extractPlaceHints(property: PropertyRow): string[] {
 
   if (property.title) addText(property.title);
 
-  if (property.description) {
-    addText(property.description);
-    for (const segment of property.description.split(/\s*-\s*/)) {
+  const description = computePropertyDescription(property.publications);
+  if (description) {
+    addText(description);
+    for (const segment of description.split(/\s*-\s*/)) {
       const trimmed = segment.trim();
       if (!trimmed || /^\d/.test(trimmed)) continue;
       addText(trimmed);

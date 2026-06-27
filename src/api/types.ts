@@ -37,6 +37,8 @@ export type {
   PropertyAddressSearchResponse,
   PropertyReactionState,
   PropertyPublication,
+  PropertyPublicationDescription,
+  PropertyPublicationDetail,
   ReconcileResult,
   EnrichmentBackfillResult,
 } from "@find-my-house/api-types";

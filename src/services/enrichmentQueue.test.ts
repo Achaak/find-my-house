@@ -84,6 +84,15 @@ describe("EnrichmentQueue", () => {
     const propertyId = inserted.row?.id;
     if (propertyId === undefined) throw new Error("Expected property id");
 
+    const publication = inserted.row?.publications[0];
+    if (publication) {
+      await repository.applyPublicationGallery(publication.id, {
+        imageUrls: publication.imageUrls ?? ["https://example.com/photo.jpg"],
+        imageLocalHashes: {},
+      });
+      await repository.markEnrichmentAttempted(propertyId, "display");
+    }
+
     await expect(
       queue.waitUntilEnriched(propertyId, "display", "high")
     ).resolves.toEqual({ warnings: [] });

@@ -114,6 +114,13 @@ export class ScraperService {
       deactivated += count;
     }
 
+    const purged = await this.repository.purgeOrphanProperties();
+    if (purged > 0) {
+      log.info(
+        `Purged ${String(purged)} orphan propert${purged === 1 ? "y" : "ies"}`
+      );
+    }
+
     return {
       ...scrapeResult,
       insertedListings,

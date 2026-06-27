@@ -7,13 +7,16 @@ import { CompatibilityDetailPanel } from "@/components/listings/compatibility-de
 import { PropertyAdemeSection } from "@/components/listings/detail/property-ademe-section";
 import { PropertyDetailsSection } from "@/components/listings/detail/property-details-section";
 import { DetailReactionBar } from "@/components/listings/browse-review-actions";
-import { PropertyHero } from "@/components/listings/property-hero";
+import {
+  PropertyHero,
+  PropertyPublicationsSection,
+} from "@/components/listings/property-hero";
 import { PropertyReactionActions } from "@/components/listings/property-reactions";
 import { Alert } from "@/components/ui/alert";
 import { usePropertyDetail } from "@/hooks/use-property-detail";
 import { usePropertyReactions } from "@/hooks/use-property-reactions";
 import { getErrorMessage } from "@/lib/error-message";
-import type { Property } from "@find-my-house/api-types";
+import type { PropertyDetail } from "@find-my-house/api-types";
 import * as m from "@/paraglide/messages.js";
 
 export const Route = createFileRoute("/listings/$id")({
@@ -55,7 +58,7 @@ function ListingDetailPage() {
 
   return (
     <ListingDetailContent
-      property={detail.property}
+      property={detail.property as PropertyDetail}
       detail={detail}
       listingError={detail.listingQuery.error}
     />
@@ -67,7 +70,7 @@ function ListingDetailContent({
   detail,
   listingError,
 }: {
-  property: Property;
+  property: PropertyDetail;
   detail: ReturnType<typeof usePropertyDetail>;
   listingError: Error | null;
 }) {
@@ -102,7 +105,7 @@ function ListingDetailContent({
           <CompatibilityDetailPanel compatibility={property.compatibility} />
         </div>
       ) : null}
-      <div className="px-4 md:px-0">
+      <div className="space-y-6 px-4 md:px-0">
         {detail.isRefreshingDetails ? (
           <DetailsSectionSkeleton />
         ) : (
@@ -112,6 +115,7 @@ function ListingDetailContent({
           addressQuery={detail.addressQuery}
           confirmAddressMutation={detail.confirmAddressMutation}
         />
+        <PropertyPublicationsSection property={property} />
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import {
   propertyNeedsEnrichment,
   type EnrichmentPurpose,
 } from "../domain/enrichmentCriteria.js";
+import { isTruncatedPortalDescription } from "../utils/classifiedPortal/parsers/detailDescription.js";
 import type { PropertyEnrichmentPatch } from "../types/enrichment.js";
 import type { PropertyRow, PublicationRow } from "../types/listing.js";
 import { formatSourceLabel } from "../utils/listing/sourceLabel.js";
@@ -15,6 +16,8 @@ import {
   isEnrichmentAccessBlockedError,
   SOURCE_PRIORITY,
 } from "./enrichmentAdapters.js";
+import { downloadPublicationImages } from "./imageDownloadService.js";
+import { mergePublicationImageUrls } from "../utils/images/mergePublicationImageUrls.js";
 
 export type { PropertyEnrichmentPatch } from "../types/enrichment.js";
 
@@ -45,15 +48,13 @@ function enrichmentTouchesDedupFields(updatedFields: string[]): boolean {
   return updatedFields.some((field) => DEDUP_STRUCTURE_FIELDS.has(field));
 }
 
-const ENRICHMENT_FIELDS = [
-  "description",
+const PROPERTY_ENRICHMENT_FIELDS = [
   "surface",
   "landSurface",
   "rooms",
   "bedrooms",
   "latitude",
   "longitude",
-  "imageUrl",
   "dpeClass",
   "gesClass",
   "dpeConsumptionKwhM2",
@@ -64,6 +65,13 @@ const ENRICHMENT_FIELDS = [
   "orientation",
   "propertyCondition",
   "parkingSpaces",
+] as const satisfies readonly (keyof PropertyEnrichmentPatch)[];
+
+const PUBLICATION_ENRICHMENT_FIELDS = [
+  ...PROPERTY_ENRICHMENT_FIELDS,
+  "description",
+  "imageUrl",
+  "imageUrls",
 ] as const satisfies readonly (keyof PropertyEnrichmentPatch)[];
 
 function highlightsEqual(
@@ -79,14 +87,14 @@ function mergePatches(
 ): PropertyEnrichmentPatch {
   const merged: PropertyEnrichmentPatch = {};
 
-  for (const field of ENRICHMENT_FIELDS) {
+  for (const field of PROPERTY_ENRICHMENT_FIELDS) {
     const existing = property[field];
     if (existing !== null) {
       (merged as Record<string, unknown>)[field] = existing;
     }
   }
 
-  for (const field of ENRICHMENT_FIELDS) {
+  for (const field of PROPERTY_ENRICHMENT_FIELDS) {
     for (const patch of patches) {
       const value = patch[field];
       if (value === undefined || value === null) continue;
@@ -106,44 +114,57 @@ function mergePatches(
   return merged;
 }
 
-function toPropertyLike(publication: PublicationRow): PropertyRow {
-  return {
-    id: 0,
-    title: publication.title,
-    price: publication.price,
-    firstPrice: publication.price,
-    surface: publication.surface,
-    landSurface: publication.landSurface,
-    rooms: publication.rooms,
-    bedrooms: publication.bedrooms,
-    isNewProperty: publication.isNewProperty,
-    latitude: publication.latitude,
-    longitude: publication.longitude,
-    city: publication.city,
-    postalCode: publication.postalCode,
-    address: publication.address,
-    dpeNumero: publication.dpeNumero,
-    description: publication.description,
-    imageUrl: publication.imageUrl,
-    propertyType: publication.propertyType,
-    dpeClass: publication.dpeClass,
-    gesClass: publication.gesClass,
-    dpeConsumptionKwhM2: publication.dpeConsumptionKwhM2,
-    gesEmissionKgM2: publication.gesEmissionKgM2,
-    bathrooms: publication.bathrooms,
-    constructionYear: publication.constructionYear,
-    heating: publication.heating,
-    orientation: publication.orientation,
-    propertyCondition: publication.propertyCondition,
-    parkingSpaces: publication.parkingSpaces,
-    highlights: publication.highlights,
-    displayEnrichedAt: publication.displayEnrichedAt,
-    addressEnrichedAt: publication.addressEnrichedAt,
-    firstSeenAt: publication.scrapedAt,
-    publications: [publication],
-    createdAt: publication.scrapedAt,
-    updatedAt: publication.scrapedAt,
-  };
+function imageUrlListsEqual(
+  left: string[] | null | undefined,
+  right: string[] | null | undefined
+): boolean {
+  const a = left ?? [];
+  const b = right ?? [];
+  if (a.length !== b.length) return false;
+  return a.every((url, index) => url === b[index]);
+}
+
+function diffPublicationPatch(
+  publication: PublicationRow,
+  patch: PropertyEnrichmentPatch
+): PropertyEnrichmentPatch {
+  const changes: PropertyEnrichmentPatch = {};
+
+  for (const field of PUBLICATION_ENRICHMENT_FIELDS) {
+    const value = patch[field];
+    if (value === undefined || value === null) continue;
+    if (field === "imageUrls") {
+      if (!imageUrlListsEqual(publication.imageUrls, value as string[])) {
+        (changes as Record<string, unknown>)[field] = value;
+      }
+      continue;
+    }
+    if (field === "description") {
+      const existing = publication.description;
+      const incoming = value as string;
+      if (
+        !existing ||
+        incoming.length > existing.length ||
+        (isTruncatedPortalDescription(existing) &&
+          !isTruncatedPortalDescription(incoming))
+      ) {
+        changes.description = incoming;
+      }
+      continue;
+    }
+    if (publication[field as keyof PublicationRow] !== value) {
+      (changes as Record<string, unknown>)[field] = value;
+    }
+  }
+
+  if (
+    patch.highlights &&
+    !highlightsEqual(publication.highlights, patch.highlights)
+  ) {
+    changes.highlights = patch.highlights;
+  }
+
+  return changes;
 }
 
 function diffPatch(
@@ -152,7 +173,7 @@ function diffPatch(
 ): PropertyEnrichmentPatch {
   const changes: PropertyEnrichmentPatch = {};
 
-  for (const field of ENRICHMENT_FIELDS) {
+  for (const field of PROPERTY_ENRICHMENT_FIELDS) {
     const value = patch[field];
     if (value === undefined || value === null) continue;
     if (property[field] !== value) {
@@ -189,19 +210,31 @@ export async function enrichProperty(
     patch: PropertyEnrichmentPatch;
   }[] = [];
   const warnings: string[] = [];
-  let resolvedImageUrl: string | null = null;
 
   for (const publication of ordered) {
     try {
       const patch = await enrichFromPublication(publication, {
         purpose,
-        skipImage: resolvedImageUrl !== null,
+        skipImage: purpose === "address",
       });
-      const publicationPatch = diffPatch(toPropertyLike(publication), patch);
+      const mergedImages = patch.imageUrls
+        ? {
+            ...patch,
+            imageUrls: mergePublicationImageUrls(
+              publication.imageUrls,
+              patch.imageUrls
+            ),
+            imageUrl:
+              mergePublicationImageUrls(
+                publication.imageUrls,
+                patch.imageUrls
+              )?.[0] ??
+              patch.imageUrl ??
+              publication.imageUrl,
+          }
+        : patch;
+      const publicationPatch = diffPublicationPatch(publication, mergedImages);
       patches.push({ publicationId: publication.id, patch: publicationPatch });
-      if (resolvedImageUrl === null && patch.imageUrl) {
-        resolvedImageUrl = patch.imageUrl;
-      }
     } catch (error) {
       if (isEnrichmentAccessBlockedError(publication.source, error)) {
         warnings.push(
@@ -244,30 +277,76 @@ export async function ensurePropertyEnriched(
 
   let resultProperty = property;
   for (const publicationPatch of patches) {
-    if (Object.keys(publicationPatch.patch).length === 0) continue;
-    const updated = await repository.applyPublicationEnrichment(
-      publicationPatch.publicationId,
-      publicationPatch.patch
-    );
-    if (updated.ok) {
-      resultProperty = updated.value;
-    } else {
-      warnings.push(`Database update failed: ${updated.error}`);
+    if (Object.keys(publicationPatch.patch).length > 0) {
+      const updated = await repository.applyPublicationEnrichment(
+        publicationPatch.publicationId,
+        publicationPatch.patch
+      );
+      if (updated.ok) {
+        resultProperty = updated.value;
+      } else {
+        warnings.push(`Database update failed: ${updated.error}`);
+      }
     }
-    const marked = await repository.markPublicationEnrichmentAttempted(
-      publicationPatch.publicationId,
-      purpose
-    );
+  }
+
+  if (purpose === "address") {
+    const marked = await repository.markEnrichmentAttempted(id, purpose);
     if (marked.ok) {
       resultProperty = marked.value;
+      if (
+        updatedFields.length > 0 &&
+        enrichmentTouchesDedupFields(updatedFields)
+      ) {
+        if (resultProperty.postalCode) {
+          await repository.reconcileDuplicates([resultProperty.postalCode]);
+        }
+      }
     } else {
       warnings.push(`Failed to mark enrichment attempt: ${marked.error}`);
     }
   }
 
-  const marked = await repository.markEnrichmentAttempted(id, purpose);
-  if (marked.ok) {
-    resultProperty = marked.value;
+  if (purpose === "display") {
+    for (const publication of resultProperty.publications) {
+      if (!publication.isActive || publication.enrichedAt) {
+        continue;
+      }
+
+      if (publication.imageUrls?.length) {
+        const { localHashes, perceptualHashes } =
+          await downloadPublicationImages(
+            publication.imageUrls,
+            publication.imageLocalHashes,
+            publication.imagePerceptualHashes
+          );
+        const galleryUpdated = await repository.applyPublicationGallery(
+          publication.id,
+          {
+            imageUrls: publication.imageUrls,
+            imageLocalHashes: localHashes,
+            imagePerceptualHashes: perceptualHashes,
+          }
+        );
+        if (galleryUpdated.ok) {
+          resultProperty = galleryUpdated.value;
+          continue;
+        }
+
+        warnings.push(`Gallery update failed: ${galleryUpdated.error}`);
+      }
+
+      const marked = await repository.markPublicationEnrichmentAttempted(
+        publication.id,
+        purpose
+      );
+      if (marked.ok) {
+        resultProperty = marked.value;
+      } else {
+        warnings.push(`Failed to mark enrichment attempt: ${marked.error}`);
+      }
+    }
+
     if (
       updatedFields.length > 0 &&
       enrichmentTouchesDedupFields(updatedFields)
@@ -276,8 +355,6 @@ export async function ensurePropertyEnriched(
         await repository.reconcileDuplicates([resultProperty.postalCode]);
       }
     }
-  } else {
-    warnings.push(`Failed to mark enrichment attempt: ${marked.error}`);
   }
 
   return { property: resultProperty, warnings };

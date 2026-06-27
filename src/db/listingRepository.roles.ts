@@ -30,6 +30,13 @@ export type ListingWriteRepository = Pick<
     publicationId: number,
     purpose: "display" | "address"
   ): Promise<RepositoryWriteResult<PropertyRow>>;
+  applyPublicationGallery(
+    publicationId: number,
+    patch: Pick<
+      PropertyEnrichmentPatch,
+      "imageUrls" | "imageLocalHashes" | "imagePerceptualHashes"
+    >
+  ): Promise<RepositoryWriteResult<PropertyRow>>;
   updateAddress(
     id: number,
     address: string,

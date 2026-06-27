@@ -28,6 +28,7 @@ const listingSchema = z.object({
   url: z.url(),
   description: z.string().nullable(),
   imageUrl: z.string().nullable(),
+  imageUrls: z.array(z.string()).nullable().optional(),
   propertyType: z.string().nullable(),
   dpeClass: z.string().nullable(),
   gesClass: z.string().nullable(),

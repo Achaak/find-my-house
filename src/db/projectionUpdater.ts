@@ -1,11 +1,11 @@
 import { type PrismaClient, Prisma } from "../generated/prisma/client.js";
 import { computePropertyProjection } from "../domain/propertyProjection.js";
 import { propertyInclude } from "./propertyInclude.js";
-import { toPropertyRow } from "./listingMapper.js";
+import { tryToPropertyRow } from "./listingMapper.js";
 import type { PropertyRow } from "../types/listing.js";
 import type { RepositoryWriteResult } from "../types/db.js";
 import { repositoryWriteError } from "../types/db.js";
-import { toPrismaProjectionData } from "./propertyWriteData.js";
+import { toPrismaSearchCacheData } from "./propertyWriteData.js";
 
 type ProjectionClient = PrismaClient | Prisma.TransactionClient;
 
@@ -29,19 +29,25 @@ export class ProjectionUpdater {
         if (row.publications.length === 0) {
           return { ok: false, error: "No publications found" };
         }
-        return { ok: true, value: toPropertyRow(row) };
+        const property = tryToPropertyRow(row);
+        return property
+          ? { ok: true, value: property }
+          : { ok: false, error: "No publications found" };
       }
 
       const updated = await client.property.update({
         where: { id: propertyId },
         data: {
-          ...toPrismaProjectionData(projection),
+          ...toPrismaSearchCacheData(projection),
           hasPriceDrop: row.firstPrice > projection.price,
         },
         include: propertyInclude,
       });
 
-      return { ok: true, value: toPropertyRow(updated) };
+      const property = tryToPropertyRow(updated);
+      return property
+        ? { ok: true, value: property }
+        : { ok: false, error: "No publications found" };
     } catch (error) {
       return { ok: false, error: repositoryWriteError(error) };
     }

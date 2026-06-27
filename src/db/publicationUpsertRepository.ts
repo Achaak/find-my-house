@@ -11,7 +11,8 @@ import type {
   ScrapeResult,
   UpsertStatus,
 } from "../types/listing.js";
-import { parseHighlights, toPropertyRow } from "./listingMapper.js";
+import { parseImageUrls } from "../domain/publicationImages.js";
+import { parseHighlights, tryToPropertyRow } from "./listingMapper.js";
 import { propertyInclude } from "./propertyInclude.js";
 import {
   DefaultPropertyMatchPolicy,
@@ -25,8 +26,9 @@ import {
   type PublicationCreateData,
   toPrismaPublicationData,
   toPublicationCreateData,
+  publicationImageUrlsChanged,
 } from "./publicationData.js";
-import { toPrismaProjectionData } from "./propertyWriteData.js";
+import { toPrismaSearchCacheData } from "./propertyWriteData.js";
 import { computePropertyKey } from "../utils/propertyKey.js";
 import { ProjectionUpdater } from "./projectionUpdater.js";
 import {
@@ -168,9 +170,14 @@ function isPriceDrop(
 
 function toPrismaPropertyProjectionDataFromListing(
   data: PropertyScalarData
-): ReturnType<typeof toPrismaProjectionData> {
-  return toPrismaProjectionData({
-    ...data,
+): ReturnType<typeof toPrismaSearchCacheData> {
+  const {
+    description: _description,
+    imageUrl: _imageUrl,
+    ...projection
+  } = data;
+  return toPrismaSearchCacheData({
+    ...projection,
     address: null,
     dpeNumero: null,
   });
@@ -278,7 +285,9 @@ export class PublicationUpsertRepository {
       include: { property: { include: propertyInclude } },
     });
 
-    return publication ? toPropertyRow(publication.property) : undefined;
+    return publication
+      ? (tryToPropertyRow(publication.property) ?? undefined)
+      : undefined;
   }
 
   async upsert(listing: Listing): Promise<{
@@ -424,10 +433,15 @@ export class PublicationUpsertRepository {
 
       if (existingPublication) {
         const property = existingPublication.property;
-        const propertyChanged = hasPropertyScalarChanges(
-          toPublicationComparableData(existingPublication),
-          listing
-        );
+        const propertyChanged =
+          hasPropertyScalarChanges(
+            toPublicationComparableData(existingPublication),
+            listing
+          ) ||
+          publicationImageUrlsChanged(
+            parseImageUrls(existingPublication.imageUrls),
+            listing
+          );
         const needsReactivation = !existingPublication.isActive;
 
         if (needsReactivation) {
@@ -541,6 +555,7 @@ export class PublicationUpsertRepository {
               toPublicationCreateData(listing, new Date(listing.scrapedAt))
             ),
             isActive: true,
+            enrichedAt: null,
           },
         });
         const publication = await tx.listingPublication.findUnique({
@@ -611,7 +626,6 @@ export class PublicationUpsertRepository {
         await tx.property.update({
           where: { id: link.propertyId },
           data: {
-            displayEnrichedAt: null,
             addressEnrichedAt: null,
           },
         });

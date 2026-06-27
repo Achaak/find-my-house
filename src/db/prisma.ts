@@ -4,6 +4,8 @@ import path from "node:path";
 import { PrismaClient } from "../generated/prisma/client.js";
 
 let prisma: PrismaClient | undefined;
+let runtimeConfigured = false;
+let runtimeConfigPromise: Promise<void> | undefined;
 
 const SQLITE_FILE_URL = /^file:(.+)$/;
 
@@ -21,6 +23,16 @@ function ensureDatabaseDir(databaseUrl: string): void {
   }
 }
 
+export async function ensurePrismaRuntime(client: PrismaClient): Promise<void> {
+  if (runtimeConfigured) return;
+  runtimeConfigPromise ??= (async () => {
+    await client.$executeRawUnsafe(`PRAGMA journal_mode = WAL`);
+    await client.$executeRawUnsafe(`PRAGMA foreign_keys = ON`);
+    runtimeConfigured = true;
+  })();
+  await runtimeConfigPromise;
+}
+
 export function getPrisma(databaseUrl: string): PrismaClient {
   if (!prisma) {
     ensureDatabaseDir(databaseUrl);
@@ -34,5 +46,7 @@ export async function disconnectPrisma(): Promise<void> {
   if (prisma) {
     await prisma.$disconnect();
     prisma = undefined;
+    runtimeConfigured = false;
+    runtimeConfigPromise = undefined;
   }
 }

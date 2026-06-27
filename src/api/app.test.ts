@@ -131,6 +131,21 @@ describe("createApiApp", () => {
       }),
     ]);
 
+    for (const property of [
+      ...result.insertedListings,
+      ...result.linkedListings,
+    ]) {
+      for (const publication of property.publications) {
+        await testDb.repository.applyPublicationGallery(publication.id, {
+          imageUrls:
+            publication.imageUrls ??
+            (publication.imageUrl ? [publication.imageUrl] : null),
+          imageLocalHashes: {},
+        });
+      }
+      await testDb.repository.markEnrichmentAttempted(property.id, "display");
+    }
+
     propertyId = (result.insertedListings[0] ?? result.linkedListings[0]).id;
   });
 

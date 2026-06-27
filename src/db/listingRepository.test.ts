@@ -294,9 +294,19 @@ describe("ListingRepository.upsertMany", () => {
     );
     if (!first.row) throw new Error("Expected first property");
 
-    await repository.markEnrichmentAttempted(first.row.id, "display");
+    const enrichedBeforeMark = await repository.findById(first.row.id);
+    const bieniciPublication = enrichedBeforeMark?.publications.find(
+      (row) => row.source === "bienici"
+    );
+    if (!bieniciPublication) throw new Error("Expected Bienici publication");
+    await repository.markPublicationEnrichmentAttempted(
+      bieniciPublication.id,
+      "display"
+    );
     const enriched = await repository.findById(first.row.id);
-    expect(enriched?.displayEnrichedAt).not.toBeNull();
+    expect(
+      enriched?.publications.find((row) => row.source === "bienici")?.enrichedAt
+    ).not.toBeNull();
 
     await repository.upsert(
       makeListing({
@@ -309,9 +319,15 @@ describe("ListingRepository.upsertMany", () => {
     );
 
     const afterLink = await repository.findById(first.row.id);
-    expect(afterLink?.displayEnrichedAt).toBeNull();
+    expect(
+      afterLink?.publications.find((row) => row.source === "leboncoin")
+        ?.enrichedAt
+    ).toBeNull();
     expect(afterLink?.addressEnrichedAt).toBeNull();
-    expect(afterLink?.publications).toHaveLength(2);
+    expect(afterLink).toBeDefined();
+    if (!afterLink) return;
+    expect(propertyNeedsEnrichment(afterLink, "display")).toBe(true);
+    expect(afterLink.publications).toHaveLength(2);
   });
 
   it("links a Bienici republication from the same agency", async () => {

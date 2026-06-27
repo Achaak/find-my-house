@@ -2,7 +2,11 @@ import type { Listing } from "../../types/listing.js";
 import { normalizeEnergyClass } from "../energy/energyClass.js";
 import { lookupPostalCodeCoords } from "../geo/postalCodeLookup.js";
 import {
-  buildClassifiedImageUrl,
+  classifiedScrapeImageUrl,
+  classifiedScrapeImageUrls,
+  syncListingImageFields,
+} from "../images/scrapeImageUrls.js";
+import {
   buildClassifiedListingUrl,
   parseClassifiedBedrooms,
   parseClassifiedPrice,
@@ -10,15 +14,6 @@ import {
 } from "./helpers.js";
 import { extractClassifiedListingExtras } from "./extras.js";
 import type { ClassifiedCard, ClassifiedPortalConfig } from "./types.js";
-
-function classifiedScrapeImageUrl(
-  portal: ClassifiedPortalConfig,
-  card: ClassifiedCard
-): string | null {
-  const photo = card.photos?.find((url) => url.trim());
-  if (!photo) return null;
-  return buildClassifiedImageUrl(portal, photo.trim());
-}
 
 function classifiedCardCoords(
   card: ClassifiedCard
@@ -41,6 +36,9 @@ export function mapClassifiedCardToListing(
 ): Listing {
   const extras = extractClassifiedListingExtras(card);
   const coords = classifiedCardCoords(card);
+  const images = syncListingImageFields(
+    classifiedScrapeImageUrls(portal, card)
+  );
 
   return {
     externalId: String(card.id),
@@ -59,7 +57,7 @@ export function mapClassifiedCardToListing(
     postalCode: card.zipCode ?? null,
     url: buildClassifiedListingUrl(portal, card),
     description: card.description ?? null,
-    imageUrl: classifiedScrapeImageUrl(portal, card),
+    ...images,
     propertyType: card.estateType ?? null,
     dpeClass: normalizeEnergyClass(card.energyClass),
     gesClass: normalizeEnergyClass(card.gesClass),
@@ -69,3 +67,5 @@ export function mapClassifiedCardToListing(
     scrapedAt,
   };
 }
+
+export { classifiedScrapeImageUrl };

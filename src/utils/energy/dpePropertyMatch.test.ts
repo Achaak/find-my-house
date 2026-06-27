@@ -138,8 +138,13 @@ describe("extractPlaceHints", () => {
       makePropertyRow({
         city: "Nantes",
         title: "Maison de charme",
-        description:
-          "Superbe longère - route de la Gauterie - proche commodités",
+        publications: [
+          {
+            ...makePropertyRow().publications[0],
+            description:
+              "Superbe longère - route de la Gauterie - proche commodités",
+          },
+        ],
       })
     );
 

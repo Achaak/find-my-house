@@ -102,6 +102,20 @@ describe("scheduleEnrichmentBackfill", () => {
         gesEmissionKgM2: 20,
       }),
     ]);
+
+    const seeded = await repository.search({ limit: 10 });
+    for (const property of seeded.items) {
+      if (publicationExternalId(property) !== "backfill-complete") continue;
+      for (const publication of property.publications) {
+        await repository.applyPublicationGallery(publication.id, {
+          imageUrls:
+            publication.imageUrls ??
+            (publication.imageUrl ? [publication.imageUrl] : null),
+          imageLocalHashes: {},
+        });
+      }
+      await repository.markEnrichmentAttempted(property.id, "display");
+    }
   });
 
   afterEach(async () => {

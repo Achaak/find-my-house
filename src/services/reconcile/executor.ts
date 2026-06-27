@@ -1,6 +1,7 @@
 import type { PrismaClient } from "../../generated/prisma/client.js";
 import type { ReconcileResult } from "@find-my-house/api-types";
 import { mergePropertiesIntoCanonical } from "../../db/propertyMerge.js";
+import { computePropertyDisplayProjection } from "../../domain/propertyProjection.js";
 import {
   groupByFuzzyPropertyMatch,
   groupByStrictPropertyKey,
@@ -17,6 +18,7 @@ type PropertyRecord = Awaited<
 };
 
 function propertyToMatchInput(property: PropertyRecord) {
+  const display = computePropertyDisplayProjection(property.publications);
   return toPropertyMatchInput({
     postalCode: property.postalCode,
     price: property.price,
@@ -24,7 +26,7 @@ function propertyToMatchInput(property: PropertyRecord) {
     rooms: property.rooms,
     bedrooms: property.bedrooms,
     landSurface: property.landSurface,
-    propertyType: property.propertyType,
+    propertyType: display?.propertyType ?? null,
     isNewProperty: property.isNewProperty,
   });
 }

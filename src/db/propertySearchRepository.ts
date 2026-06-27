@@ -6,7 +6,7 @@ import {
 } from "../generated/prisma/client.js";
 import type { ListingSearchFilters, PropertyRow } from "../types/listing.js";
 import { propertyInclude } from "./propertyInclude.js";
-import { toPropertyRow } from "./listingMapper.js";
+import { tryToPropertyRow } from "./listingMapper.js";
 import {
   boundingBoxForRadiusKm,
   haversineDistanceKm,
@@ -124,7 +124,14 @@ function buildPropertySearchWhere(
       ? {
           OR: [
             { title: { contains: textFilter } },
-            { description: { contains: textFilter } },
+            {
+              publications: {
+                some: {
+                  isActive: true,
+                  description: { contains: textFilter },
+                },
+              },
+            },
           ],
         }
       : {}),
@@ -285,7 +292,10 @@ export class PropertySearchRepository {
       orderBy: { firstSeenAt: "desc" },
       take: limit,
     });
-    return rows.map(toPropertyRow);
+    return rows.flatMap((row) => {
+      const property = tryToPropertyRow(row);
+      return property ? [property] : [];
+    });
   }
 
   async search(
@@ -314,7 +324,10 @@ export class PropertySearchRepository {
       const [total, rows] = await Promise.all([totalPromise, rowsPromise]);
 
       return {
-        items: rows.map(toPropertyRow),
+        items: rows.flatMap((row) => {
+          const property = tryToPropertyRow(row);
+          return property ? [property] : [];
+        }),
         total: includeTotal ? total : rows.length,
       };
     }
@@ -353,10 +366,12 @@ export class PropertySearchRepository {
     const rowsById = new Map(rows.map((row) => [row.id, row]));
 
     return {
-      items: pageIds
-        .map((id) => rowsById.get(id))
-        .filter((row): row is PropertyWithPublications => row !== undefined)
-        .map(toPropertyRow),
+      items: pageIds.flatMap((id) => {
+        const row = rowsById.get(id);
+        if (!row) return [];
+        const property = tryToPropertyRow(row);
+        return property ? [property] : [];
+      }),
       total,
     };
   }
@@ -371,7 +386,10 @@ export class PropertySearchRepository {
       orderBy: { firstSeenAt: "desc" },
       take: limit,
     });
-    return rows.map(toPropertyRow);
+    return rows.flatMap((row) => {
+      const property = tryToPropertyRow(row);
+      return property ? [property] : [];
+    });
   }
 
   async findById(id: number): Promise<PropertyRow | undefined> {
@@ -379,7 +397,7 @@ export class PropertySearchRepository {
       where: { id },
       include: propertyInclude,
     });
-    return row ? toPropertyRow(row) : undefined;
+    return row ? (tryToPropertyRow(row) ?? undefined) : undefined;
   }
 
   async findByIds(ids: number[]): Promise<PropertyRow[]> {
@@ -396,9 +414,11 @@ export class PropertySearchRepository {
       }
     }
 
-    return ids
-      .map((id) => byId.get(id))
-      .filter((row): row is PropertyWithPublications => row !== undefined)
-      .map(toPropertyRow);
+    return ids.flatMap((id) => {
+      const row = byId.get(id);
+      if (!row) return [];
+      const property = tryToPropertyRow(row);
+      return property ? [property] : [];
+    });
   }
 }

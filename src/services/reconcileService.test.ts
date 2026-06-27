@@ -56,7 +56,6 @@ describe("reconcileProperties", () => {
           isNewProperty: false,
           city: "Sainte-Hélène-Bondeville",
           postalCode: "76400",
-          propertyType: "Maison",
           firstSeenAt: new Date("2026-01-01T00:00:00.000Z"),
         },
       });
@@ -73,7 +72,6 @@ describe("reconcileProperties", () => {
           isNewProperty: false,
           city: "Sainte-Hélène-Bondeville",
           postalCode: "76400",
-          propertyType: "Maison",
           firstSeenAt: new Date("2026-02-01T00:00:00.000Z"),
         },
       });
@@ -88,6 +86,7 @@ describe("reconcileProperties", () => {
             title: "Older publication",
             price: 300_000,
             city: "Sainte-Hélène-Bondeville",
+            propertyType: "Maison",
             scrapedAt: new Date("2026-01-01T00:00:00.000Z"),
           },
           {
@@ -98,6 +97,7 @@ describe("reconcileProperties", () => {
             title: "Newer publication",
             price: 300_000,
             city: "Sainte-Hélène-Bondeville",
+            propertyType: "Maison",
             scrapedAt: new Date("2026-02-01T00:00:00.000Z"),
           },
         ],
@@ -141,7 +141,6 @@ describe("reconcileProperties", () => {
           isNewProperty: false,
           city: "Saint Martin de l'If",
           postalCode: "76190",
-          propertyType: "Maison",
           firstSeenAt: new Date("2026-01-01T00:00:00.000Z"),
         },
       });
@@ -158,7 +157,6 @@ describe("reconcileProperties", () => {
           isNewProperty: null,
           city: "Saint Martin de l'If",
           postalCode: "76190",
-          propertyType: null,
           firstSeenAt: new Date("2026-02-01T00:00:00.000Z"),
         },
       });
@@ -235,7 +233,6 @@ describe("reconcileProperties", () => {
           isNewProperty: false,
           city: "Yvetot",
           postalCode: "76450",
-          propertyType: "Maison",
           firstSeenAt: new Date("2026-01-01T00:00:00.000Z"),
         },
       });
@@ -252,7 +249,6 @@ describe("reconcileProperties", () => {
           isNewProperty: true,
           city: "Yvetot",
           postalCode: "76450",
-          propertyType: "Maison",
           firstSeenAt: new Date("2026-02-01T00:00:00.000Z"),
         },
       });
@@ -322,7 +318,6 @@ describe("reconcileProperties", () => {
           isNewProperty: false,
           city: "Durdent",
           postalCode: "76560",
-          propertyType: "Maison",
           firstSeenAt: new Date("2026-01-01T00:00:00.000Z"),
         },
       });
@@ -339,7 +334,6 @@ describe("reconcileProperties", () => {
           isNewProperty: false,
           city: "Durdent",
           postalCode: "76560",
-          propertyType: "Maison",
           firstSeenAt: new Date("2026-02-01T00:00:00.000Z"),
         },
       });

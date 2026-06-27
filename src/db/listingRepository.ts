@@ -10,7 +10,7 @@ import type { PropertyEnrichmentPatch } from "../types/enrichment.js";
 import type { RepositoryWriteResult } from "../types/db.js";
 import { repositoryWriteError } from "../types/db.js";
 import { displayEnrichmentPendingWhere } from "../domain/enrichmentCriteria.js";
-import { toPropertyRow } from "./listingMapper.js";
+import { tryToPropertyRow } from "./listingMapper.js";
 import { propertyInclude } from "./propertyInclude.js";
 import { PropertySearchRepository } from "./propertySearchRepository.js";
 import { PropertyStatsRepository } from "./propertyStatsRepository.js";
@@ -22,7 +22,11 @@ import {
 } from "../services/reconcileService.js";
 import type { ReconcileResult } from "@find-my-house/api-types";
 import { ProjectionUpdater } from "./projectionUpdater.js";
-import { toPrismaPropertyPatch } from "./propertyWriteData.js";
+import {
+  filterPropertySearchCachePatch,
+  toPrismaPropertyPatch,
+} from "./propertyWriteData.js";
+import { purgeOrphanProperties } from "./purgeOrphanProperties.js";
 import {
   CompositePropertyMatchDiagnosticsSink,
   LoggerPropertyMatchDiagnosticsSink,
@@ -32,8 +36,17 @@ import type { ListingRepositoryRoles } from "./listingRepository.roles.js";
 
 const log = createLogger("db");
 
-function toPrismaEnrichmentPatch(patch: PropertyEnrichmentPatch) {
-  return toPrismaPropertyPatch(patch);
+function toPrismaPropertyEnrichmentPatch(patch: PropertyEnrichmentPatch) {
+  const searchPatch = filterPropertySearchCachePatch(patch);
+  const {
+    description: _description,
+    imageUrl: _imageUrl,
+    imageUrls: _imageUrls,
+    imageLocalHashes: _imageLocalHashes,
+    imagePerceptualHashes: _imagePerceptualHashes,
+    ...propertyPatch
+  } = searchPatch;
+  return toPrismaPropertyPatch(propertyPatch);
 }
 
 export class ListingRepository implements ListingRepositoryRoles {
@@ -173,6 +186,10 @@ export class ListingRepository implements ListingRepositoryRoles {
     return this.searchRepo.findById(id);
   }
 
+  async purgeOrphanProperties(): Promise<number> {
+    return purgeOrphanProperties(this.prisma);
+  }
+
   async findPropertiesForEnrichmentScan(limit: number): Promise<PropertyRow[]> {
     const rows = await this.prisma.property.findMany({
       where: displayEnrichmentPendingWhere(),
@@ -180,14 +197,18 @@ export class ListingRepository implements ListingRepositoryRoles {
       orderBy: { firstSeenAt: "asc" },
       include: propertyInclude,
     });
-    return rows.map(toPropertyRow);
+    return rows.flatMap((row) => {
+      const property = tryToPropertyRow(row);
+      return property ? [property] : [];
+    });
   }
 
   async applyEnrichment(
     id: number,
     patch: PropertyEnrichmentPatch
   ): Promise<RepositoryWriteResult<PropertyRow>> {
-    if (Object.keys(patch).length === 0) {
+    const searchPatch = filterPropertySearchCachePatch(patch);
+    if (Object.keys(searchPatch).length === 0) {
       const row = await this.findById(id);
       return row ? { ok: true, value: row } : { ok: false, error: "Not found" };
     }
@@ -195,10 +216,13 @@ export class ListingRepository implements ListingRepositoryRoles {
     try {
       const row = await this.prisma.property.update({
         where: { id },
-        data: toPrismaEnrichmentPatch(patch),
+        data: toPrismaPropertyEnrichmentPatch(searchPatch),
         include: propertyInclude,
       });
-      return { ok: true, value: toPropertyRow(row) };
+      const property = tryToPropertyRow(row);
+      return property
+        ? { ok: true, value: property }
+        : { ok: false, error: "No publications found" };
     } catch (error) {
       const message = repositoryWriteError(error);
       log.warn(`Enrichissement property ${String(id)}: ${message}`);
@@ -213,7 +237,7 @@ export class ListingRepository implements ListingRepositoryRoles {
     try {
       const publication = await this.prisma.listingPublication.update({
         where: { id: publicationId },
-        data: toPrismaEnrichmentPatch(patch),
+        data: toPrismaPropertyPatch(patch),
         select: { propertyId: true },
       });
       return await this.refreshPropertyProjection(publication.propertyId);
@@ -230,18 +254,21 @@ export class ListingRepository implements ListingRepositoryRoles {
     id: number,
     purpose: "display" | "address"
   ): Promise<RepositoryWriteResult<PropertyRow>> {
-    const data =
-      purpose === "display"
-        ? { displayEnrichedAt: new Date() }
-        : { addressEnrichedAt: new Date() };
+    if (purpose === "display") {
+      const row = await this.findById(id);
+      return row ? { ok: true, value: row } : { ok: false, error: "Not found" };
+    }
 
     try {
       const row = await this.prisma.property.update({
         where: { id },
-        data,
+        data: { addressEnrichedAt: new Date() },
         include: propertyInclude,
       });
-      return { ok: true, value: toPropertyRow(row) };
+      const property = tryToPropertyRow(row);
+      return property
+        ? { ok: true, value: property }
+        : { ok: false, error: "No publications found" };
     } catch (error) {
       const message = repositoryWriteError(error);
       log.warn(
@@ -255,15 +282,32 @@ export class ListingRepository implements ListingRepositoryRoles {
     publicationId: number,
     purpose: "display" | "address"
   ): Promise<RepositoryWriteResult<PropertyRow>> {
-    const data =
-      purpose === "display"
-        ? { displayEnrichedAt: new Date() }
-        : { addressEnrichedAt: new Date() };
+    if (purpose === "address") {
+      try {
+        const publication = await this.prisma.listingPublication.findUnique({
+          where: { id: publicationId },
+          select: { propertyId: true },
+        });
+        if (!publication) {
+          return { ok: false, error: "Not found" };
+        }
+        return await this.markEnrichmentAttempted(
+          publication.propertyId,
+          purpose
+        );
+      } catch (error) {
+        const message = repositoryWriteError(error);
+        log.warn(
+          `Publication enrichment marker ${String(publicationId)} (${purpose}): ${message}`
+        );
+        return { ok: false, error: message };
+      }
+    }
 
     try {
       const publication = await this.prisma.listingPublication.update({
         where: { id: publicationId },
-        data,
+        data: { enrichedAt: new Date() },
         select: { propertyId: true },
       });
       return await this.refreshPropertyProjection(publication.propertyId);
@@ -276,18 +320,44 @@ export class ListingRepository implements ListingRepositoryRoles {
     }
   }
 
+  async applyPublicationGallery(
+    publicationId: number,
+    patch: Pick<
+      PropertyEnrichmentPatch,
+      "imageUrls" | "imageLocalHashes" | "imagePerceptualHashes"
+    >
+  ): Promise<RepositoryWriteResult<PropertyRow>> {
+    try {
+      const publication = await this.prisma.listingPublication.update({
+        where: { id: publicationId },
+        data: {
+          ...toPrismaPropertyPatch(patch),
+          enrichedAt: new Date(),
+          ...(patch.imageUrls?.[0] ? { imageUrl: patch.imageUrls[0] } : {}),
+        },
+        select: { propertyId: true },
+      });
+      return await this.refreshPropertyProjection(publication.propertyId);
+    } catch (error) {
+      const message = repositoryWriteError(error);
+      log.warn(
+        `Publication gallery update ${String(publicationId)}: ${message}`
+      );
+      return { ok: false, error: message };
+    }
+  }
+
   async updateAddress(
     id: number,
     address: string,
     dpeNumero: string | null
   ): Promise<RepositoryWriteResult<PropertyRow>> {
     try {
-      const row = await this.prisma.property.update({
-        where: { id },
+      await this.prisma.listingPublication.updateMany({
+        where: { propertyId: id },
         data: { address, dpeNumero },
-        include: propertyInclude,
       });
-      return { ok: true, value: toPropertyRow(row) };
+      return await this.refreshPropertyProjection(id);
     } catch (error) {
       const message = repositoryWriteError(error);
       log.warn(`Property address update ${String(id)}: ${message}`);

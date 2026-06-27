@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { readFile } from "node:fs/promises";
 import {
   getUser,
   requireAdmin,
@@ -63,6 +64,7 @@ import { isHomeAssistantAddOn } from "../homeAssistant/client.js";
 import { PropertyMatchDiagnosticsRepository } from "../db/propertyMatchDiagnosticsRepository.js";
 import { parseDiagnosticsQuery } from "@find-my-house/api-types";
 import { DISLIKE_UNDO_GRACE_MS } from "../config/reactions.js";
+import { readStoredImage } from "../services/imageDownloadService.js";
 
 const log = createLogger("api");
 
@@ -151,6 +153,31 @@ export function createApiApp(ctx: ApiContext) {
   app.get("/api/version", (c) => c.json(getBuildInfo()));
 
   app.use("/api/*", requireAuth());
+
+  app.get("/api/media/:hash", async (c) => {
+    const hash = c.req.param("hash");
+    if (!/^[a-f0-9]{64}$/.test(hash)) {
+      return c.json({ error: "Invalid media hash" }, 400);
+    }
+
+    const stored = await readStoredImage(hash);
+    if (!stored) {
+      return c.json({ error: "Image not found" }, 404);
+    }
+
+    const buffer = await readFile(stored.filePath);
+    const mime =
+      stored.extension === "jpg" || stored.extension === "jpeg"
+        ? "image/jpeg"
+        : `image/${stored.extension}`;
+
+    return new Response(buffer, {
+      headers: {
+        "Content-Type": mime,
+        "Cache-Control": "public, max-age=31536000, immutable",
+      },
+    });
+  });
 
   app.get("/api/me", (c) => c.json(getUser(c)));
 

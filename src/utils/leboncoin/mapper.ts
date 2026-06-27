@@ -5,6 +5,11 @@ import {
   mergeEnergyMetrics,
   parseEnergyMetricsFromText,
 } from "../energy/energyMetrics.js";
+import {
+  leboncoinScrapeImageUrl,
+  leboncoinScrapeImageUrls,
+  syncListingImageFields,
+} from "../images/scrapeImageUrls.js";
 import { sanitizePositiveNumber } from "../listing/amenities.js";
 import { extractLeboncoinListingExtras } from "./attributes.js";
 import {
@@ -34,21 +39,6 @@ function leboncoinPropertyType(ad: LeboncoinAd): string | null {
   return propertyTypeAttr?.value_label ?? propertyTypeAttr?.value ?? null;
 }
 
-export function leboncoinScrapeImageUrl(ad: LeboncoinAd): string | null {
-  const images = ad.images;
-  if (!images) return null;
-
-  const fromLarge = images.urls_large?.find((url) => url.trim());
-  if (fromLarge) return fromLarge.trim();
-
-  const fromStandard = images.urls?.find((url) => url.trim());
-  if (fromStandard) return fromStandard.trim();
-
-  const thumb = images.thumb_url?.trim();
-  if (!thumb) return null;
-  return thumb;
-}
-
 function leboncoinDimensions(ad: LeboncoinAd) {
   return {
     surface: sanitizePositiveNumber(
@@ -66,6 +56,8 @@ function leboncoinDimensions(ad: LeboncoinAd) {
   };
 }
 
+export { leboncoinScrapeImageUrl };
+
 export function mapLeboncoinAdToListing(
   ad: LeboncoinAd,
   scrapedAt: string,
@@ -75,6 +67,7 @@ export function mapLeboncoinAdToListing(
   const metrics = leboncoinEnergyMetrics(ad);
   const extras = extractLeboncoinListingExtras(ad);
   const dimensions = leboncoinDimensions(ad);
+  const images = syncListingImageFields(leboncoinScrapeImageUrls(ad));
 
   return {
     externalId: String(ad.list_id),
@@ -90,7 +83,7 @@ export function mapLeboncoinAdToListing(
     postalCode: ad.location.zipcode ?? null,
     url: ad.url,
     description: ad.body,
-    imageUrl: leboncoinScrapeImageUrl(ad),
+    ...images,
     propertyType: leboncoinPropertyType(ad),
     dpeClass: normalizeEnergyClass(getLeboncoinAttribute(ad, "energy_rate")),
     gesClass: normalizeEnergyClass(getLeboncoinAttribute(ad, "ges")),
@@ -107,6 +100,7 @@ export function mapLeboncoinAdToEnrichmentPatch(
   const metrics = leboncoinEnergyMetrics(ad);
   const extras = extractLeboncoinListingExtras(ad);
   const dimensions = leboncoinDimensions(ad);
+  const images = syncListingImageFields(leboncoinScrapeImageUrls(ad));
 
   return {
     description: ad.body,
@@ -118,5 +112,6 @@ export function mapLeboncoinAdToEnrichmentPatch(
     dpeConsumptionKwhM2: metrics.dpeConsumptionKwhM2,
     gesEmissionKgM2: metrics.gesEmissionKgM2,
     ...extras,
+    ...images,
   };
 }
