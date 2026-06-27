@@ -5,14 +5,13 @@ import { BrowseUndoToast } from "@/components/listings/browse-undo-toast";
 import {
   BrowsePropertyCard,
   BrowsePropertyCardSkeleton,
+  type BrowseExitDirection,
 } from "@/components/listings/browse-property-card";
 import { BrowseReviewActions } from "@/components/listings/browse-review-actions";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { useBrowseKeyboard } from "@/hooks/use-browse-keyboard";
 import { useBrowseSession } from "@/hooks/use-browse-session";
-import type { SwipeDirection } from "@/hooks/use-swipe-gesture";
 import { api, queryKeys } from "@/lib/api";
 import { getErrorMessage } from "@/lib/error-message";
 import {
@@ -27,7 +26,7 @@ const EXIT_MS = 220;
 
 function exitDirectionForAction(
   action: "like" | "dislike" | "pass"
-): SwipeDirection {
+): BrowseExitDirection {
   if (action === "like") return "right";
   if (action === "dislike") return "left";
   return "up";
@@ -39,9 +38,8 @@ export const Route = createFileRoute("/browse")({
 
 function BrowsePage() {
   const queryClient = useQueryClient();
-  const [exitDirection, setExitDirection] = useState<SwipeDirection | null>(
-    null
-  );
+  const [exitDirection, setExitDirection] =
+    useState<BrowseExitDirection | null>(null);
   const [undoState, setUndoState] = useState<NonNullable<
     BrowseState["undoDislike"]
   > | null>(null);
@@ -129,20 +127,6 @@ function BrowsePage() {
     [isReacting, reactMutation]
   );
 
-  const currentProperty = state?.item;
-  useBrowseKeyboard({
-    enabled: Boolean(currentProperty && !state?.finished && !isReacting),
-    onLike: () => {
-      if (currentProperty) handleReact("like", currentProperty.id);
-    },
-    onDislike: () => {
-      if (currentProperty) handleReact("dislike", currentProperty.id);
-    },
-    onPass: () => {
-      if (currentProperty) handleReact("pass", currentProperty.id);
-    },
-  });
-
   const showEmptyStart =
     !state && (browseQuery.isSuccess || startMutation.isSuccess);
 
@@ -202,12 +186,6 @@ function BrowsePage() {
               {state.isExplore ? m.browse_outside_comfort_zone() : ""}
               {!state.hasPreferences ? m.browse_enable_compatibility() : ""}
             </p>
-            <p className="text-xs text-muted-foreground">
-              {m.browse_swipe_hint()}
-            </p>
-            <p className="hidden text-xs text-muted-foreground md:block">
-              {m.browse_keyboard_hint()}
-            </p>
           </div>
 
           {undoState ? (
@@ -231,11 +209,7 @@ function BrowsePage() {
               <div className="-mx-4 flex flex-1 items-center py-2 md:mx-0 md:py-4">
                 <BrowsePropertyCard
                   property={state.item}
-                  disabled={isReacting}
                   exitDirection={exitDirection}
-                  onLike={() => handleReact("like", state.item!.id)}
-                  onDislike={() => handleReact("dislike", state.item!.id)}
-                  onPass={() => handleReact("pass", state.item!.id)}
                 />
               </div>
               <BrowseReviewActions
