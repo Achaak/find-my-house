@@ -132,15 +132,15 @@ export function PropertyCard({
             decoding="async"
             onError={() => setImageFailed(true)}
             className={
-              compact ? "h-40 w-full object-cover" : "h-52 w-full object-cover"
+              compact ? "h-52 w-full object-cover" : "h-72 w-full object-cover"
             }
           />
         ) : (
           <div
             className={
               compact
-                ? "flex h-40 items-center justify-center bg-muted text-sm text-muted-foreground"
-                : "flex h-52 items-center justify-center bg-muted text-sm text-muted-foreground"
+                ? "flex h-52 items-center justify-center bg-muted text-sm text-muted-foreground"
+                : "flex h-72 items-center justify-center bg-muted text-sm text-muted-foreground"
             }
           >
             {m.property_no_photo()}

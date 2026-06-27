@@ -162,6 +162,37 @@ describe("createApiApp", () => {
     expect(currentBody.shownCount).toBe(started.shownCount);
   });
 
+  it("browse pass advances without recording a reaction", async () => {
+    const start = await app.request("/api/browse/start", { method: "POST" });
+    const started = (await start.json()) as BrowseState;
+    expect(started.item).not.toBeNull();
+    if (!started.item) throw new Error("Expected browse item");
+    const passedId = started.item.id;
+
+    const passed = await app.request("/api/browse/pass", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ propertyId: passedId }),
+    });
+    expect(passed.status).toBe(200);
+    const passedBody = (await passed.json()) as BrowseState;
+
+    expect(passedBody.shownCount).toBeGreaterThan(started.shownCount);
+    if (passedBody.item) {
+      expect(passedBody.item.id).not.toBe(passedId);
+    }
+
+    const dislikes = await app.request("/api/reactions/dislike");
+    const likes = await app.request("/api/reactions/like");
+    const dislikeBody = (await dislikes.json()) as ReactionsResponse;
+    const likeBody = (await likes.json()) as ReactionsResponse;
+    expect(
+      [...dislikeBody.items, ...likeBody.items].some(
+        (item) => item.id === passedId
+      )
+    ).toBe(false);
+  });
+
   it("browse like advances to a different listing when available", async () => {
     const start = await app.request("/api/browse/start", { method: "POST" });
     const started = (await start.json()) as BrowseState;

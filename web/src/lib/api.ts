@@ -94,7 +94,7 @@ export const api = {
   browseStop: () =>
     apiFetch<BrowseStopResponse>("/api/browse/stop", { method: "POST" }),
 
-  browseReact: (action: "like" | "dislike", propertyId: number) =>
+  browseReact: (action: "like" | "dislike" | "pass", propertyId: number) =>
     apiFetch<BrowseState>(`/api/browse/${action}`, {
       method: "POST",
       body: JSON.stringify({ propertyId }),

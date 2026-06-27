@@ -49,7 +49,7 @@ function BrowsePage() {
       action,
       propertyId,
     }: {
-      action: "like" | "dislike";
+      action: "like" | "dislike" | "pass";
       propertyId: number;
     }) => api.browseReact(action, propertyId),
     onSuccess: (data) => {
@@ -124,31 +124,46 @@ function BrowsePage() {
           ) : (
             <>
               <PropertyCard property={state.item} hideReactions />
-              <div className="flex gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    disabled={isReacting}
+                    onClick={() =>
+                      reactMutation.mutate({
+                        action: "like",
+                        propertyId: state.item!.id,
+                      })
+                    }
+                  >
+                    {isReacting ? m.common_saving() : m.browse_like_next()}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isReacting}
+                    onClick={() =>
+                      reactMutation.mutate({
+                        action: "dislike",
+                        propertyId: state.item!.id,
+                      })
+                    }
+                  >
+                    {isReacting ? m.common_saving() : m.browse_dislike_next()}
+                  </Button>
+                </div>
                 <Button
                   type="button"
+                  variant="ghost"
                   disabled={isReacting}
                   onClick={() =>
                     reactMutation.mutate({
-                      action: "like",
+                      action: "pass",
                       propertyId: state.item!.id,
                     })
                   }
                 >
-                  {isReacting ? m.common_saving() : m.browse_like_next()}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={isReacting}
-                  onClick={() =>
-                    reactMutation.mutate({
-                      action: "dislike",
-                      propertyId: state.item!.id,
-                    })
-                  }
-                >
-                  {isReacting ? m.common_saving() : m.browse_dislike_next()}
+                  {isReacting ? m.common_saving() : m.browse_pass_next()}
                 </Button>
               </div>
             </>

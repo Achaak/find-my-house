@@ -105,6 +105,7 @@
   "browse_finished": "No more listings to browse with current criteria.",
   "browse_like_next": "Like & next",
   "browse_dislike_next": "Dislike & next",
+  "browse_pass_next": "Pass",
   "browse_press_start": "Press Start to begin browsing.",
   "browse_criteria_postal": "CP {code}",
   "browse_criteria_max_price": "≤ {price} €",

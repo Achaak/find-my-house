@@ -253,7 +253,7 @@ export function createApiApp(ctx: ApiContext) {
 
   app.post("/api/browse/:action", async (c) => {
     const action = c.req.param("action");
-    if (action !== "like" && action !== "dislike") {
+    if (action !== "like" && action !== "dislike" && action !== "pass") {
       return c.json({ error: "Invalid action" }, 400);
     }
 
@@ -275,6 +275,19 @@ export function createApiApp(ctx: ApiContext) {
     if (!listing) {
       clearBrowseSession(user.id);
       return c.json({ error: "Listing not found" }, 404);
+    }
+
+    if (action === "pass") {
+      const state = await advanceBrowseSession(
+        ctx.repository,
+        ctx.reactionRepository,
+        user.id,
+        session
+      );
+
+      return c.json(
+        await serializeBrowseResponse(ctx, user.id, session, state)
+      );
     }
 
     await ctx.reactionRepository.add(propertyId, action);

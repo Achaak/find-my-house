@@ -105,6 +105,7 @@
   "browse_finished": "Plus d'annonces à parcourir avec ces critères.",
   "browse_like_next": "Like et suivant",
   "browse_dislike_next": "Dislike et suivant",
+  "browse_pass_next": "Passer",
   "browse_press_start": "Appuyez sur Démarrer pour commencer.",
   "browse_criteria_postal": "CP {code}",
   "browse_criteria_max_price": "≤ {price} €",

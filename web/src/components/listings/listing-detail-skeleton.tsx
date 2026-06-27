@@ -26,7 +26,7 @@ export function PropertyImageSkeleton({
   compact?: boolean;
 }) {
   return (
-    <Bone className={cn("w-full rounded-none", compact ? "h-40" : "h-52")} />
+    <Bone className={cn("w-full rounded-none", compact ? "h-52" : "h-72")} />
   );
 }
 
