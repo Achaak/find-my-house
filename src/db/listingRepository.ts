@@ -215,7 +215,6 @@ export class ListingRepository implements ListingRepositoryRoles {
           some: {
             isActive: true,
             enrichedAt: { not: null },
-            NOT: { imageLocalHashes: { equals: null } },
           },
         },
       },
