@@ -53,18 +53,25 @@ vi.mock("../utils/seloger/index.js", async (importOriginal) => {
   };
 });
 
-vi.mock("./imageDownloadService.js", () => ({
-  downloadPublicationImages: vi.fn(
-    (
-      urls: string[] | null,
-      existing: Record<string, string> | null,
-      existingPerceptual: Record<string, string> | null = null
-    ) => ({
-      localHashes: { ...(existing ?? {}) },
-      perceptualHashes: { ...(existingPerceptual ?? {}) },
-    })
-  ),
-}));
+vi.mock("./imageDownloadService.js", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("./imageDownloadService.js")>();
+  return {
+    ...actual,
+    downloadPublicationImages: vi.fn(
+      (
+        urls: string[] | null,
+        existing: Record<string, string> | null,
+        existingPerceptual: Record<string, string> | null = null
+      ) => ({
+        localHashes: { ...(existing ?? {}) },
+        perceptualHashes: { ...(existingPerceptual ?? {}) },
+      })
+    ),
+    propertyHasMissingStoredImages: vi.fn().mockResolvedValue(false),
+    publicationHasMissingStoredImages: vi.fn().mockResolvedValue(false),
+  };
+});
 
 const mockFetchBienIci = vi.mocked(fetchBienIciAdById);
 const mockFetchBienIciListingHtml = vi.mocked(fetchBienIciListingHtml);

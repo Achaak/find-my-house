@@ -206,6 +206,29 @@ export class ListingRepository implements ListingRepositoryRoles {
     });
   }
 
+  async findPropertiesForImageBackfillScan(
+    limit: number
+  ): Promise<PropertyRow[]> {
+    const rows = await this.prisma.property.findMany({
+      where: {
+        publications: {
+          some: {
+            isActive: true,
+            enrichedAt: { not: null },
+            NOT: { imageLocalHashes: { equals: null } },
+          },
+        },
+      },
+      take: limit,
+      orderBy: { updatedAt: "asc" },
+      include: propertyInclude,
+    });
+    return rows.flatMap((row) => {
+      const property = tryToPropertyRow(row);
+      return property ? [property] : [];
+    });
+  }
+
   async applyEnrichment(
     id: number,
     patch: PropertyEnrichmentPatch

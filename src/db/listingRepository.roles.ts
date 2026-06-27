@@ -57,6 +57,7 @@ export type ListingSearchRepository = {
   findById(id: number): Promise<PropertyRow | undefined>;
   findByIds(ids: number[]): Promise<PropertyRow[]>;
   findPropertiesForEnrichmentScan(limit: number): Promise<PropertyRow[]>;
+  findPropertiesForImageBackfillScan(limit: number): Promise<PropertyRow[]>;
 };
 
 export type ListingStatsRepository = {

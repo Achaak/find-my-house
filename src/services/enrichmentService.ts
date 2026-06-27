@@ -16,7 +16,11 @@ import {
   isEnrichmentAccessBlockedError,
   SOURCE_PRIORITY,
 } from "./enrichmentAdapters.js";
-import { downloadPublicationImages } from "./imageDownloadService.js";
+import {
+  downloadPublicationImages,
+  propertyHasMissingStoredImages,
+  publicationHasMissingStoredImages,
+} from "./imageDownloadService.js";
 import {
   filterSyndicatedPhotoUrls,
   firstPhotoUrl,
@@ -77,6 +81,13 @@ export {
   getEnrichmentStatus,
   propertyNeedsEnrichment,
 } from "../domain/enrichmentCriteria.js";
+
+export async function needsDisplayEnrichmentWork(
+  property: PropertyRow
+): Promise<boolean> {
+  if (propertyNeedsEnrichment(property, "display")) return true;
+  return propertyHasMissingStoredImages(property.publications);
+}
 
 const DEDUP_STRUCTURE_FIELDS = new Set([
   "surface",
@@ -297,7 +308,11 @@ export async function ensurePropertyEnriched(
   const property = await repository.findById(id);
   if (!property) return { property: undefined, warnings: [] };
 
-  if (!propertyNeedsEnrichment(property, purpose)) {
+  const needsImageBackfill =
+    purpose === "display" &&
+    (await propertyHasMissingStoredImages(property.publications));
+
+  if (!propertyNeedsEnrichment(property, purpose) && !needsImageBackfill) {
     return { property, warnings: [] };
   }
 
@@ -305,47 +320,67 @@ export async function ensurePropertyEnriched(
     SYNDICATED_PHOTO_MIN_PROPERTY_COUNT
   );
 
-  const { patches, updatedFields, warnings } = await enrichProperty(
-    property,
-    purpose,
-    { blockedPhotoUrlKeys }
-  );
-
+  const warnings: string[] = [];
   let resultProperty = property;
-  for (const publicationPatch of patches) {
-    if (Object.keys(publicationPatch.patch).length > 0) {
-      const updated = await repository.applyPublicationEnrichment(
-        publicationPatch.publicationId,
-        publicationPatch.patch
-      );
-      if (updated.ok) {
-        resultProperty = updated.value;
-      } else {
-        warnings.push(`Database update failed: ${updated.error}`);
-      }
-    }
-  }
+  if (propertyNeedsEnrichment(property, purpose)) {
+    const {
+      patches,
+      updatedFields,
+      warnings: enrichWarnings,
+    } = await enrichProperty(property, purpose, { blockedPhotoUrlKeys });
+    warnings.push(...enrichWarnings);
 
-  if (purpose === "address") {
-    const marked = await repository.markEnrichmentAttempted(id, purpose);
-    if (marked.ok) {
-      resultProperty = marked.value;
-      if (
-        updatedFields.length > 0 &&
-        enrichmentTouchesDedupFields(updatedFields)
-      ) {
-        if (resultProperty.postalCode) {
-          await repository.reconcileDuplicates([resultProperty.postalCode]);
+    for (const publicationPatch of patches) {
+      if (Object.keys(publicationPatch.patch).length > 0) {
+        const updated = await repository.applyPublicationEnrichment(
+          publicationPatch.publicationId,
+          publicationPatch.patch
+        );
+        if (updated.ok) {
+          resultProperty = updated.value;
+        } else {
+          warnings.push(`Database update failed: ${updated.error}`);
         }
       }
-    } else {
-      warnings.push(`Failed to mark enrichment attempt: ${marked.error}`);
+    }
+
+    if (purpose === "address") {
+      const marked = await repository.markEnrichmentAttempted(id, purpose);
+      if (marked.ok) {
+        resultProperty = marked.value;
+        if (
+          updatedFields.length > 0 &&
+          enrichmentTouchesDedupFields(updatedFields)
+        ) {
+          if (resultProperty.postalCode) {
+            await repository.reconcileDuplicates([resultProperty.postalCode]);
+          }
+        }
+      } else {
+        warnings.push(`Failed to mark enrichment attempt: ${marked.error}`);
+      }
+    }
+
+    if (
+      purpose === "display" &&
+      updatedFields.length > 0 &&
+      enrichmentTouchesDedupFields(updatedFields)
+    ) {
+      if (resultProperty.postalCode) {
+        await repository.reconcileDuplicates([resultProperty.postalCode]);
+      }
     }
   }
 
   if (purpose === "display") {
     for (const publication of resultProperty.publications) {
-      if (!publication.isActive || publication.enrichedAt) {
+      if (!publication.isActive) {
+        continue;
+      }
+
+      const missingStoredImages =
+        await publicationHasMissingStoredImages(publication);
+      if (publication.enrichedAt && !missingStoredImages) {
         continue;
       }
 
@@ -385,15 +420,6 @@ export async function ensurePropertyEnriched(
         resultProperty = marked.value;
       } else {
         warnings.push(`Failed to mark enrichment attempt: ${marked.error}`);
-      }
-    }
-
-    if (
-      updatedFields.length > 0 &&
-      enrichmentTouchesDedupFields(updatedFields)
-    ) {
-      if (resultProperty.postalCode) {
-        await repository.reconcileDuplicates([resultProperty.postalCode]);
       }
     }
   }

@@ -6,6 +6,7 @@ import {
 } from "./compatibilityService.js";
 import { getEnrichmentStatus } from "./enrichmentService.js";
 import type { EnrichmentQueue } from "./enrichmentQueue.js";
+import { propertyHasMissingStoredImages } from "./imageDownloadService.js";
 import { getCompatibilityScore } from "../utils/compatibility/score.js";
 import { sortByCompatibility } from "../utils/compatibility/score.js";
 
@@ -55,7 +56,24 @@ export async function scheduleEnrichmentBackfill(
     queue.schedule(property.id, "display", "low");
   }
 
-  return candidates.length;
+  let scheduled = candidates.length;
+  if (scheduled < limit) {
+    const imageBackfillScan =
+      await repository.findPropertiesForImageBackfillScan(searchLimit);
+    const candidateIds = new Set(candidates.map((property) => property.id));
+
+    for (const property of imageBackfillScan) {
+      if (scheduled >= limit) break;
+      if (candidateIds.has(property.id)) continue;
+      if (!(await propertyHasMissingStoredImages(property.publications))) {
+        continue;
+      }
+      queue.schedule(property.id, "display", "low");
+      scheduled += 1;
+    }
+  }
+
+  return scheduled;
 }
 
 export function compatibilityCardForProperty(

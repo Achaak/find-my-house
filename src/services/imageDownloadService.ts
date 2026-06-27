@@ -11,8 +11,6 @@ import {
 
 const log = createLogger("images:download");
 
-const IMAGE_DIR = imageStoreDir();
-
 const EXTENSION_BY_MIME: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
@@ -49,7 +47,7 @@ export function hashImageContent(buffer: Buffer): string {
 }
 
 export function localImagePath(contentHash: string, extension: string): string {
-  return join(IMAGE_DIR, `${contentHash}.${extension}`);
+  return join(imageStoreDir(), `${contentHash}.${extension}`);
 }
 
 async function storeImageBuffer(
@@ -81,7 +79,7 @@ async function storeImageBuffer(
     try {
       await access(filePath);
     } catch {
-      await mkdir(IMAGE_DIR, { recursive: true });
+      await mkdir(imageStoreDir(), { recursive: true });
       await writeFile(filePath, buffer);
     }
     await registerPerceptualImage(perceptualHash, contentHash);
@@ -132,7 +130,11 @@ export async function downloadPublicationImages(
   if (!imageUrls?.length) return { localHashes, perceptualHashes };
 
   for (const remoteUrl of imageUrls) {
-    if (localHashes[remoteUrl] && perceptualHashes[remoteUrl]) continue;
+    const existingHash = localHashes[remoteUrl];
+    if (existingHash && perceptualHashes[remoteUrl]) {
+      const stored = await readStoredImage(existingHash);
+      if (stored) continue;
+    }
 
     const downloaded = await downloadImageToStore(remoteUrl);
     if (downloaded) {
@@ -142,6 +144,43 @@ export async function downloadPublicationImages(
   }
 
   return { localHashes, perceptualHashes };
+}
+
+export type PublicationStoredImageInput = {
+  isActive: boolean;
+  imageUrls: string[] | null;
+  imageLocalHashes: Record<string, string> | null;
+};
+
+export async function publicationHasMissingStoredImages(
+  publication: PublicationStoredImageInput
+): Promise<boolean> {
+  if (!publication.isActive || !publication.imageUrls?.length) {
+    return false;
+  }
+
+  const localHashes = publication.imageLocalHashes;
+  if (!localHashes) return false;
+
+  for (const remoteUrl of publication.imageUrls) {
+    const contentHash = localHashes[remoteUrl];
+    if (!contentHash) continue;
+    const stored = await readStoredImage(contentHash);
+    if (!stored) return true;
+  }
+
+  return false;
+}
+
+export async function propertyHasMissingStoredImages(
+  publications: readonly PublicationStoredImageInput[]
+): Promise<boolean> {
+  for (const publication of publications) {
+    if (await publicationHasMissingStoredImages(publication)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export async function readStoredImage(

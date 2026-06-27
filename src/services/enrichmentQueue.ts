@@ -3,10 +3,13 @@ import type { ExtendedScrapeResult } from "../types/listing.js";
 import { createLogger } from "../utils/logger.js";
 import { isScrapeInProgress } from "./scraperService.js";
 import {
+  ensurePropertyEnriched,
+  needsDisplayEnrichmentWork,
+} from "./enrichmentService.js";
+import {
   propertyNeedsEnrichment,
   type EnrichmentPurpose,
 } from "../domain/enrichmentCriteria.js";
-import { ensurePropertyEnriched } from "./enrichmentService.js";
 
 const log = createLogger("enrichment-queue");
 
@@ -98,7 +101,11 @@ export class EnrichmentQueue {
       return { warnings: [] };
     }
 
-    if (!propertyNeedsEnrichment(property, purpose)) {
+    const needsWork =
+      purpose === "display"
+        ? await needsDisplayEnrichmentWork(property)
+        : propertyNeedsEnrichment(property, purpose);
+    if (!needsWork) {
       return { warnings: [] };
     }
 
