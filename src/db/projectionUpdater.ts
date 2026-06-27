@@ -25,7 +25,12 @@ export class ProjectionUpdater {
       if (!row) return { ok: false, error: "Not found" };
 
       const projection = computePropertyProjection(row.publications);
-      if (!projection) return { ok: false, error: "No publications found" };
+      if (!projection) {
+        if (row.publications.length === 0) {
+          return { ok: false, error: "No publications found" };
+        }
+        return { ok: true, value: toPropertyRow(row) };
+      }
 
       const updated = await client.property.update({
         where: { id: propertyId },

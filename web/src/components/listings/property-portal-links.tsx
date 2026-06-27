@@ -15,19 +15,30 @@ export function PropertyPortalLinks({
   property,
   className,
   variant = "button",
+  showUnavailableMessage = false,
 }: {
-  property: Pick<Property, "publications" | "source" | "url">;
+  property: Pick<Property, "publications">;
   className?: string;
   variant?: "button" | "badge";
+  showUnavailableMessage?: boolean;
 }) {
   const publications = getDisplayPublications(property);
+
+  if (publications.length === 0) {
+    if (!showUnavailableMessage) {
+      return null;
+    }
+
+    return (
+      <p className={cn("text-sm text-muted-foreground", className)}>
+        {m.publications_unavailable_detail()}
+      </p>
+    );
+  }
 
   if (publications.length === 1) {
     const publication = publications[0]!;
     const label = formatSource(publication.source);
-    const inactiveSuffix = publication.isActive
-      ? ""
-      : m.portal_inactive_suffix();
 
     return (
       <a
@@ -44,7 +55,6 @@ export function PropertyPortalLinks({
       >
         <ExternalLink className="size-4" />
         {label}
-        {inactiveSuffix}
       </a>
     );
   }
@@ -65,9 +75,6 @@ export function PropertyPortalLinks({
       <DropdownMenuContent align="end">
         {publications.map((publication) => {
           const label = formatSource(publication.source);
-          const inactiveSuffix = publication.isActive
-            ? ""
-            : m.portal_inactive_suffix();
 
           return (
             <DropdownMenuItem
@@ -82,7 +89,6 @@ export function PropertyPortalLinks({
               nativeButton={false}
             >
               {label}
-              {inactiveSuffix}
             </DropdownMenuItem>
           );
         })}

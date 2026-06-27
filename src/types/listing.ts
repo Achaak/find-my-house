@@ -116,9 +116,6 @@ export type PropertyRow = {
   addressEnrichedAt: string | null;
   firstSeenAt: string;
   publications: PublicationRow[];
-  url: string;
-  source: ListingSource;
-  scrapedAt: string;
   createdAt: string;
   updatedAt: string;
 };

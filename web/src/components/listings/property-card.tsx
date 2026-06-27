@@ -149,11 +149,17 @@ export function PropertyCard({
         <CardHeader>
           <div className="flex flex-wrap items-start gap-2">
             <Badge variant="secondary">#{property.id}</Badge>
-            {portalPublications.map((publication) => (
-              <Badge key={publication.key} variant="outline">
-                {formatSource(publication.source)}
+            {portalPublications.length > 0 ? (
+              portalPublications.map((publication) => (
+                <Badge key={publication.key} variant="outline">
+                  {formatSource(publication.source)}
+                </Badge>
+              ))
+            ) : (
+              <Badge variant="outline">
+                {m.publications_unavailable_badge()}
               </Badge>
-            ))}
+            )}
             {property.compatibility ? (
               <CompatibilityBadge compatibility={property.compatibility} />
             ) : null}

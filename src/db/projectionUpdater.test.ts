@@ -23,7 +23,7 @@ describe("ProjectionUpdater", () => {
     await dispose?.();
   });
 
-  it("refreshes projection and hasPriceDrop from publications", async () => {
+  it("freezes projection when all publications are inactive", async () => {
     const primaryListing = makeListing({
       externalId: "pu-bienici",
       source: "bienici",
@@ -86,6 +86,89 @@ describe("ProjectionUpdater", () => {
     });
 
     await prisma.listingPublication.updateMany({
+      where: { propertyId },
+      data: { isActive: false },
+    });
+
+    const refreshed = await projectionUpdater.refresh(propertyId);
+    expect(refreshed.ok).toBe(true);
+    if (!refreshed.ok) return;
+
+    expect(refreshed.value.title).toBe("Priority publication");
+    expect(refreshed.value.price).toBe(520_000);
+    expect(refreshed.value.publications).toEqual([]);
+    const propertyAfterRefresh = await prisma.property.findUnique({
+      where: { id: propertyId },
+      select: { hasPriceDrop: true, title: true, price: true },
+    });
+    expect(propertyAfterRefresh?.title).toBe("Priority publication");
+    expect(propertyAfterRefresh?.price).toBe(520_000);
+    expect(propertyAfterRefresh?.hasPriceDrop).toBe(false);
+  });
+
+  it("refreshes projection from remaining active publications", async () => {
+    const primaryListing = makeListing({
+      externalId: "pu-active-bienici",
+      source: "bienici",
+      url: "https://www.bienici.com/annonce/pu-active-bienici",
+      title: "Active publication",
+      price: 520_000,
+      postalCode: "69001",
+      city: "Lyon",
+    });
+    const cheaperListing = makeListing({
+      externalId: "pu-active-lbc",
+      source: "leboncoin",
+      url: "https://www.leboncoin.fr/ad/pu-active-lbc",
+      title: "Cheaper publication",
+      price: 480_000,
+      postalCode: "69001",
+      city: "Lyon",
+      scrapedAt: "2026-01-16T10:00:00.000Z",
+    });
+
+    const inserted = await repository.upsert(primaryListing);
+    if (!inserted.row) throw new Error("Expected inserted property");
+    const propertyId = inserted.row.id;
+
+    await prisma.listingPublication.create({
+      data: {
+        propertyId,
+        externalId: cheaperListing.externalId,
+        source: cheaperListing.source,
+        url: cheaperListing.url,
+        title: cheaperListing.title,
+        price: cheaperListing.price,
+        surface: cheaperListing.surface,
+        landSurface: cheaperListing.landSurface,
+        rooms: cheaperListing.rooms,
+        bedrooms: cheaperListing.bedrooms,
+        isNewProperty: cheaperListing.isNewProperty,
+        latitude: cheaperListing.latitude,
+        longitude: cheaperListing.longitude,
+        city: cheaperListing.city,
+        postalCode: cheaperListing.postalCode,
+        address: null,
+        dpeNumero: null,
+        description: cheaperListing.description,
+        imageUrl: cheaperListing.imageUrl,
+        propertyType: cheaperListing.propertyType,
+        dpeClass: cheaperListing.dpeClass,
+        gesClass: cheaperListing.gesClass,
+        dpeConsumptionKwhM2: cheaperListing.dpeConsumptionKwhM2,
+        gesEmissionKgM2: cheaperListing.gesEmissionKgM2,
+        bathrooms: cheaperListing.bathrooms,
+        constructionYear: cheaperListing.constructionYear,
+        heating: cheaperListing.heating,
+        orientation: cheaperListing.orientation,
+        propertyCondition: cheaperListing.propertyCondition,
+        parkingSpaces: cheaperListing.parkingSpaces,
+        highlights: cheaperListing.highlights,
+        scrapedAt: new Date(cheaperListing.scrapedAt),
+      },
+    });
+
+    await prisma.listingPublication.updateMany({
       where: { propertyId, source: "bienici" },
       data: { isActive: false },
     });
@@ -94,7 +177,7 @@ describe("ProjectionUpdater", () => {
     expect(refreshed.ok).toBe(true);
     if (!refreshed.ok) return;
 
-    expect(refreshed.value.title).toBe("Fallback publication");
+    expect(refreshed.value.title).toBe("Cheaper publication");
     expect(refreshed.value.price).toBe(480_000);
     const propertyAfterRefresh = await prisma.property.findUnique({
       where: { id: propertyId },

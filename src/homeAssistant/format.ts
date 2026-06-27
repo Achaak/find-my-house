@@ -21,11 +21,22 @@ export function formatPriceDrop(property: PropertyRow): string | null {
 }
 
 function formatSources(property: PropertyRow): string {
-  const sources = [...new Set(property.publications.map((p) => p.source))];
-  if (sources.length === 0) {
-    return formatSourceLabel(property.source);
-  }
+  const sources = [
+    ...new Set(
+      property.publications
+        .filter((publication) => publication.isActive)
+        .map((publication) => publication.source)
+    ),
+  ];
+  if (sources.length === 0) return "Annonces retirées";
   return sources.map(formatSourceLabel).join(", ");
+}
+
+function primaryPublicationUrl(property: PropertyRow): string | null {
+  return (
+    property.publications.find((publication) => publication.isActive)?.url ??
+    null
+  );
 }
 
 function formatLocation(property: PropertyRow): string {
@@ -96,7 +107,10 @@ export function formatPropertyNotification(
   }
 
   lines.push(formatSources(property));
-  lines.push(property.url);
+  const portalUrl = primaryPublicationUrl(property);
+  if (portalUrl) {
+    lines.push(portalUrl);
+  }
 
   return {
     title: property.title,

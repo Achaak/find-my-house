@@ -4,7 +4,6 @@ import type {
 } from "../generated/prisma/client.js";
 import type { PropertyRow, PublicationRow } from "../types/listing.js";
 import { InvariantError } from "../utils/errors/invariantError.js";
-import { selectProjectionPublications } from "../domain/propertyProjection.js";
 
 type PropertyWithPublications = PrismaProperty & {
   publications: PrismaPublication[];
@@ -74,17 +73,9 @@ export function toPropertyRow(row: PropertyWithPublications): PropertyRow {
     throw new InvariantError(`Property #${String(row.id)} has no publications`);
   }
 
-  const publications =
-    allPublications.filter((publication) => publication.isActive).length > 0
-      ? allPublications.filter((publication) => publication.isActive)
-      : allPublications;
-
-  const projectionOrder = selectProjectionPublications(row.publications);
-  const primaryPublicationId = projectionOrder[0]?.id ?? publications[0].id;
-  const primary =
-    publications.find(
-      (publication) => publication.id === primaryPublicationId
-    ) ?? publications[0];
+  const publications = allPublications.filter(
+    (publication) => publication.isActive
+  );
 
   return {
     id: row.id,
@@ -120,9 +111,6 @@ export function toPropertyRow(row: PropertyWithPublications): PropertyRow {
     addressEnrichedAt: row.addressEnrichedAt?.toISOString() ?? null,
     firstSeenAt: row.firstSeenAt.toISOString(),
     publications,
-    url: primary.url,
-    source: primary.source,
-    scrapedAt: primary.scrapedAt,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -166,9 +154,6 @@ export function toCompatibilityTrainingProperty(
     addressEnrichedAt: row.addressEnrichedAt?.toISOString() ?? null,
     firstSeenAt: row.firstSeenAt.toISOString(),
     publications: [],
-    url: "",
-    source: "bienici",
-    scrapedAt: row.firstSeenAt.toISOString(),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

@@ -65,8 +65,9 @@ function sortForProjection(
 export function selectProjectionPublications(
   publications: readonly PublicationLike[]
 ): PublicationLike[] {
-  const active = publications.filter((publication) => publication.isActive);
-  return sortForProjection(active.length > 0 ? active : publications);
+  return sortForProjection(
+    publications.filter((publication) => publication.isActive)
+  );
 }
 
 export function computePropertyProjection(
@@ -74,6 +75,7 @@ export function computePropertyProjection(
 ): PropertyProjection | null {
   if (publications.length === 0) return null;
   const ordered = selectProjectionPublications(publications);
+  if (ordered.length === 0) return null;
   const primary = ordered[0];
   const mergedHighlights = mergeHighlights(
     ...ordered.map((publication) =>

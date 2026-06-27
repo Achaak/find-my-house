@@ -141,9 +141,6 @@ function toPropertyLike(publication: PublicationRow): PropertyRow {
     addressEnrichedAt: publication.addressEnrichedAt,
     firstSeenAt: publication.scrapedAt,
     publications: [publication],
-    url: publication.url,
-    source: publication.source,
-    scrapedAt: publication.scrapedAt,
     createdAt: publication.scrapedAt,
     updatedAt: publication.scrapedAt,
   };

@@ -277,6 +277,8 @@
   "aria_archive": "Archive favorite",
   "portal_inactive_suffix": " (inactive)",
   "portal_dropdown_label": "Portals",
+  "publications_unavailable_badge": "Listings removed",
+  "publications_unavailable_detail": "All listings are no longer available on the portals.",
   "reactions_empty": "No listings yet.",
   "compatibility_title": "Compatibility",
   "compatibility_main_factors": "Main factors",

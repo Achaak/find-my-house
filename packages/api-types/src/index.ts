@@ -112,9 +112,6 @@ export type Property = {
   highlights: string[] | null;
   firstSeenAt: string;
   publications: PropertyPublication[];
-  url: string;
-  source: ListingSource;
-  scrapedAt: string;
   createdAt: string;
   updatedAt: string;
   compatibility?: CompatibilityCard | CompatibilityDetail;
@@ -136,8 +133,6 @@ export type PropertyCard = Pick<
   | "postalCode"
   | "imageUrl"
   | "publications"
-  | "url"
-  | "source"
   | "reaction"
   | "archived"
 > & {

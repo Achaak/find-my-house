@@ -280,7 +280,11 @@ function PropertyDetailsSection({ property }: { property: Property }) {
         </p>
       ) : null}
       <div className="mt-4">
-        <PropertyPortalLinks property={property} variant="badge" />
+        <PropertyPortalLinks
+          property={property}
+          variant="badge"
+          showUnavailableMessage
+        />
       </div>
     </section>
   );

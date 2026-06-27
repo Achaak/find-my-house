@@ -277,6 +277,8 @@
   "aria_archive": "Archiver le favori",
   "portal_inactive_suffix": " (inactif)",
   "portal_dropdown_label": "Portails",
+  "publications_unavailable_badge": "Annonces retirées",
+  "publications_unavailable_detail": "Toutes les annonces ne sont plus disponibles sur les portails.",
   "reactions_empty": "Aucune annonce pour l'instant.",
   "compatibility_title": "Adéquation",
   "compatibility_main_factors": "Facteurs principaux",

@@ -77,7 +77,6 @@ export function makePropertyRow(
     scrapedAt,
   };
   const publications = overrides.publications ?? [defaultPublication];
-  const primary = publications[0] ?? defaultPublication;
 
   return {
     id: 1,
@@ -113,9 +112,6 @@ export function makePropertyRow(
     addressEnrichedAt: null,
     firstSeenAt: scrapedAt,
     publications,
-    url: primary.url,
-    source: primary.source,
-    scrapedAt: primary.scrapedAt,
     createdAt: scrapedAt,
     updatedAt: scrapedAt,
     ...overrides,

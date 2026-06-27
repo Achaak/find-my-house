@@ -59,23 +59,23 @@ function makePrismaProperty(
 }
 
 describe("toPropertyRow", () => {
-  it("maps the earliest publication as the primary listing", () => {
+  it("returns only active publications", () => {
     const row = toPropertyRow(
       makePrismaProperty({
         publications: [
           {
             id: 2,
-            externalId: "newer",
+            externalId: "inactive",
             source: "leboncoin",
-            url: "https://www.leboncoin.fr/ad/newer",
-            isActive: true,
+            url: "https://www.leboncoin.fr/ad/inactive",
+            isActive: false,
             scrapedAt: new Date("2026-02-01T10:00:00.000Z"),
           },
           {
             id: 1,
-            externalId: "older",
+            externalId: "active",
             source: "bienici",
-            url: "https://www.bienici.com/annonce/older",
+            url: "https://www.bienici.com/annonce/active",
             isActive: true,
             scrapedAt: new Date("2026-01-01T10:00:00.000Z"),
           },
@@ -83,9 +83,27 @@ describe("toPropertyRow", () => {
       })
     );
 
-    expect(row.source).toBe("bienici");
-    expect(row.url).toBe("https://www.bienici.com/annonce/older");
-    expect(row.publications).toHaveLength(2);
+    expect(row.publications).toHaveLength(1);
+    expect(row.publications[0]?.source).toBe("bienici");
+  });
+
+  it("returns an empty publications array when all are inactive", () => {
+    const row = toPropertyRow(
+      makePrismaProperty({
+        publications: [
+          {
+            id: 1,
+            externalId: "inactive",
+            source: "bienici",
+            url: "https://www.bienici.com/annonce/inactive",
+            isActive: false,
+            scrapedAt: new Date("2026-01-01T10:00:00.000Z"),
+          },
+        ],
+      })
+    );
+
+    expect(row.publications).toEqual([]);
   });
 
   it("throws when a property has no publications", () => {

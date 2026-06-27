@@ -2,26 +2,24 @@ import { describe, expect, it } from "vitest";
 import { getDisplayPublications } from "./publications";
 
 describe("getDisplayPublications", () => {
-  it("prefers active publications", () => {
+  it("returns only active publications", () => {
     const result = getDisplayPublications({
-      source: "bienici",
-      url: "https://example.com/primary",
       publications: [
         {
           id: 1,
-          externalId: "a",
+          externalId: "active",
           source: "bienici",
-          url: "https://example.com/bienici",
+          url: "https://example.com/active",
           isActive: true,
           scrapedAt: "2026-01-01T00:00:00.000Z",
         },
         {
           id: 2,
-          externalId: "b",
+          externalId: "inactive",
           source: "seloger",
-          url: "https://example.com/seloger",
+          url: "https://example.com/inactive",
           isActive: false,
-          scrapedAt: "2026-01-01T00:00:00.000Z",
+          scrapedAt: "2026-01-02T00:00:00.000Z",
         },
       ],
     });
@@ -30,46 +28,34 @@ describe("getDisplayPublications", () => {
       {
         key: "1",
         source: "bienici",
-        url: "https://example.com/bienici",
+        url: "https://example.com/active",
         isActive: true,
       },
     ]);
   });
 
-  it("falls back to all publications when none are active", () => {
+  it("returns nothing when all publications are inactive", () => {
     const result = getDisplayPublications({
-      source: "bienici",
-      url: "https://example.com/primary",
       publications: [
         {
-          id: 2,
-          externalId: "b",
+          id: 1,
+          externalId: "inactive",
           source: "seloger",
-          url: "https://example.com/seloger",
+          url: "https://example.com/inactive",
           isActive: false,
           scrapedAt: "2026-01-01T00:00:00.000Z",
         },
       ],
     });
 
-    expect(result).toHaveLength(1);
-    expect(result[0]?.source).toBe("seloger");
+    expect(result).toEqual([]);
   });
 
-  it("falls back to primary url when publications are missing", () => {
+  it("returns nothing when publications are missing", () => {
     const result = getDisplayPublications({
-      source: "leboncoin",
-      url: "https://example.com/leboncoin",
       publications: [],
     });
 
-    expect(result).toEqual([
-      {
-        key: "leboncoin",
-        source: "leboncoin",
-        url: "https://example.com/leboncoin",
-        isActive: true,
-      },
-    ]);
+    expect(result).toEqual([]);
   });
 });
