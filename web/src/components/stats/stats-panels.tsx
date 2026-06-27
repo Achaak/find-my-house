@@ -205,7 +205,7 @@ function OverviewPanel({ data }: { data: StatsOverview }) {
       {data.recent.length ? (
         <div className="grid gap-4 md:grid-cols-2">
           {data.recent.map((property) => (
-            <PropertyCard key={property.id} property={property} compact />
+            <PropertyCard key={property.id} property={property} />
           ))}
         </div>
       ) : null}
@@ -275,7 +275,7 @@ function PricesPanel({ data }: { data: StatsPrices }) {
       {data.drops.length ? (
         <div className="grid gap-4 md:grid-cols-2">
           {data.drops.map((property) => (
-            <PropertyCard key={property.id} property={property} compact />
+            <PropertyCard key={property.id} property={property} />
           ))}
         </div>
       ) : (
@@ -301,7 +301,7 @@ function MinePanel({ data }: { data: StatsMine }) {
           <h2 className="text-sm font-medium">{m.stats_recent_favorites()}</h2>
           {data.recentLikes.length ? (
             data.recentLikes.map((property) => (
-              <PropertyCard key={property.id} property={property} compact />
+              <PropertyCard key={property.id} property={property} />
             ))
           ) : (
             <p className="text-sm text-muted-foreground">
@@ -313,7 +313,7 @@ function MinePanel({ data }: { data: StatsMine }) {
           <h2 className="text-sm font-medium">{m.stats_recent_dislikes()}</h2>
           {data.recentDislikes.length ? (
             data.recentDislikes.map((property) => (
-              <PropertyCard key={property.id} property={property} compact />
+              <PropertyCard key={property.id} property={property} />
             ))
           ) : (
             <p className="text-sm text-muted-foreground">
@@ -354,7 +354,7 @@ function ActivityPanel({ data }: { data: StatsActivity }) {
       {data.recent.length ? (
         <div className="grid gap-4 md:grid-cols-2">
           {data.recent.map((property) => (
-            <PropertyCard key={property.id} property={property} compact />
+            <PropertyCard key={property.id} property={property} />
           ))}
         </div>
       ) : null}

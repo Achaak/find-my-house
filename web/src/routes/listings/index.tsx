@@ -384,7 +384,7 @@ function ListingsPage() {
                           </Button>
                         </div>
                       </div>
-                      <PropertyCard property={selectedProperty} compact />
+                      <PropertyCard property={selectedProperty} />
                     </>
                   ) : (
                     <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">

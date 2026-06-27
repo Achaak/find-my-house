@@ -122,7 +122,7 @@ function BrowsePage() {
           {state.finished || !state.item ? (
             <p>{m.browse_finished()}</p>
           ) : (
-            <>
+            <div className="mx-auto w-full max-w-md space-y-4">
               <PropertyCard property={state.item} hideReactions />
               <div className="flex items-center justify-between gap-2">
                 <div className="flex gap-2">
@@ -166,7 +166,7 @@ function BrowsePage() {
                   {isReacting ? m.common_saving() : m.browse_pass_next()}
                 </Button>
               </div>
-            </>
+            </div>
           )}
         </div>
       ) : browseQuery.isSuccess || startMutation.isSuccess ? (

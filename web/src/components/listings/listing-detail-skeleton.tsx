@@ -20,14 +20,8 @@ export function ListingDetailSkeleton() {
   );
 }
 
-export function PropertyImageSkeleton({
-  compact = false,
-}: {
-  compact?: boolean;
-}) {
-  return (
-    <Bone className={cn("w-full rounded-none", compact ? "h-52" : "h-72")} />
-  );
+export function PropertyImageSkeleton() {
+  return <Bone className="aspect-video w-full rounded-none" />;
 }
 
 export function ListingCardSkeleton() {

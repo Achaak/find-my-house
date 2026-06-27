@@ -23,16 +23,16 @@ import { cn, formatPrice, formatSource } from "@/lib/utils";
 import { getDisplayPublications } from "@/lib/publications";
 import * as m from "@/paraglide/messages.js";
 
+const propertyCardImageClass = "aspect-video w-full";
+
 export function PropertyCard({
   property,
-  compact = false,
   selected = false,
   imageSkeleton = false,
   hideReactions = false,
   onSelect,
 }: {
   property: Property;
-  compact?: boolean;
   selected?: boolean;
   imageSkeleton?: boolean;
   hideReactions?: boolean;
@@ -123,28 +123,37 @@ export function PropertyCard({
     >
       <Card className="overflow-hidden">
         {imageSkeleton ? (
-          <PropertyImageSkeleton compact={compact} />
-        ) : property.imageUrl && !imageFailed ? (
-          <img
-            src={property.imageUrl}
-            alt={imageAlt}
-            loading="lazy"
-            decoding="async"
-            onError={() => setImageFailed(true)}
-            className={
-              compact ? "h-52 w-full object-cover" : "h-72 w-full object-cover"
-            }
-          />
+          <PropertyImageSkeleton />
         ) : (
-          <div
-            className={
-              compact
-                ? "flex h-52 items-center justify-center bg-muted text-sm text-muted-foreground"
-                : "flex h-72 items-center justify-center bg-muted text-sm text-muted-foreground"
-            }
+          <Link
+            to="/listings/$id"
+            params={{ id: String(property.id) }}
+            aria-label={m.property_details()}
+            className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
-            {m.property_no_photo()}
-          </div>
+            {property.imageUrl && !imageFailed ? (
+              <img
+                src={property.imageUrl}
+                alt={imageAlt}
+                loading="lazy"
+                decoding="async"
+                onError={() => setImageFailed(true)}
+                className={cn(
+                  propertyCardImageClass,
+                  "object-cover transition-opacity hover:opacity-95"
+                )}
+              />
+            ) : (
+              <div
+                className={cn(
+                  propertyCardImageClass,
+                  "flex items-center justify-center bg-muted text-sm text-muted-foreground transition-colors hover:bg-muted/80"
+                )}
+              >
+                {m.property_no_photo()}
+              </div>
+            )}
+          </Link>
         )}
         <CardHeader>
           <div className="flex flex-wrap items-start gap-2">
