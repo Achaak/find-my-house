@@ -17,6 +17,11 @@ import {
   SOURCE_PRIORITY,
 } from "./enrichmentAdapters.js";
 import { downloadPublicationImages } from "./imageDownloadService.js";
+import {
+  filterSyndicatedPhotoUrls,
+  firstPhotoUrl,
+  SYNDICATED_PHOTO_MIN_PROPERTY_COUNT,
+} from "../utils/images/filterSyndicatedPhotoUrls.js";
 import { mergePublicationImageUrls } from "../utils/images/mergePublicationImageUrls.js";
 
 export type { PropertyEnrichmentPatch } from "../types/enrichment.js";
@@ -27,6 +32,42 @@ export type EnrichmentResult = {
   updatedFields: string[];
   warnings: string[];
 };
+
+export type EnrichmentOptions = {
+  blockedPhotoUrlKeys?: ReadonlySet<string>;
+};
+
+function applyBlockedPhotoUrlsToPatch(
+  publication: PublicationRow,
+  patch: PropertyEnrichmentPatch,
+  blockedPhotoUrlKeys: ReadonlySet<string> | undefined
+): PropertyEnrichmentPatch {
+  const shouldFilterImages =
+    Boolean(patch.imageUrls) ||
+    Boolean(blockedPhotoUrlKeys?.size && publication.imageUrls?.length);
+
+  if (!shouldFilterImages) {
+    return patch;
+  }
+
+  const blocked = blockedPhotoUrlKeys ?? new Set<string>();
+  const filteredExisting = filterSyndicatedPhotoUrls(
+    publication.imageUrls,
+    blocked
+  );
+  const filteredIncoming = filterSyndicatedPhotoUrls(patch.imageUrls, blocked);
+  const mergedImageUrls = mergePublicationImageUrls(
+    filteredExisting,
+    filteredIncoming
+  );
+
+  return {
+    ...patch,
+    imageUrls: mergedImageUrls,
+    imageUrl:
+      firstPhotoUrl(mergedImageUrls) ?? patch.imageUrl ?? publication.imageUrl,
+  };
+}
 
 export type {
   EnrichmentPurpose,
@@ -193,7 +234,8 @@ function diffPatch(
 
 export async function enrichProperty(
   property: PropertyRow,
-  purpose: EnrichmentPurpose = "display"
+  purpose: EnrichmentPurpose = "display",
+  options: EnrichmentOptions = {}
 ): Promise<EnrichmentResult> {
   const publications =
     property.publications.length > 0 ? property.publications : [];
@@ -217,22 +259,11 @@ export async function enrichProperty(
         purpose,
         skipImage: purpose === "address",
       });
-      const mergedImages = patch.imageUrls
-        ? {
-            ...patch,
-            imageUrls: mergePublicationImageUrls(
-              publication.imageUrls,
-              patch.imageUrls
-            ),
-            imageUrl:
-              mergePublicationImageUrls(
-                publication.imageUrls,
-                patch.imageUrls
-              )?.[0] ??
-              patch.imageUrl ??
-              publication.imageUrl,
-          }
-        : patch;
+      const mergedImages = applyBlockedPhotoUrlsToPatch(
+        publication,
+        patch,
+        options.blockedPhotoUrlKeys
+      );
       const publicationPatch = diffPublicationPatch(publication, mergedImages);
       patches.push({ publicationId: publication.id, patch: publicationPatch });
     } catch (error) {
@@ -270,9 +301,14 @@ export async function ensurePropertyEnriched(
     return { property, warnings: [] };
   }
 
+  const blockedPhotoUrlKeys = await repository.findOverusedPhotoUrlKeys(
+    SYNDICATED_PHOTO_MIN_PROPERTY_COUNT
+  );
+
   const { patches, updatedFields, warnings } = await enrichProperty(
     property,
-    purpose
+    purpose,
+    { blockedPhotoUrlKeys }
   );
 
   let resultProperty = property;
@@ -313,17 +349,22 @@ export async function ensurePropertyEnriched(
         continue;
       }
 
-      if (publication.imageUrls?.length) {
+      const galleryUrls = filterSyndicatedPhotoUrls(
+        publication.imageUrls,
+        blockedPhotoUrlKeys
+      );
+
+      if (galleryUrls?.length) {
         const { localHashes, perceptualHashes } =
           await downloadPublicationImages(
-            publication.imageUrls,
+            galleryUrls,
             publication.imageLocalHashes,
             publication.imagePerceptualHashes
           );
         const galleryUpdated = await repository.applyPublicationGallery(
           publication.id,
           {
-            imageUrls: publication.imageUrls,
+            imageUrls: galleryUrls,
             imageLocalHashes: localHashes,
             imagePerceptualHashes: perceptualHashes,
           }

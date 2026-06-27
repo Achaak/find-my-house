@@ -33,6 +33,7 @@ import {
   PrismaPropertyMatchDiagnosticsSink,
 } from "./propertyMatchDiagnostics.js";
 import type { ListingRepositoryRoles } from "./listingRepository.roles.js";
+import { PhotoUrlUsageRepository } from "./photoUrlUsageRepository.js";
 
 const log = createLogger("db");
 
@@ -54,11 +55,13 @@ export class ListingRepository implements ListingRepositoryRoles {
   private readonly statsRepo: PropertyStatsRepository;
   private readonly upsertRepo: PublicationUpsertRepository;
   private readonly projectionUpdater: ProjectionUpdater;
+  private readonly photoUrlUsageRepo: PhotoUrlUsageRepository;
 
   constructor(private readonly prisma: PrismaClient) {
     this.searchRepo = new PropertySearchRepository(prisma);
     this.statsRepo = new PropertyStatsRepository(prisma);
     this.projectionUpdater = new ProjectionUpdater(prisma);
+    this.photoUrlUsageRepo = new PhotoUrlUsageRepository(prisma);
     this.upsertRepo = new PublicationUpsertRepository(
       prisma,
       (ids) => this.searchRepo.findByIds(ids),
@@ -379,6 +382,10 @@ export class ListingRepository implements ListingRepositoryRoles {
       );
     }
     return result;
+  }
+
+  findOverusedPhotoUrlKeys(minPropertyCount: number): Promise<Set<string>> {
+    return this.photoUrlUsageRepo.findOverusedPhotoUrlKeys(minPropertyCount);
   }
 
   async reconcileDuplicates(postalCodes?: string[]): Promise<ReconcileResult> {

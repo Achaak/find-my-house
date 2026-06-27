@@ -22,6 +22,7 @@ import {
   ensurePropertyEnriched,
   propertyNeedsEnrichment,
 } from "./enrichmentService.js";
+import { photoUrlDedupKey } from "../utils/images/filterSyndicatedPhotoUrls.js";
 
 vi.mock("../utils/bienici/index.js", async (importOriginal) => {
   const actual =
@@ -455,6 +456,38 @@ describe("enrichProperty", () => {
       "https://example.com/leboncoin-og.jpg"
     );
     expect(mockFetchBienIciListingHtml).not.toHaveBeenCalled();
+  });
+
+  it("drops syndicated photo URLs blocked by cross-listing reuse", async () => {
+    mockFetchBienIci.mockResolvedValue({
+      id: "bi-1",
+      title: "BienIci",
+      price: 300_000,
+      city: "Paris",
+      photos: [
+        { url_photo: "https://cdn.safti.fr/good.jpg" },
+        { url_photo: "https://media.immo-facile.com/spam.jpg?DATEMAJ=1" },
+      ],
+    });
+
+    const result = await enrichProperty(
+      makePropertyRow({
+        publications: [publication("bienici", 1, "bi-1")],
+      }),
+      "display",
+      {
+        blockedPhotoUrlKeys: new Set([
+          photoUrlDedupKey("https://media.immo-facile.com/spam.jpg"),
+        ]),
+      }
+    );
+
+    expect(publicationPatch(result, 1).imageUrls).toEqual([
+      "https://cdn.safti.fr/good.jpg",
+    ]);
+    expect(publicationPatch(result, 1).imageUrl).toBe(
+      "https://cdn.safti.fr/good.jpg"
+    );
   });
 
   it("merges complementary fields from lower-priority sources", async () => {

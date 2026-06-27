@@ -77,7 +77,12 @@ export type ListingReconcileRepository = {
   reconcileDuplicates(postalCodes?: string[]): Promise<ReconcileResult>;
 };
 
+export type ListingPhotoUrlRepository = {
+  findOverusedPhotoUrlKeys(minPropertyCount: number): Promise<Set<string>>;
+};
+
 export type ListingRepositoryRoles = ListingWriteRepository &
   ListingSearchRepository &
   ListingStatsRepository &
-  ListingReconcileRepository;
+  ListingReconcileRepository &
+  ListingPhotoUrlRepository;
