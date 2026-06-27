@@ -20,6 +20,62 @@ export type PropertyMatchCandidate = PropertyMatchInput & {
   publications?: PublicationMatchCandidate[];
 };
 
+type PropertyWithPublicationMatchFields = {
+  id: number;
+  postalCode: string | null;
+  price: number;
+  surface: number | null;
+  rooms: number | null;
+  bedrooms: number | null;
+  landSurface: number | null;
+  isNewProperty: boolean | null;
+  publications: {
+    source: string;
+    postalCode: string | null;
+    price: number;
+    surface: number | null;
+    rooms: number | null;
+    bedrooms: number | null;
+    landSurface: number | null;
+    propertyType: string | null;
+    isNewProperty: boolean | null;
+    agencySlug: string | null;
+    agencyRef: string | null;
+  }[];
+};
+
+export function toPropertyMatchCandidate(
+  property: PropertyWithPublicationMatchFields
+): PropertyMatchCandidate {
+  const propertyType =
+    property.publications.find((publication) => publication.propertyType)
+      ?.propertyType ?? null;
+  return {
+    id: property.id,
+    postalCode: property.postalCode,
+    price: property.price,
+    surface: property.surface,
+    rooms: property.rooms,
+    bedrooms: property.bedrooms,
+    landSurface: property.landSurface,
+    isNewProperty: property.isNewProperty,
+    propertyType,
+    publications: property.publications.map((publication) => ({
+      postalCode: publication.postalCode,
+      price: publication.price,
+      surface: publication.surface,
+      rooms: publication.rooms,
+      bedrooms: publication.bedrooms,
+      landSurface: publication.landSurface,
+      propertyType: publication.propertyType,
+      isNewProperty: publication.isNewProperty,
+      source: publication.source,
+      agencySlug: publication.agencySlug,
+      agencyRef: publication.agencyRef,
+    })),
+  };
+}
+
 function pendingListings(pending: {
   listing: Listing;
   extraPublications?: { listing: Listing }[];

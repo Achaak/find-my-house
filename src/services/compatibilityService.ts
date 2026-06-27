@@ -7,7 +7,6 @@ import type {
   CompatibilityProfile,
 } from "../types/compatibility.js";
 import type { PropertyRow } from "../types/listing.js";
-import { learnCompatibilityPreferences } from "../utils/compatibility/learn.js";
 import {
   buildBatchCompatibilityRanks,
   buildPropertyCompatibilityCard,
@@ -78,19 +77,4 @@ export function buildListingCompatibilityRanks(
   model: CompatibilityModel | null
 ) {
   return buildBatchCompatibilityRanks(properties, model);
-}
-
-/** @deprecated Use resolveCompatibilityModel */
-export async function learnListingCompatibilityModel(
-  reactionRepository: ReactionRepository
-) {
-  return resolveCompatibilityModel(reactionRepository);
-}
-
-/** @deprecated */
-export function learnPreferencesFromRows(
-  likes: PropertyRow[],
-  dislikes: PropertyRow[] = []
-) {
-  return learnCompatibilityPreferences(likes, dislikes);
 }

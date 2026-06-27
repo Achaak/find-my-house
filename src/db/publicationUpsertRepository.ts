@@ -37,6 +37,7 @@ import {
   type PropertyScalarData,
 } from "./propertyFieldManifest.js";
 import { DedupEngine } from "./dedupEngine.js";
+import { toPropertyMatchCandidate } from "./propertyMatchLookup.js";
 
 const IN_QUERY_BATCH_SIZE = 900;
 
@@ -509,11 +510,17 @@ export class PublicationUpsertRepository {
       const postalCandidates = listing.postalCode
         ? (propertiesByPostalCode.get(listing.postalCode) ?? [])
         : [];
-      const matchedProperty = this.dedupEngine.findCandidateMatch(
+      const matchCandidates = postalCandidates.map(toPropertyMatchCandidate);
+      const matchedCandidate = this.dedupEngine.findCandidateMatch(
         listing,
-        postalCandidates
+        matchCandidates
       );
-      if (matchedProperty) {
+      if (matchedCandidate) {
+        const matchedProperty = postalCandidates.find(
+          (property) => property.id === matchedCandidate.id
+        );
+        if (!matchedProperty) continue;
+
         linkedPropertyIds.add(matchedProperty.id);
         linkedPublications.push({
           propertyId: matchedProperty.id,
@@ -534,7 +541,7 @@ export class PublicationUpsertRepository {
         result.linked++;
         continue;
       }
-      await this.dedupEngine.recordCandidateMiss(listing, postalCandidates);
+      await this.dedupEngine.recordCandidateMiss(listing, matchCandidates);
 
       pendingPropertyCreates.set(propertyKey, {
         listing,

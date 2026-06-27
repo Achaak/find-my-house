@@ -2,21 +2,9 @@ import type {
   DefaultPropertyMatchPolicy,
   PropertyMatchPolicy,
 } from "./propertyMatchPolicy.js";
+import type { PropertyMatchCandidate } from "./propertyMatchLookup.js";
 import type { Listing } from "../types/listing.js";
 import type { PropertyMatchDiagnosticsSink } from "./propertyMatchDiagnostics.js";
-
-type CandidateLike = {
-  id: number;
-  firstPrice: number;
-  postalCode: string | null;
-  price: number;
-  surface: number | null;
-  rooms: number | null;
-  bedrooms: number | null;
-  landSurface: number | null;
-  propertyType: string | null;
-  isNewProperty: boolean | null;
-};
 
 export class DedupEngine {
   constructor(
@@ -31,11 +19,14 @@ export class DedupEngine {
     return this.propertyMatchPolicy.findPendingMatch(listing, pending);
   }
 
-  findCandidateMatch(listing: Listing, candidates: CandidateLike[]) {
+  findCandidateMatch(listing: Listing, candidates: PropertyMatchCandidate[]) {
     return this.propertyMatchPolicy.findCandidateMatch(listing, candidates);
   }
 
-  async recordCandidateMiss(listing: Listing, candidates: CandidateLike[]) {
+  async recordCandidateMiss(
+    listing: Listing,
+    candidates: PropertyMatchCandidate[]
+  ) {
     if (candidates.length === 0) return;
     const diagnostics = this.propertyMatchPolicy.collectDiagnostics(
       listing,

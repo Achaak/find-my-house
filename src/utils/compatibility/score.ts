@@ -6,7 +6,6 @@ import type {
 } from "../../types/compatibility.js";
 import type { PropertyRow } from "../../types/listing.js";
 import { evaluatePropertyCompatibility } from "./evaluate.js";
-import { buildCompatibilityModel } from "./model.js";
 import {
   assignCompatibilityRanks,
   buildCompatibilityCard,
@@ -102,20 +101,4 @@ export function formatCompatibilityLabel(
   const emoji =
     rounded >= 85 ? "🟢" : rounded >= 70 ? "🟡" : rounded >= 50 ? "🟠" : "🔴";
   return `${emoji} ${String(rounded)}/100`;
-}
-
-/** @deprecated Use evaluatePropertyCompatibility with a CompatibilityModel */
-export function scorePropertyCompatibility(
-  property: PropertyRow,
-  model: CompatibilityModel
-) {
-  return evaluatePropertyCompatibility(property, model);
-}
-
-/** @deprecated Use buildCompatibilityModel */
-export function modelFromTrainingData(
-  likes: PropertyRow[],
-  dislikes: PropertyRow[] = []
-) {
-  return buildCompatibilityModel(likes, dislikes);
 }

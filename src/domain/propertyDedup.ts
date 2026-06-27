@@ -115,7 +115,6 @@ export function propertyRecordToPublicationInputs(property: {
   rooms: number | null;
   bedrooms: number | null;
   landSurface: number | null;
-  propertyType: string | null;
   isNewProperty: boolean | null;
   publications: {
     postalCode: string | null;

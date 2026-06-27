@@ -20,10 +20,3 @@ export const seLogerScraper = createClassifiedPortalScraper(
     mapCardToListing: mapSeLogerCardToListing,
   }
 );
-
-/** @deprecated Use seLogerScraper — kept for tests importing the class. */
-export class SeLogerScraper {
-  readonly name = seLogerScraper.name;
-  readonly supportsTravelTime = seLogerScraper.supportsTravelTime;
-  scrape = seLogerScraper.scrape.bind(seLogerScraper);
-}

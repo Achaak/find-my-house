@@ -3,6 +3,7 @@ import type { PropertyEnrichmentPatch } from "../types/enrichment.js";
 import {
   PROPERTY_SEARCH_CACHE_FIELDS,
   type PropertyProjectionShape,
+  type PropertySearchCacheShape,
 } from "../domain/propertyFieldManifest.js";
 
 export function toPrismaHighlights(
@@ -68,17 +69,12 @@ export function toPrismaPropertyPatch(patch: PropertyEnrichmentPatch) {
 
 const SEARCH_CACHE_FIELD_SET = new Set<string>(PROPERTY_SEARCH_CACHE_FIELDS);
 
-export function toPrismaSearchCacheData(projection: PropertyProjectionShape) {
-  const data: Record<string, unknown> = {};
-  for (const field of PROPERTY_SEARCH_CACHE_FIELDS) {
-    data[field] = projection[field];
-  }
-  return data;
-}
-
-/** @deprecated Use toPrismaSearchCacheData — Property stores search cache fields only. */
-export function toPrismaProjectionData(projection: PropertyProjectionShape) {
-  return toPrismaSearchCacheData(projection);
+export function toPrismaSearchCacheData(
+  projection: PropertyProjectionShape
+): PropertySearchCacheShape {
+  return Object.fromEntries(
+    PROPERTY_SEARCH_CACHE_FIELDS.map((field) => [field, projection[field]])
+  ) as PropertySearchCacheShape;
 }
 
 export function filterPropertySearchCachePatch(

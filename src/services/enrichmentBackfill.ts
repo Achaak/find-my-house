@@ -58,12 +58,6 @@ export async function scheduleEnrichmentBackfill(
   return candidates.length;
 }
 
-/** @deprecated Use scheduleEnrichmentBackfill */
-export const scheduleHighCompatibilityBackfill = scheduleEnrichmentBackfill;
-
-/** @deprecated Use EnrichmentBackfillOptions */
-export type HighCompatibilityBackfillOptions = EnrichmentBackfillOptions;
-
 export function compatibilityCardForProperty(
   ...args: Parameters<typeof getListingCompatibilityCard>
 ) {

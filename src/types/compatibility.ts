@@ -70,12 +70,6 @@ export type CompatibilityPreferences = {
   dislikes?: PropertyRow[];
 };
 
-/** @deprecated Use CompatibilityBreakdownRecord */
-export type CompatibilityBreakdown = Record<
-  CompatibilityCriterion,
-  number | null
->;
-
 export type CompatibilityBreakdownRecord = Record<
   CompatibilityCriterion,
   number | null
@@ -141,6 +135,3 @@ export type CompatibilityProfile = {
     importance: CompatibilityProfileWeightImportance;
   }[];
 };
-
-/** @deprecated Use CompatibilityEvaluation */
-export type CompatibilityResult = CompatibilityEvaluation;
