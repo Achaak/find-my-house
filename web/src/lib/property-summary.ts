@@ -9,7 +9,7 @@ import * as m from "@/paraglide/messages.js";
 
 export type PropertySummaryBadge =
   | { kind: "id"; id: number }
-  | { kind: "source"; source: DisplayPublication["source"] }
+  | { kind: "source"; source: DisplayPublication["source"]; url: string }
   | { kind: "publications-unavailable" }
   | { kind: "compatibility"; label: string }
   | { kind: "price-drop"; label: string }
@@ -49,7 +49,11 @@ export function buildPropertySummary(property: Property): PropertySummary {
     ...(portalPublications.length > 0
       ? portalPublications.map(
           (publication) =>
-            ({ kind: "source", source: publication.source }) as const
+            ({
+              kind: "source",
+              source: publication.source,
+              url: publication.url,
+            }) as const
         )
       : [{ kind: "publications-unavailable" } as const]),
     ...(property.compatibility?.tier

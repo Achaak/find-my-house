@@ -24,9 +24,15 @@ export function PropertySummaryBadges({
             );
           case "source":
             return (
-              <Badge key={badge.source} variant="outline">
+              <a
+                key={badge.source}
+                href={badge.url}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              >
                 {formatSource(badge.source)}
-              </Badge>
+              </a>
             );
           case "publications-unavailable":
             return (

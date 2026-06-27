@@ -302,6 +302,16 @@
   color: var(--dislike);
 }
 
+.fmh-map-popup-container a.fmh-map-popup__badge {
+  text-decoration: none !important;
+  cursor: pointer;
+}
+
+.fmh-map-popup-container a.fmh-map-popup__badge:hover {
+  border-color: var(--primary);
+  background: color-mix(in oklch, var(--primary) 10%, var(--muted));
+}
+
 .fmh-map-popup__drop {
   border-color: color-mix(in oklch, var(--price-drop) 40%, var(--border));
   background: var(--price-drop);

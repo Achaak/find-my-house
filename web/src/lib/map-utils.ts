@@ -67,7 +67,7 @@ export function buildPopupHtml(property: Property): string {
         case "id":
           return `<span class="fmh-map-popup__badge">#${String(badge.id)}</span>`;
         case "source":
-          return `<span class="fmh-map-popup__badge">${escapeHtml(formatSource(badge.source))}</span>`;
+          return `<a class="fmh-map-popup__badge fmh-map-popup__badge--link" href="${escapeHtml(badge.url)}" target="_blank" rel="noreferrer noopener">${escapeHtml(formatSource(badge.source))}</a>`;
         case "publications-unavailable":
           return `<span class="fmh-map-popup__badge">${escapeHtml(m.publications_unavailable_badge())}</span>`;
         case "compatibility":
