@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/card";
 import { usePropertyReactions } from "@/hooks/use-property-reactions";
 import { getErrorMessage } from "@/lib/error-message";
+import { resolveMediaUrl } from "@/lib/media-url";
 import { buildPropertySummary } from "@/lib/property-summary";
 import type { Property } from "@find-my-house/api-types";
 import { cn, formatPrice } from "@/lib/utils";
@@ -81,7 +82,7 @@ export function PropertyGridCard({
           >
             {property.imageUrl && !imageFailed ? (
               <img
-                src={property.imageUrl}
+                src={resolveMediaUrl(property.imageUrl)}
                 alt={imageAlt}
                 loading="lazy"
                 decoding="async"

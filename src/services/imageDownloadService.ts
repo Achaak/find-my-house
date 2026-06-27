@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdir, writeFile, access } from "node:fs/promises";
 import { join } from "node:path";
 import { createLogger } from "../utils/logger.js";
+import { imageStoreDir } from "../config/imageStore.js";
 import { computePerceptualHash } from "../utils/images/perceptualHash.js";
 import {
   findContentHashByPerceptualHash,
@@ -10,7 +11,7 @@ import {
 
 const log = createLogger("images:download");
 
-const IMAGE_DIR = join(process.cwd(), "data", "images");
+const IMAGE_DIR = imageStoreDir();
 
 const EXTENSION_BY_MIME: Record<string, string> = {
   "image/jpeg": "jpg",

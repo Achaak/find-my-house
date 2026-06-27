@@ -1,4 +1,5 @@
 import { withBasePath } from "@/lib/base-path";
+import { resolveMediaUrl } from "@/lib/media-url";
 import { hasPriceDrop } from "@/lib/price-drop";
 import { buildPropertySummary } from "@/lib/property-summary";
 import type { Property } from "@find-my-house/api-types";
@@ -58,7 +59,7 @@ export function buildPopupHtml(property: Property): string {
   const detailUrl = withBasePath(summary.detailPath);
 
   const imageBlock = property.imageUrl
-    ? `<img class="fmh-map-popup__image" src="${escapeHtml(property.imageUrl)}" alt="" loading="lazy" />`
+    ? `<img class="fmh-map-popup__image" src="${escapeHtml(resolveMediaUrl(property.imageUrl))}" alt="" loading="lazy" />`
     : `<div class="fmh-map-popup__image fmh-map-popup__image--placeholder">${escapeHtml(m.property_no_photo())}</div>`;
 
   const badgeHtml = summary.badges

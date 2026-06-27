@@ -1,5 +1,5 @@
 import { readFile, writeFile, mkdir, access } from "node:fs/promises";
-import { join } from "node:path";
+import { imageStoreDir, perceptualIndexPath } from "../config/imageStore.js";
 import {
   arePerceptualHashesSimilar,
   PERCEPTUAL_DEDUP_THRESHOLD,
@@ -14,12 +14,7 @@ type PerceptualIndexFile = {
   entries: PerceptualIndexEntry[];
 };
 
-const INDEX_PATH = join(
-  process.cwd(),
-  "data",
-  "images",
-  "perceptual-index.json"
-);
+const INDEX_PATH = perceptualIndexPath();
 
 let indexCache: PerceptualIndexEntry[] | null = null;
 let indexWriteQueue: Promise<void> = Promise.resolve();
@@ -47,7 +42,7 @@ async function getIndex(): Promise<PerceptualIndexEntry[]> {
 
 function persistIndex(entries: PerceptualIndexEntry[]): Promise<void> {
   indexWriteQueue = indexWriteQueue.then(async () => {
-    await mkdir(join(process.cwd(), "data", "images"), { recursive: true });
+    await mkdir(imageStoreDir(), { recursive: true });
     const payload: PerceptualIndexFile = { entries };
     await writeFile(
       INDEX_PATH,

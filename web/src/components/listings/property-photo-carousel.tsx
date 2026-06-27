@@ -7,6 +7,7 @@ import {
   type TouchEvent,
 } from "react";
 import { createPortal } from "react-dom";
+import { resolveMediaUrl } from "@/lib/media-url";
 import { cn } from "@/lib/utils";
 import type { PropertyPhoto } from "@find-my-house/api-types";
 import * as m from "@/paraglide/messages.js";
@@ -229,7 +230,7 @@ function PropertyPhotoFullscreen({
 
       <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden px-2 pb-4">
         <img
-          src={current.url}
+          src={resolveMediaUrl(current.url)}
           alt={alt}
           className="max-h-full max-w-full object-contain"
           draggable={false}
@@ -321,7 +322,7 @@ export function PropertyPhotoCarousel({
           onClick={openFullscreen}
         >
           <img
-            src={current.url}
+            src={resolveMediaUrl(current.url)}
             alt={alt}
             className={cn("aspect-[4/3] w-full object-cover", imageClassName)}
             draggable={false}

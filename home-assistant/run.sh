@@ -70,12 +70,13 @@ export WEB_PORT=8099
 export WEB_HOST=0.0.0.0
 export HOME_ASSISTANT_URL=http://supervisor/core
 export DATABASE_URL="file:/data/listings.db"
+export IMAGE_STORE_DIR=/data/images
 export CLOAKBROWSER_PROFILE_DIR=/data/cloakbrowser-profile
 export CLOAKBROWSER_CACHE_DIR=/data/cloakbrowser-cache
 export CLOAKBROWSER_HEADLESS=true
 export CLOAKBROWSER_AUTO_UPDATE=false
 
-mkdir -p /data /data/cloakbrowser-cache
+mkdir -p /data /data/images /data/cloakbrowser-cache
 
 # Seed persisted cache from the image on first run (avoids a 198 MB download on HA).
 if [ -z "$(ls -A /data/cloakbrowser-cache 2>/dev/null)" ] \
