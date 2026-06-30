@@ -160,11 +160,13 @@ export async function publicationHasMissingStoredImages(
   }
 
   const localHashes = publication.imageLocalHashes;
-  if (!localHashes) return false;
+  if (!localHashes || Object.keys(localHashes).length === 0) {
+    return true;
+  }
 
   for (const remoteUrl of publication.imageUrls) {
     const contentHash = localHashes[remoteUrl];
-    if (!contentHash) continue;
+    if (!contentHash) return true;
     const stored = await readStoredImage(contentHash);
     if (!stored) return true;
   }

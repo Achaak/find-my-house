@@ -108,10 +108,8 @@ describe("scheduleEnrichmentBackfill", () => {
       if (publicationExternalId(property) !== "backfill-complete") continue;
       for (const publication of property.publications) {
         await repository.applyPublicationGallery(publication.id, {
-          imageUrls:
-            publication.imageUrls ??
-            (publication.imageUrl ? [publication.imageUrl] : null),
-          imageLocalHashes: {},
+          imageUrls: null,
+          imageLocalHashes: null,
         });
       }
       await repository.markEnrichmentAttempted(property.id, "display");
@@ -176,6 +174,35 @@ describe("scheduleEnrichmentBackfill", () => {
 
     expect(scheduled).toBe(2);
     expect(schedule).toHaveBeenCalledTimes(2);
+  });
+
+  it("queues enriched listings that still need local image storage", async () => {
+    const { items } = await repository.search({ limit: 10 });
+    const pending = items.find(
+      (item) => publicationExternalId(item) === "backfill-low"
+    );
+    if (!pending) throw new Error("Expected backfill-low listing");
+
+    for (const publication of pending.publications) {
+      await repository.applyPublicationGallery(publication.id, {
+        imageUrls: ["https://example.com/photo.jpg"],
+        imageLocalHashes: null,
+      });
+      await repository.markPublicationEnrichmentAttempted(
+        publication.id,
+        "display"
+      );
+    }
+
+    const scheduled = await scheduleEnrichmentBackfill(
+      repository,
+      reactionRepository,
+      queue,
+      { limit: 10 }
+    );
+
+    expect(scheduled).toBeGreaterThanOrEqual(1);
+    expect(schedule).toHaveBeenCalledWith(pending.id, "display", "low");
   });
 
   it("respects the batch limit", async () => {

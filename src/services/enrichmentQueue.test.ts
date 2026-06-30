@@ -87,8 +87,8 @@ describe("EnrichmentQueue", () => {
     const publication = inserted.row?.publications[0];
     if (publication) {
       await repository.applyPublicationGallery(publication.id, {
-        imageUrls: publication.imageUrls ?? ["https://example.com/photo.jpg"],
-        imageLocalHashes: {},
+        imageUrls: null,
+        imageLocalHashes: null,
       });
       await repository.markEnrichmentAttempted(propertyId, "display");
     }

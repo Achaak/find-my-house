@@ -4,7 +4,7 @@ import {
   getListingCompatibilityCard,
   resolveCompatibilityModel,
 } from "./compatibilityService.js";
-import { getEnrichmentStatus } from "./enrichmentService.js";
+import { needsDisplayEnrichmentWork } from "./enrichmentService.js";
 import type { EnrichmentQueue } from "./enrichmentQueue.js";
 import { propertyHasMissingStoredImages } from "./imageDownloadService.js";
 import { getCompatibilityScore } from "../utils/compatibility/score.js";
@@ -37,9 +37,12 @@ export async function scheduleEnrichmentBackfill(
   const model = await resolveCompatibilityModel(reactionRepository);
 
   const scanned = await repository.findPropertiesForEnrichmentScan(searchLimit);
-  const pending = scanned.filter(
-    (property) => getEnrichmentStatus(property, "display") === "pending"
-  );
+  const pending: typeof scanned = [];
+  for (const property of scanned) {
+    if (await needsDisplayEnrichmentWork(property)) {
+      pending.push(property);
+    }
+  }
 
   const ranked = model ? sortByCompatibility(pending, model) : pending;
 

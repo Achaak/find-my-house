@@ -88,6 +88,20 @@ describe("publicationHasMissingStoredImages", () => {
     vi.unstubAllEnvs();
   });
 
+  it("returns true when image URLs exist but no local hashes were recorded", async () => {
+    const { publicationHasMissingStoredImages } =
+      await import("./imageDownloadService.js");
+    const remoteUrl = "https://example.com/photo.jpg";
+
+    await expect(
+      publicationHasMissingStoredImages({
+        isActive: true,
+        imageUrls: [remoteUrl],
+        imageLocalHashes: null,
+      })
+    ).resolves.toBe(true);
+  });
+
   it("returns true when a local hash has no matching file", async () => {
     const { hashImageContent, publicationHasMissingStoredImages } =
       await import("./imageDownloadService.js");
