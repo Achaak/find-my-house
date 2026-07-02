@@ -1,4 +1,6 @@
-const ADDON_SLUG = process.env.ADDON_SLUG ?? "find_my_house";
+import { createLogger } from "../utils/logger.js";
+
+const log = createLogger("home-assistant");
 
 let cachedIngressBase: string | null | undefined;
 
@@ -18,14 +20,14 @@ export async function resolveIngressBasePath(): Promise<string | null> {
   }
 
   try {
-    const response = await fetch(
-      `http://supervisor/addons/${ADDON_SLUG}/info`,
-      {
-        headers: { Authorization: `Bearer ${supervisorToken}` },
-        signal: AbortSignal.timeout(5_000),
-      }
-    );
+    const response = await fetch("http://supervisor/addons/self/info", {
+      headers: { Authorization: `Bearer ${supervisorToken}` },
+      signal: AbortSignal.timeout(5_000),
+    });
     if (!response.ok) {
+      log.warn(
+        `Unable to resolve ingress URL from supervisor (${String(response.status)}) — notification links will miss the ingress prefix`
+      );
       cachedIngressBase = null;
       return null;
     }
@@ -34,9 +36,18 @@ export async function resolveIngressBasePath(): Promise<string | null> {
       data?: { ingress_url?: string | null };
     };
     const ingressUrl = body.data?.ingress_url?.replace(/\/$/, "");
+    if (!ingressUrl) {
+      log.warn(
+        "Supervisor returned no ingress_url — notification links will miss the ingress prefix"
+      );
+    }
     cachedIngressBase = ingressUrl ?? null;
     return cachedIngressBase;
-  } catch {
+  } catch (error) {
+    log.warn(
+      "Failed to resolve ingress URL from supervisor — notification links will miss the ingress prefix:",
+      error
+    );
     cachedIngressBase = null;
     return null;
   }

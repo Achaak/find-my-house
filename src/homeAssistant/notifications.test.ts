@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { makePropertyRow } from "../test/listingFixtures.js";
+import { resetIngressBasePathCache } from "./listingNotificationPath.js";
 import {
   sendNewListingNotifications,
   sendPriceDropNotifications,
@@ -35,6 +36,9 @@ describe("sendPriceDropNotifications", () => {
   afterEach(() => {
     callHaService.mockReset();
     callHaServices.mockClear();
+    resetIngressBasePathCache();
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
   });
 
   it("skips properties without a real price drop", async () => {
@@ -73,12 +77,43 @@ describe("sendPriceDropNotifications", () => {
     expect(sent).toBe(1);
     expect(callHaService).toHaveBeenCalledTimes(2);
   });
+
+  it("prefixes click paths with the ingress base when available", async () => {
+    vi.stubEnv("SUPERVISOR_TOKEN", "supervisor-token");
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: { ingress_url: "/api/hassio_ingress/stable-token/" },
+        }),
+        { status: 200 }
+      )
+    );
+    callHaService.mockResolvedValue({ ok: true });
+
+    const sent = await sendPriceDropNotifications(services, [
+      makePropertyRow({ id: 4, price: 280_000, firstPrice: 300_000 }),
+    ]);
+
+    expect(sent).toBe(1);
+    expect(callHaService).toHaveBeenCalledWith(
+      "persistent_notification.create",
+      expect.objectContaining({
+        data: {
+          url: "/api/hassio_ingress/stable-token/listings/4",
+          clickAction: "/api/hassio_ingress/stable-token/listings/4",
+        },
+      })
+    );
+  });
 });
 
 describe("sendNewListingNotifications", () => {
   afterEach(() => {
     callHaService.mockReset();
     callHaServices.mockClear();
+    resetIngressBasePathCache();
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
   });
 
   it("caps individual notifications and sends an overflow summary", async () => {
@@ -118,6 +153,9 @@ describe("sendTestNotification", () => {
   afterEach(() => {
     callHaService.mockReset();
     callHaServices.mockClear();
+    resetIngressBasePathCache();
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
   });
 
   it("sends a test notification via the configured services", async () => {

@@ -58,5 +58,11 @@ describe("listingNotificationPath", () => {
       "/api/hassio_ingress/stable-token"
     );
     expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://supervisor/addons/self/info",
+      expect.objectContaining({
+        headers: { Authorization: "Bearer supervisor-token" },
+      })
+    );
   });
 });
