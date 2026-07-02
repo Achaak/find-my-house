@@ -5,7 +5,7 @@ import type {
   PriceStats,
   SourcePublicationCounts,
 } from "../types/stats.js";
-import { displayEnrichmentPendingWhere } from "../domain/enrichmentCriteria.js";
+import { displayEnrichmentBackfillWhere } from "../domain/enrichmentCriteria.js";
 import { propertyInclude } from "./propertyInclude.js";
 import { tryToPropertyRow } from "./listingMapper.js";
 
@@ -30,7 +30,7 @@ export class PropertyStatsRepository {
 
   async countPendingDisplayEnrichment(): Promise<number> {
     return this.prisma.property.count({
-      where: displayEnrichmentPendingWhere(),
+      where: displayEnrichmentBackfillWhere(),
     });
   }
 

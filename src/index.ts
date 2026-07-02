@@ -109,30 +109,40 @@ async function main(): Promise<void> {
   }
 
   const { enrichment } = scrapeConfig;
+
+  async function runEnrichmentBackfill(
+    trigger: "startup" | "cron"
+  ): Promise<void> {
+    const label =
+      trigger === "startup"
+        ? "Startup enrichment backfill..."
+        : "Scheduled enrichment backfill...";
+    cronLog.info(label);
+    try {
+      const scheduled = await scheduleEnrichmentBackfill(
+        repository,
+        reactionRepository,
+        enrichmentQueue,
+        {
+          minScore: enrichment.minCompatScore,
+          limit: enrichment.batchLimit,
+          searchLimit: enrichment.searchLimit,
+        }
+      );
+      cronLog.info(
+        `Enrichment backfill: ${String(scheduled)} listing(s) queued`
+      );
+    } catch (error) {
+      cronLog.error("Enrichment backfill error:", error);
+    }
+  }
+
   if (enrichment.enabled && cron.validate(enrichment.cron)) {
-    cron.schedule(enrichment.cron, async () => {
-      cronLog.info("Scheduled enrichment backfill...");
-      try {
-        const scheduled = await scheduleEnrichmentBackfill(
-          repository,
-          reactionRepository,
-          enrichmentQueue,
-          {
-            minScore: enrichment.minCompatScore,
-            limit: enrichment.batchLimit,
-            searchLimit: enrichment.searchLimit,
-          }
-        );
-        cronLog.info(
-          `Enrichment backfill: ${String(scheduled)} listing(s) queued`
-        );
-      } catch (error) {
-        cronLog.error("Enrichment backfill error:", error);
-      }
-    });
+    cron.schedule(enrichment.cron, () => void runEnrichmentBackfill("cron"));
     cronLog.info(
       `Scheduled enrichment backfill: ${enrichment.cron} (batch ${String(enrichment.batchLimit)}, scan ${String(enrichment.searchLimit)}, min compat ${String(enrichment.minCompatScore)})`
     );
+    void runEnrichmentBackfill("startup");
   } else if (enrichment.enabled) {
     cronLog.error(
       `Invalid enrichment cron expression: "${enrichment.cron}" — automatic enrichment backfill disabled`

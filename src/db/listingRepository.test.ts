@@ -10,6 +10,7 @@ import {
 import { createTestRepository } from "../test/db.js";
 import { makeListing } from "../test/listingFixtures.js";
 import { propertyNeedsEnrichment } from "../domain/enrichmentCriteria.js";
+import { needsDisplayEnrichmentWork } from "../services/enrichmentService.js";
 import type { ListingRepository } from "./listingRepository.js";
 import type { PrismaClient } from "../generated/prisma/client.js";
 
@@ -752,7 +753,7 @@ describe("ListingRepository.countPendingDisplayEnrichment", () => {
     await dispose?.();
   });
 
-  it("matches propertyNeedsEnrichment across the catalog", async () => {
+  it("matches display enrichment backfill criteria across the catalog", async () => {
     const complete = makeListing({
       externalId: "enrich-complete",
       url: "https://www.bienici.com/annonce/enrich-complete",
@@ -789,9 +790,12 @@ describe("ListingRepository.countPendingDisplayEnrichment", () => {
     await repository.upsertMany([complete, pending, stalePortalImage]);
 
     const scanned = await repository.findPropertiesForEnrichmentScan(1000);
-    const expected = scanned.filter((property) =>
-      propertyNeedsEnrichment(property, "display")
-    ).length;
+    let expected = 0;
+    for (const property of scanned) {
+      if (await needsDisplayEnrichmentWork(property)) {
+        expected += 1;
+      }
+    }
 
     expect(await repository.countPendingDisplayEnrichment()).toBe(expected);
     expect(expected).toBeGreaterThanOrEqual(2);

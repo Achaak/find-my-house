@@ -178,6 +178,9 @@ export class EnrichmentQueue {
       }
     } finally {
       this.draining = false;
+      if (this.queue.length > 0) {
+        void this.drain();
+      }
     }
   }
 

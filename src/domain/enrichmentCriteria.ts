@@ -1,4 +1,4 @@
-import type { Prisma } from "../generated/prisma/client.js";
+import { Prisma } from "../generated/prisma/client.js";
 import type { PropertyRow, PublicationRow } from "../types/listing.js";
 import { isTruncatedPortalDescription } from "../utils/classifiedPortal/parsers/detailDescription.js";
 import { classifiedImageNeedsRefresh } from "../utils/classifiedPortal/helpers.js";
@@ -133,5 +133,25 @@ export function displayEnrichmentPendingWhere(): Prisma.PropertyWhereInput {
 
   return {
     OR: [pendingEnrichment, stalePortalImage, truncatedPortalDescription],
+  };
+}
+
+/** Publications enriched but local image hashes were never recorded. */
+export function displayImageBackfillPendingWhere(): Prisma.PropertyWhereInput {
+  return {
+    publications: {
+      some: {
+        isActive: true,
+        enrichedAt: { not: null },
+        imageLocalHashes: { equals: Prisma.DbNull },
+      },
+    },
+  };
+}
+
+/** DB filter for the hourly enrichment backfill scan. */
+export function displayEnrichmentBackfillWhere(): Prisma.PropertyWhereInput {
+  return {
+    OR: [displayEnrichmentPendingWhere(), displayImageBackfillPendingWhere()],
   };
 }

@@ -9,7 +9,8 @@ import type {
 import type { PropertyEnrichmentPatch } from "../types/enrichment.js";
 import type { RepositoryWriteResult } from "../types/db.js";
 import { repositoryWriteError } from "../types/db.js";
-import { displayEnrichmentPendingWhere } from "../domain/enrichmentCriteria.js";
+import { displayEnrichmentBackfillWhere } from "../domain/enrichmentCriteria.js";
+import { Prisma } from "../generated/prisma/client.js";
 import { tryToPropertyRow } from "./listingMapper.js";
 import { propertyInclude } from "./propertyInclude.js";
 import { PropertySearchRepository } from "./propertySearchRepository.js";
@@ -195,7 +196,7 @@ export class ListingRepository implements ListingRepositoryRoles {
 
   async findPropertiesForEnrichmentScan(limit: number): Promise<PropertyRow[]> {
     const rows = await this.prisma.property.findMany({
-      where: displayEnrichmentPendingWhere(),
+      where: displayEnrichmentBackfillWhere(),
       take: limit,
       orderBy: { firstSeenAt: "asc" },
       include: propertyInclude,
@@ -215,6 +216,7 @@ export class ListingRepository implements ListingRepositoryRoles {
           some: {
             isActive: true,
             enrichedAt: { not: null },
+            imageLocalHashes: { not: Prisma.DbNull },
           },
         },
       },
