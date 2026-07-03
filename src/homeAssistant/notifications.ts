@@ -13,7 +13,7 @@ import {
   buildListingNotificationPath,
   buildListingsIndexPath,
   notificationClickData,
-  resolveIngressBasePath,
+  resolveAddonSlug,
 } from "./listingNotificationPath.js";
 
 const log = createLogger("home-assistant");
@@ -36,7 +36,7 @@ async function sendPropertyNotification(
     header?: string;
     priceDrop?: boolean;
     token?: string;
-    ingressBase?: string | null;
+    addonSlug?: string | null;
   }
 ): Promise<boolean> {
   const compatibility = options.compatibilityModel
@@ -45,7 +45,7 @@ async function sendPropertyNotification(
 
   const listingPath = buildListingNotificationPath(
     property.id,
-    options.ingressBase ?? null
+    options.addonSlug ?? null
   );
   const { title, message } = formatPropertyNotification(property, {
     compatibility,
@@ -79,7 +79,7 @@ async function sendListingNotifications(
     : listings;
   if (eligible.length === 0) return 0;
 
-  const ingressBase = await resolveIngressBasePath();
+  const addonSlug = await resolveAddonSlug();
   const maxNotifications = options.maxNotifications ?? eligible.length;
   const ranked = compatibilityModel
     ? sortByCompatibility(eligible, compatibilityModel)
@@ -100,7 +100,7 @@ async function sendListingNotifications(
       header,
       priceDrop: options.priceDrop,
       token: options.token,
-      ingressBase,
+      addonSlug,
     });
 
     if (ok) {
@@ -112,7 +112,7 @@ async function sendListingNotifications(
   }
 
   if (hidden > 0) {
-    const listingsPath = buildListingsIndexPath(ingressBase);
+    const listingsPath = buildListingsIndexPath(addonSlug);
     const result = await callHaServices(
       notifyServices,
       {
@@ -190,8 +190,8 @@ export async function sendTestNotification(
   notifyServices: string[],
   options?: { token?: string }
 ): Promise<HaServiceCallResult> {
-  const ingressBase = await resolveIngressBasePath();
-  const listingsPath = buildListingsIndexPath(ingressBase);
+  const addonSlug = await resolveAddonSlug();
+  const listingsPath = buildListingsIndexPath(addonSlug);
 
   return callHaServices(
     notifyServices,

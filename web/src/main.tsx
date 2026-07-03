@@ -5,6 +5,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { getIngressBasePath } from "@/lib/base-path";
+import { initHaPanelRoute } from "@/lib/ha-panel-route";
 import { queryClient } from "@/lib/query-client";
 import { routeTree } from "./routeTree.gen";
 import "./index.css";
@@ -20,6 +21,8 @@ const router = createRouter({
   defaultPreload: "intent",
   basepath: getIngressBasePath() || "/",
 });
+
+initHaPanelRoute(router);
 
 declare module "@tanstack/react-router" {
   interface Register {

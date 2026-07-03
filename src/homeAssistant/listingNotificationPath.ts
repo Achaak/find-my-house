@@ -2,20 +2,20 @@ import { createLogger } from "../utils/logger.js";
 
 const log = createLogger("home-assistant");
 
-let cachedIngressBase: string | null | undefined;
+let cachedAddonSlug: string | null | undefined;
 
 export function resetIngressBasePathCache(): void {
-  cachedIngressBase = undefined;
+  cachedAddonSlug = undefined;
 }
 
-export async function resolveIngressBasePath(): Promise<string | null> {
-  if (cachedIngressBase !== undefined) {
-    return cachedIngressBase;
+export async function resolveAddonSlug(): Promise<string | null> {
+  if (cachedAddonSlug !== undefined) {
+    return cachedAddonSlug;
   }
 
   const supervisorToken = process.env.SUPERVISOR_TOKEN;
   if (!supervisorToken) {
-    cachedIngressBase = null;
+    cachedAddonSlug = null;
     return null;
   }
 
@@ -26,43 +26,43 @@ export async function resolveIngressBasePath(): Promise<string | null> {
     });
     if (!response.ok) {
       log.warn(
-        `Unable to resolve ingress URL from supervisor (${String(response.status)}) — notification links will miss the ingress prefix`
+        `Unable to resolve add-on slug from supervisor (${String(response.status)}) — notification links will miss the panel prefix`
       );
-      cachedIngressBase = null;
+      cachedAddonSlug = null;
       return null;
     }
 
     const body = (await response.json()) as {
-      data?: { ingress_url?: string | null };
+      data?: { slug?: string | null };
     };
-    const ingressUrl = body.data?.ingress_url?.replace(/\/$/, "");
-    if (!ingressUrl) {
+    const slug = body.data?.slug?.trim();
+    if (!slug) {
       log.warn(
-        "Supervisor returned no ingress_url — notification links will miss the ingress prefix"
+        "Supervisor returned no add-on slug — notification links will miss the panel prefix"
       );
     }
-    cachedIngressBase = ingressUrl ?? null;
-    return cachedIngressBase;
+    cachedAddonSlug = slug ?? null;
+    return cachedAddonSlug;
   } catch (error) {
     log.warn(
-      "Failed to resolve ingress URL from supervisor — notification links will miss the ingress prefix:",
+      "Failed to resolve add-on slug from supervisor — notification links will miss the panel prefix:",
       error
     );
-    cachedIngressBase = null;
+    cachedAddonSlug = null;
     return null;
   }
 }
 
 export function buildListingNotificationPath(
   propertyId: number,
-  ingressBase: string | null
+  addonSlug: string | null
 ): string {
   const listingPath = `/listings/${String(propertyId)}`;
-  return ingressBase ? `${ingressBase}${listingPath}` : listingPath;
+  return addonSlug ? `/${addonSlug}${listingPath}` : listingPath;
 }
 
-export function buildListingsIndexPath(ingressBase: string | null): string {
-  return ingressBase ? `${ingressBase}/listings` : "/listings";
+export function buildListingsIndexPath(addonSlug: string | null): string {
+  return addonSlug ? `/${addonSlug}/listings` : "/listings";
 }
 
 export function notificationClickData(path: string): {

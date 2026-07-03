@@ -4,7 +4,7 @@ import {
   buildListingsIndexPath,
   notificationClickData,
   resetIngressBasePathCache,
-  resolveIngressBasePath,
+  resolveAddonSlug,
 } from "./listingNotificationPath.js";
 
 describe("listingNotificationPath", () => {
@@ -14,19 +14,17 @@ describe("listingNotificationPath", () => {
     vi.restoreAllMocks();
   });
 
-  it("builds a relative listing path without ingress", () => {
+  it("builds a relative listing path without an add-on slug", () => {
     expect(buildListingNotificationPath(42, null)).toBe("/listings/42");
     expect(buildListingsIndexPath(null)).toBe("/listings");
   });
 
-  it("prefixes listing paths with the ingress base", () => {
-    const base = "/api/hassio_ingress/abc123";
-    expect(buildListingNotificationPath(7, base)).toBe(
-      "/api/hassio_ingress/abc123/listings/7"
+  it("prefixes listing paths with the HA panel slug", () => {
+    const slug = "abc123_find_my_house";
+    expect(buildListingNotificationPath(7, slug)).toBe(
+      "/abc123_find_my_house/listings/7"
     );
-    expect(buildListingsIndexPath(base)).toBe(
-      "/api/hassio_ingress/abc123/listings"
-    );
+    expect(buildListingsIndexPath(slug)).toBe("/abc123_find_my_house/listings");
   });
 
   it("duplicates click paths for iOS and Android", () => {
@@ -37,26 +35,22 @@ describe("listingNotificationPath", () => {
   });
 
   it("returns null without a supervisor token", async () => {
-    await expect(resolveIngressBasePath()).resolves.toBeNull();
+    await expect(resolveAddonSlug()).resolves.toBeNull();
   });
 
-  it("fetches and caches the ingress base from supervisor", async () => {
+  it("fetches and caches the add-on slug from supervisor", async () => {
     vi.stubEnv("SUPERVISOR_TOKEN", "supervisor-token");
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(
         JSON.stringify({
-          data: { ingress_url: "/api/hassio_ingress/stable-token/" },
+          data: { slug: "abc123_find_my_house" },
         }),
         { status: 200 }
       )
     );
 
-    await expect(resolveIngressBasePath()).resolves.toBe(
-      "/api/hassio_ingress/stable-token"
-    );
-    await expect(resolveIngressBasePath()).resolves.toBe(
-      "/api/hassio_ingress/stable-token"
-    );
+    await expect(resolveAddonSlug()).resolves.toBe("abc123_find_my_house");
+    await expect(resolveAddonSlug()).resolves.toBe("abc123_find_my_house");
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(fetchMock).toHaveBeenCalledWith(
       "http://supervisor/addons/self/info",

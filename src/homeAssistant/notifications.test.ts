@@ -78,12 +78,12 @@ describe("sendPriceDropNotifications", () => {
     expect(callHaService).toHaveBeenCalledTimes(2);
   });
 
-  it("prefixes click paths with the ingress base when available", async () => {
+  it("prefixes click paths with the HA panel slug when available", async () => {
     vi.stubEnv("SUPERVISOR_TOKEN", "supervisor-token");
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(
         JSON.stringify({
-          data: { ingress_url: "/api/hassio_ingress/stable-token/" },
+          data: { slug: "abc123_find_my_house" },
         }),
         { status: 200 }
       )
@@ -99,8 +99,8 @@ describe("sendPriceDropNotifications", () => {
       "persistent_notification.create",
       expect.objectContaining({
         data: {
-          url: "/api/hassio_ingress/stable-token/listings/4",
-          clickAction: "/api/hassio_ingress/stable-token/listings/4",
+          url: "/abc123_find_my_house/listings/4",
+          clickAction: "/abc123_find_my_house/listings/4",
         },
       })
     );
