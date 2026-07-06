@@ -230,6 +230,39 @@ export class ListingRepository implements ListingRepositoryRoles {
     });
   }
 
+  /**
+   * Clears stale "pending image backfill" markers on publications that have no
+   * photos to store (enrichedAt set but imageLocalHashes still null).
+   */
+  async repairDisplayEnrichmentMarkers(): Promise<number> {
+    const rows = await this.prisma.listingPublication.findMany({
+      where: {
+        isActive: true,
+        enrichedAt: { not: null },
+        imageLocalHashes: { equals: Prisma.DbNull },
+      },
+      select: { id: true, imageUrls: true },
+    });
+
+    const publicationIds = rows
+      .filter((row) => {
+        if (row.imageUrls === null) return true;
+        return Array.isArray(row.imageUrls) && row.imageUrls.length === 0;
+      })
+      .map((row) => row.id);
+
+    if (publicationIds.length === 0) {
+      return 0;
+    }
+
+    await this.prisma.listingPublication.updateMany({
+      where: { id: { in: publicationIds } },
+      data: { imageLocalHashes: {} },
+    });
+
+    return publicationIds.length;
+  }
+
   async applyEnrichment(
     id: number,
     patch: PropertyEnrichmentPatch

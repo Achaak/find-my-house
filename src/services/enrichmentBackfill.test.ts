@@ -218,4 +218,18 @@ describe("scheduleEnrichmentBackfill", () => {
     expect(scheduled).toBe(1);
     expect(schedule).toHaveBeenCalledTimes(1);
   });
+
+  it("falls back to all pending listings when minScore filters everything out", async () => {
+    mockGetScore.mockReturnValue(10);
+
+    const scheduled = await scheduleEnrichmentBackfill(
+      repository,
+      reactionRepository,
+      queue,
+      { minScore: 80, limit: 10 }
+    );
+
+    expect(scheduled).toBe(2);
+    expect(schedule).toHaveBeenCalledTimes(2);
+  });
 });

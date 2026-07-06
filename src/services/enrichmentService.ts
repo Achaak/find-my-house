@@ -410,6 +410,16 @@ export async function ensurePropertyEnriched(
         }
 
         warnings.push(`Gallery update failed: ${galleryUpdated.error}`);
+      } else if (publication.imageLocalHashes === null) {
+        const galleryUpdated = await repository.applyPublicationGallery(
+          publication.id,
+          { imageLocalHashes: {} }
+        );
+        if (galleryUpdated.ok) {
+          resultProperty = galleryUpdated.value;
+        } else {
+          warnings.push(`Gallery update failed: ${galleryUpdated.error}`);
+        }
       }
 
       const marked = await repository.markPublicationEnrichmentAttempted(

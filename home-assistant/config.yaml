@@ -33,7 +33,7 @@ options:
   enrichment_cron: "0 * * * *"
   enrichment_disabled: false
   enrichment_min_compat_score: 0
-  enrichment_batch_limit: 20
+  enrichment_batch_limit: 50
   enrichment_search_limit: 1000
   log_level: info
   web_enabled: true

@@ -136,7 +136,7 @@ export function displayEnrichmentPendingWhere(): Prisma.PropertyWhereInput {
   };
 }
 
-/** Publications enriched but local image hashes were never recorded. */
+/** Publications enriched but local images were never stored. */
 export function displayImageBackfillPendingWhere(): Prisma.PropertyWhereInput {
   return {
     publications: {
@@ -144,6 +144,7 @@ export function displayImageBackfillPendingWhere(): Prisma.PropertyWhereInput {
         isActive: true,
         enrichedAt: { not: null },
         imageLocalHashes: { equals: Prisma.DbNull },
+        NOT: { imageUrls: { equals: Prisma.DbNull } },
       },
     },
   };

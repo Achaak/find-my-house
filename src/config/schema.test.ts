@@ -22,7 +22,7 @@ describe("parseScrapeConfig", () => {
     expect(config.enrichment.cron).toBe("0 * * * *");
     expect(config.enrichment.enabled).toBe(true);
     expect(config.enrichment.minCompatScore).toBe(0);
-    expect(config.enrichment.batchLimit).toBe(20);
+    expect(config.enrichment.batchLimit).toBe(50);
     expect(config.enrichment.searchLimit).toBe(1000);
     expect(config.database.url).toBe("file:./data/listings.db");
   });

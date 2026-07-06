@@ -44,6 +44,18 @@ describe("initHaPanelRoute", () => {
     vi.unstubAllGlobals();
   });
 
+  function sendRoute(path: string) {
+    for (const listener of messageListeners) {
+      listener({
+        source: window.parent,
+        data: {
+          type: "home-assistant/properties",
+          route: { path },
+        },
+      } as MessageEvent);
+    }
+  }
+
   it("subscribes to HA panel properties when embedded", () => {
     const router = {
       state: { location: { pathname: "/" } },
@@ -57,23 +69,33 @@ describe("initHaPanelRoute", () => {
       "*"
     );
 
-    for (const listener of messageListeners) {
-      listener({
-        source: window.parent,
-        data: {
-          type: "home-assistant/properties",
-          route: { path: "/listings/42" },
-        },
-      } as MessageEvent);
-    }
+    sendRoute("/listings/42");
 
-    expect(navigate).toHaveBeenCalledWith({ to: "/listings/42" });
+    expect(navigate).toHaveBeenCalledWith({
+      to: "/listings/$id",
+      params: { id: "42" },
+    });
 
     cleanup();
     expect(parentPostMessage).toHaveBeenCalledWith(
       { type: "home-assistant/unsubscribe-properties" },
       "*"
     );
+  });
+
+  it("reconstructs listing detail routes from HA numeric tails", () => {
+    const router = {
+      state: { location: { pathname: "/" } },
+      navigate,
+    } as unknown as Parameters<typeof initHaPanelRoute>[0];
+
+    initHaPanelRoute(router);
+    sendRoute("/42");
+
+    expect(navigate).toHaveBeenCalledWith({
+      to: "/listings/$id",
+      params: { id: "42" },
+    });
   });
 
   it("does nothing outside an iframe", () => {

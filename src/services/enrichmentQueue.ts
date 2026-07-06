@@ -49,8 +49,14 @@ export class EnrichmentQueue {
   private readonly queuedKeys = new Set<string>();
   private readonly waiters = new Map<string, Waiter[]>();
   private draining = false;
+  private idleScheduled = false;
+  private onDrainIdle?: () => void;
 
   constructor(private readonly repository: ListingRepository) {}
+
+  setOnDrainIdle(handler: () => void): void {
+    this.onDrainIdle = handler;
+  }
 
   getQueuedCount(): number {
     return this.queue.length;
@@ -180,8 +186,21 @@ export class EnrichmentQueue {
       this.draining = false;
       if (this.queue.length > 0) {
         void this.drain();
+      } else {
+        this.notifyDrainIdle();
       }
     }
+  }
+
+  private notifyDrainIdle(): void {
+    if (!this.onDrainIdle || this.idleScheduled) return;
+    this.idleScheduled = true;
+    queueMicrotask(() => {
+      this.idleScheduled = false;
+      if (this.queue.length === 0) {
+        this.onDrainIdle?.();
+      }
+    });
   }
 
   private finishJob(key: string, result: EnrichmentJobResult): void {
