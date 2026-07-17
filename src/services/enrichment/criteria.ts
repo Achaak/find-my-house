@@ -164,14 +164,21 @@ export function displayFirstEnrichmentPendingWhere(): Prisma.PropertyWhereInput 
   };
 }
 
-/** SQL: enriched pubs with remote image URLs but no local hash map yet. */
+/**
+ * SQL: enriched pubs with remote image URLs but no local hash map yet.
+ * Empty / null imageUrls are excluded — those are complete (nothing to store),
+ * matching `publicationHasIncompleteLocalImages`.
+ */
 export function displayImageStoreIncompleteWhere(): Prisma.PropertyWhereInput {
   return {
     publications: {
       some: {
         isActive: true,
         enrichedAt: { not: null },
-        NOT: { imageUrls: { equals: Prisma.DbNull } },
+        AND: [
+          { NOT: { imageUrls: { equals: Prisma.DbNull } } },
+          { NOT: { imageUrls: { equals: [] } } },
+        ],
         OR: [
           { imageLocalHashes: { equals: Prisma.DbNull } },
           { imageLocalHashes: { equals: {} } },

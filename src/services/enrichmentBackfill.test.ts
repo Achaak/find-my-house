@@ -223,4 +223,74 @@ describe("scheduleEnrichmentBackfill", () => {
     expect(scheduled).toBe(2);
     expect(schedule).toHaveBeenCalledTimes(2);
   });
+
+  it("does not treat enriched listings with no photos as pending", async () => {
+    const { items } = await repository.search({ limit: 10 });
+    for (const property of items) {
+      for (const publication of property.publications) {
+        await repository.applyPublicationGallery(publication.id, {
+          imageUrls: [],
+          imageLocalHashes: {},
+        });
+        await repository.markPublicationEnrichmentAttempted(
+          publication.id,
+          "display"
+        );
+      }
+    }
+
+    const pendingCount = await repository.countPendingDisplayEnrichment();
+    const scheduled = await scheduleEnrichmentBackfill(
+      repository,
+      reactionRepository,
+      queue,
+      { limit: 10 }
+    );
+
+    expect(pendingCount).toBe(0);
+    expect(scheduled).toBe(0);
+    expect(schedule).not.toHaveBeenCalled();
+  });
+
+  it("still queues real pending work when the catalog has many no-photo enriched listings", async () => {
+    await repository.upsertMany(
+      Array.from({ length: 8 }, (_, index) =>
+        makeListing({
+          externalId: `ghost-${String(index)}`,
+          url: `https://www.bienici.com/annonce/ghost-${String(index)}`,
+          description: "Already enriched",
+          imageUrl: null,
+          imageUrls: [],
+          scrapedAt: `2026-01-0${String(index + 1)}T10:00:00.000Z`,
+        })
+      )
+    );
+
+    const { items } = await repository.search({ limit: 50 });
+    for (const property of items) {
+      const externalId = publicationExternalId(property);
+      if (!externalId?.startsWith("ghost-")) continue;
+      for (const publication of property.publications) {
+        await repository.applyPublicationGallery(publication.id, {
+          imageUrls: [],
+          imageLocalHashes: {},
+        });
+        await repository.markPublicationEnrichmentAttempted(
+          publication.id,
+          "display"
+        );
+      }
+    }
+
+    const scheduled = await scheduleEnrichmentBackfill(
+      repository,
+      reactionRepository,
+      queue,
+      { limit: 10, searchLimit: 5 }
+    );
+
+    expect(await repository.countPendingDisplayEnrichment()).toBe(2);
+    expect(scheduled).toBe(2);
+    expect(schedule).toHaveBeenCalledTimes(2);
+  });
 });

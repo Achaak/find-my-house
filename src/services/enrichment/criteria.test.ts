@@ -83,6 +83,22 @@ describe("display enrichment criteria", () => {
         imageLocalHashes: { "https://example.com/a.jpg": "hash-a" },
       })
     ).toBe(false);
+
+    expect(
+      publicationHasIncompleteLocalImages({
+        isActive: true,
+        imageUrls: [],
+        imageLocalHashes: {},
+      })
+    ).toBe(false);
+
+    expect(
+      publicationHasIncompleteLocalImages({
+        isActive: true,
+        imageUrls: null,
+        imageLocalHashes: {},
+      })
+    ).toBe(false);
   });
 
   it("exposes a SQL backfill where without portal-refresh clauses", () => {
@@ -101,7 +117,10 @@ describe("display enrichment criteria", () => {
             some: {
               isActive: true,
               enrichedAt: { not: null },
-              NOT: { imageUrls: { equals: Prisma.DbNull } },
+              AND: [
+                { NOT: { imageUrls: { equals: Prisma.DbNull } } },
+                { NOT: { imageUrls: { equals: [] } } },
+              ],
               OR: [
                 { imageLocalHashes: { equals: Prisma.DbNull } },
                 { imageLocalHashes: { equals: {} } },
@@ -111,5 +130,21 @@ describe("display enrichment criteria", () => {
         },
       ],
     });
+  });
+
+  it("does not treat enriched no-photo listings as backfill pending", () => {
+    const emptyGallery = withPublication({
+      enrichedAt: "2026-01-15T10:00:00.000Z",
+      imageUrls: [],
+      imageLocalHashes: {},
+    });
+    const nullGallery = withPublication({
+      enrichedAt: "2026-01-15T10:00:00.000Z",
+      imageUrls: null,
+      imageLocalHashes: {},
+    });
+
+    expect(propertyNeedsDisplayBackfill(emptyGallery)).toBe(false);
+    expect(propertyNeedsDisplayBackfill(nullGallery)).toBe(false);
   });
 });
