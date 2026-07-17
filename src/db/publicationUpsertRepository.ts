@@ -15,10 +15,6 @@ import { parseImageUrls } from "../domain/publicationImages.js";
 import { parseHighlights, tryToPropertyRow } from "./listingMapper.js";
 import { propertyInclude } from "./propertyInclude.js";
 import {
-  DefaultPropertyMatchPolicy,
-  type PropertyMatchPolicy,
-} from "./propertyMatchPolicy.js";
-import {
   LoggerPropertyMatchDiagnosticsSink,
   type PropertyMatchDiagnosticsSink,
 } from "./propertyMatchDiagnostics.js";
@@ -36,8 +32,12 @@ import {
   toPropertyScalarData,
   type PropertyScalarData,
 } from "./propertyFieldManifest.js";
-import { DedupEngine } from "./dedupEngine.js";
-import { toPropertyMatchCandidate } from "./propertyMatchLookup.js";
+import {
+  collectMatchDiagnostics,
+  findPendingPropertyMatch,
+  findPropertyMatchForListing,
+  toPropertyMatchCandidate,
+} from "../domain/propertyMatching/index.js";
 
 const IN_QUERY_BATCH_SIZE = 900;
 
@@ -186,16 +186,13 @@ function toPrismaPropertyProjectionDataFromListing(
 
 export class PublicationUpsertRepository {
   private readonly projectionUpdater: ProjectionUpdater;
-  private readonly dedupEngine: DedupEngine;
 
   constructor(
     private readonly prisma: PrismaClient,
     private readonly refreshByIds: (ids: number[]) => Promise<PropertyRow[]>,
-    propertyMatchPolicy: PropertyMatchPolicy = new DefaultPropertyMatchPolicy(),
-    diagnosticsSink: PropertyMatchDiagnosticsSink = new LoggerPropertyMatchDiagnosticsSink()
+    private readonly diagnosticsSink: PropertyMatchDiagnosticsSink = new LoggerPropertyMatchDiagnosticsSink()
   ) {
     this.projectionUpdater = new ProjectionUpdater(prisma);
-    this.dedupEngine = new DedupEngine(propertyMatchPolicy, diagnosticsSink);
   }
 
   private async findExistingPublications(
@@ -474,7 +471,7 @@ export class PublicationUpsertRepository {
         continue;
       }
 
-      const fuzzyPendingCreate = this.dedupEngine.findPendingMatch(
+      const fuzzyPendingCreate = findPendingPropertyMatch(
         listing,
         pendingPropertyCreates.values()
       );
@@ -511,7 +508,7 @@ export class PublicationUpsertRepository {
         ? (propertiesByPostalCode.get(listing.postalCode) ?? [])
         : [];
       const matchCandidates = postalCandidates.map(toPropertyMatchCandidate);
-      const matchedCandidate = this.dedupEngine.findCandidateMatch(
+      const matchedCandidate = findPropertyMatchForListing(
         listing,
         matchCandidates
       );
@@ -541,7 +538,12 @@ export class PublicationUpsertRepository {
         result.linked++;
         continue;
       }
-      await this.dedupEngine.recordCandidateMiss(listing, matchCandidates);
+      if (matchCandidates.length > 0) {
+        await this.diagnosticsSink.recordCandidateMiss(
+          listing,
+          collectMatchDiagnostics(listing, matchCandidates)
+        );
+      }
 
       pendingPropertyCreates.set(propertyKey, {
         listing,

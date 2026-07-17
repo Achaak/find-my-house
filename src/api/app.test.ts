@@ -66,12 +66,16 @@ vi.mock("../homeAssistant/client.js", () => ({
   isHomeAssistantAddOn: () => false,
 }));
 
-function createMockEnrichmentQueue(): EnrichmentQueue {
+function createMockEnrichmentQueue(
+  findById: (id: number) => Promise<unknown>
+): EnrichmentQueue {
   return {
     getQueuedCount: () => 0,
     schedule: vi.fn(),
     scheduleScrapeResults: vi.fn(),
-    waitUntilEnriched: vi.fn(() => Promise.resolve({ warnings: [] })),
+    ensureReady: vi.fn(async (id: number) => findById(id)),
+    getStatus: vi.fn(() => "complete" as const),
+    runBackfill: vi.fn(() => Promise.resolve(0)),
   } as unknown as EnrichmentQueue;
 }
 
@@ -98,7 +102,9 @@ describe("createApiApp", () => {
         testDb.prisma
       ),
       scraperService: createMockScraperService(),
-      enrichmentQueue: createMockEnrichmentQueue(),
+      enrichmentQueue: createMockEnrichmentQueue((id) =>
+        testDb.repository.findById(id)
+      ),
       scrapeDefaults: {
         city: "Lanquetot",
         postalCode: "76160",

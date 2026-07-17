@@ -5,7 +5,7 @@ import {
   propertyNeedsDisplayWork,
   propertyNeedsEnrichment,
   type EnrichmentPurpose,
-} from "../domain/enrichmentCriteria.js";
+} from "./enrichment/criteria.js";
 import { isTruncatedPortalDescription } from "../utils/classifiedPortal/parsers/detailDescription.js";
 import type { PropertyEnrichmentPatch } from "../types/enrichment.js";
 import type { PropertyRow, PublicationRow } from "../types/listing.js";
@@ -72,21 +72,7 @@ function applyBlockedPhotoUrlsToPatch(
   };
 }
 
-export type {
-  EnrichmentPurpose,
-  EnrichmentStatus,
-} from "../domain/enrichmentCriteria.js";
-export {
-  getEnrichmentStatus,
-  propertyNeedsDisplayRefresh,
-  propertyNeedsDisplayWork,
-  propertyNeedsEnrichment,
-} from "../domain/enrichmentCriteria.js";
-
-/** @deprecated Prefer propertyNeedsDisplayWork */
-export function needsDisplayEnrichmentWork(property: PropertyRow): boolean {
-  return propertyNeedsDisplayWork(property);
-}
+export type { EnrichmentPurpose } from "./enrichment/criteria.js";
 
 const DEDUP_STRUCTURE_FIELDS = new Set([
   "surface",

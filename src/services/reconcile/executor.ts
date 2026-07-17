@@ -6,8 +6,8 @@ import {
   groupByFuzzyPropertyMatch,
   groupByStrictPropertyKey,
   propertyRecordToPublicationInputs,
-  toPropertyMatchInput,
-} from "../../domain/propertyDedup.js";
+} from "../../domain/propertyMatching/index.js";
+import { toPropertyMatchInput } from "../../utils/propertyMatch.js";
 
 type PropertyRecord = Awaited<
   ReturnType<PrismaClient["property"]["findMany"]>

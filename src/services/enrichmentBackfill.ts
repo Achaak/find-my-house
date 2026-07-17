@@ -1,7 +1,7 @@
 import type { ListingRepository } from "../db/listingRepository.js";
 import type { ReactionRepository } from "../db/reactionRepository.js";
 import { resolveCompatibilityModel } from "./compatibilityService.js";
-import { propertyNeedsDisplayBackfill } from "../domain/enrichmentCriteria.js";
+import { propertyNeedsDisplayBackfill } from "./enrichment/criteria.js";
 import type { EnrichmentQueue } from "./enrichmentQueue.js";
 import { getCompatibilityScore } from "../utils/compatibility/score.js";
 import { sortByCompatibility } from "../utils/compatibility/score.js";

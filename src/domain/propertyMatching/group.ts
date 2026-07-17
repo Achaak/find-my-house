@@ -1,17 +1,11 @@
-import { computePropertyKey } from "../utils/propertyKey.js";
+import { computePropertyKey } from "../../utils/propertyKey.js";
 import {
-  propertiesMatchFuzzy,
   toPropertyMatchInput as propertyRowToMatchInput,
   type PropertyMatchInput,
-} from "../utils/propertyMatch.js";
+} from "../../utils/propertyMatch.js";
+import { anyPublicationPairMatches } from "./lookup.js";
 
 export type { PropertyMatchInput };
-
-export function toPropertyMatchInputFromFields(
-  fields: PropertyMatchInput
-): PropertyMatchInput {
-  return fields;
-}
 
 export function groupByStrictPropertyKey<T>(
   items: T[],
@@ -46,23 +40,13 @@ function unionIds(parents: Map<number, number>, a: number, b: number): void {
   }
 }
 
-function anyPublicationPairMatches(
-  leftInputs: PropertyMatchInput[],
-  rightInputs: PropertyMatchInput[]
-): boolean {
-  for (const left of leftInputs) {
-    for (const right of rightInputs) {
-      if (propertiesMatchFuzzy(left, right)) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
 export function groupByFuzzyPropertyMatch<T extends { id: number }>(
   items: T[],
-  toPublicationInputs: (item: T) => PropertyMatchInput[]
+  toPublicationInputs: (item: T) => (PropertyMatchInput & {
+    source?: string;
+    agencySlug?: string | null;
+    agencyRef?: string | null;
+  })[]
 ): T[][] {
   const byPostal = new Map<string, T[]>();
 
@@ -108,6 +92,7 @@ export function groupByFuzzyPropertyMatch<T extends { id: number }>(
   return [...grouped.values()].filter((group) => group.length > 1);
 }
 
+/** Publication field bags for reconcile — includes agency for shared match rules. */
 export function propertyRecordToPublicationInputs(property: {
   postalCode: string | null;
   price: number;
@@ -117,6 +102,7 @@ export function propertyRecordToPublicationInputs(property: {
   landSurface: number | null;
   isNewProperty: boolean | null;
   publications: {
+    source?: string;
     postalCode: string | null;
     price: number;
     surface: number | null;
@@ -125,25 +111,33 @@ export function propertyRecordToPublicationInputs(property: {
     landSurface: number | null;
     propertyType: string | null;
     isNewProperty: boolean | null;
+    agencySlug?: string | null;
+    agencyRef?: string | null;
   }[];
-}): PropertyMatchInput[] {
+}): (PropertyMatchInput & {
+  source?: string;
+  agencySlug?: string | null;
+  agencyRef?: string | null;
+})[] {
   if (property.publications.length === 0) {
     return [
-      propertyRowToMatchInput({
-        postalCode: property.postalCode,
-        price: property.price,
-        surface: property.surface,
-        rooms: property.rooms,
-        bedrooms: property.bedrooms,
-        landSurface: property.landSurface,
-        propertyType: null,
-        isNewProperty: property.isNewProperty,
-      }),
+      {
+        ...propertyRowToMatchInput({
+          postalCode: property.postalCode,
+          price: property.price,
+          surface: property.surface,
+          rooms: property.rooms,
+          bedrooms: property.bedrooms,
+          landSurface: property.landSurface,
+          propertyType: null,
+          isNewProperty: property.isNewProperty,
+        }),
+      },
     ];
   }
 
-  return property.publications.map((publication) =>
-    toPropertyMatchInput({
+  return property.publications.map((publication) => ({
+    ...propertyRowToMatchInput({
       postalCode: publication.postalCode ?? property.postalCode,
       price: publication.price,
       surface: publication.surface,
@@ -152,9 +146,9 @@ export function propertyRecordToPublicationInputs(property: {
       landSurface: publication.landSurface,
       propertyType: publication.propertyType,
       isNewProperty: publication.isNewProperty,
-    })
-  );
+    }),
+    source: publication.source,
+    agencySlug: publication.agencySlug,
+    agencyRef: publication.agencyRef,
+  }));
 }
-
-// Backward-compatible alias used by strict grouping tests.
-export const toPropertyMatchInput = toPropertyMatchInputFromFields;

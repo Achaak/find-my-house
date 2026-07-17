@@ -24,6 +24,10 @@ _Avoid_: Property, publication
 A run of portal search adapters that upserts publications and deactivates missing ones.
 _Avoid_: Crawl, fetch job
 
+**Property matching**:
+The rule that decides whether a Listing or two Properties refer to the same home (agency signals + tolerance scoring). Shared by scrape-time linking and later reconcile; distinct from merging rows into one canonical Property.
+_Avoid_: Deduplication (too broad — also covers merge), fuzzy match (implementation detail), DedupEngine
+
 **Enrichment**:
 Post-scrape async fill of missing property fields from portal detail APIs. Two purposes: `display` (image, description, land) and `address` (stricter energy/coords for DPE lookup).
 

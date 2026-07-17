@@ -29,12 +29,6 @@ import {
   resolveCompatibilityProfile,
 } from "../services/compatibilityService.js";
 import { reconcileProperties } from "../services/reconcileService.js";
-import { scheduleEnrichmentBackfill } from "../services/enrichmentBackfill.js";
-import {
-  getEnrichmentStatus,
-  propertyNeedsDisplayWork,
-  propertyNeedsEnrichment,
-} from "../services/enrichmentService.js";
 import { formatScrapeSummary } from "../services/formatScrapeSummary.js";
 import {
   advanceBrowseSession,
@@ -85,9 +79,10 @@ async function serializeBrowseResponse(
   );
 
   let property = state.property;
-  if (property && propertyNeedsDisplayWork(property)) {
-    await ctx.enrichmentQueue.waitUntilEnriched(property.id, "display", "high");
-    property = (await ctx.repository.findById(property.id)) ?? property;
+  if (property) {
+    property =
+      (await ctx.enrichmentQueue.ensureReady(property.id, "display", "high")) ??
+      property;
   }
 
   const reaction =
@@ -253,15 +248,14 @@ export function createApiApp(ctx: ApiContext) {
       return c.json({ error: "Listing not found" }, 404);
     }
 
-    if (propertyNeedsDisplayWork(property)) {
-      await ctx.enrichmentQueue.waitUntilEnriched(id, "display", "high");
-      property = (await ctx.repository.findById(id)) ?? property;
-    }
+    property =
+      (await ctx.enrichmentQueue.ensureReady(id, "display", "high")) ??
+      property;
 
     return c.json({
       item: await serializeProperty(property, ctx.reactionRepository),
       enrichment: {
-        status: getEnrichmentStatus(property, "display"),
+        status: ctx.enrichmentQueue.getStatus(property, "display"),
       },
     });
   });
@@ -664,12 +658,11 @@ export function createApiApp(ctx: ApiContext) {
       return c.json({ error: "Listing not found" }, 404);
     }
 
-    if (propertyNeedsEnrichment(property, "address")) {
-      await ctx.enrichmentQueue.waitUntilEnriched(id, "address", "high");
-      property = (await ctx.repository.findById(id)) ?? property;
-    }
+    property =
+      (await ctx.enrichmentQueue.ensureReady(id, "address", "high")) ??
+      property;
 
-    const enrichmentStatus = getEnrichmentStatus(property, "address");
+    const enrichmentStatus = ctx.enrichmentQueue.getStatus(property, "address");
     const readiness = getDpeAddressSearchReadiness(property);
     if (readiness === "unavailable") {
       return c.json({
@@ -776,16 +769,12 @@ export function createApiApp(ctx: ApiContext) {
 
   app.post("/api/admin/enrich", requireAdmin(), async (c) => {
     const { enrichment } = scrapeConfig;
-    const queued = await scheduleEnrichmentBackfill(
-      ctx.repository,
-      ctx.reactionRepository,
-      ctx.enrichmentQueue,
-      {
-        minScore: enrichment.minCompatScore,
-        limit: enrichment.batchLimit,
-        searchLimit: enrichment.searchLimit,
-      }
-    );
+    const queued = await ctx.enrichmentQueue.runBackfill({
+      reactionRepository: ctx.reactionRepository,
+      enrichment,
+      log,
+      trigger: "admin",
+    });
     return c.json({ queued });
   });
 

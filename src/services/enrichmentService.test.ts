@@ -17,13 +17,12 @@ import {
   fetchSeLogerListingDetails,
   SeLogerAccessBlockedError,
 } from "../utils/seloger/index.js";
+import { enrichProperty, ensurePropertyEnriched } from "./enrichmentService.js";
 import {
-  enrichProperty,
-  ensurePropertyEnriched,
   propertyNeedsDisplayRefresh,
   propertyNeedsDisplayWork,
   propertyNeedsEnrichment,
-} from "./enrichmentService.js";
+} from "./enrichment/criteria.js";
 import { photoUrlDedupKey } from "../utils/images/filterSyndicatedPhotoUrls.js";
 
 vi.mock("../utils/bienici/index.js", async (importOriginal) => {

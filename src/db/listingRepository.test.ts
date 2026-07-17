@@ -12,7 +12,7 @@ import { makeListing } from "../test/listingFixtures.js";
 import {
   propertyNeedsDisplayBackfill,
   propertyNeedsEnrichment,
-} from "../domain/enrichmentCriteria.js";
+} from "../services/enrichment/criteria.js";
 import type { ListingRepository } from "./listingRepository.js";
 import type { PrismaClient } from "../generated/prisma/client.js";
 

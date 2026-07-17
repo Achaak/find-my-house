@@ -9,7 +9,7 @@ import type {
 import type { PropertyEnrichmentPatch } from "../types/enrichment.js";
 import type { RepositoryWriteResult } from "../types/db.js";
 import { repositoryWriteError } from "../types/db.js";
-import { displayEnrichmentBackfillWhere } from "../domain/enrichmentCriteria.js";
+import { displayEnrichmentBackfillWhere } from "../services/enrichment/criteria.js";
 import { Prisma } from "../generated/prisma/client.js";
 import { tryToPropertyRow } from "./listingMapper.js";
 import { propertyInclude } from "./propertyInclude.js";
@@ -66,7 +66,6 @@ export class ListingRepository implements ListingRepositoryRoles {
     this.upsertRepo = new PublicationUpsertRepository(
       prisma,
       (ids) => this.searchRepo.findByIds(ids),
-      undefined,
       new CompositePropertyMatchDiagnosticsSink([
         new LoggerPropertyMatchDiagnosticsSink(),
         new PrismaPropertyMatchDiagnosticsSink(prisma),

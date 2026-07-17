@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   groupByFuzzyPropertyMatch,
   groupByStrictPropertyKey,
-  toPropertyMatchInput,
-} from "./propertyDedup.js";
+} from "./group.js";
+import { toPropertyMatchInput } from "../../utils/propertyMatch.js";
 
-describe("propertyDedup", () => {
+describe("propertyMatching group", () => {
   it("groups properties with the same strict key", () => {
     const items = [
       {

@@ -5,7 +5,7 @@ import type {
   PriceStats,
   SourcePublicationCounts,
 } from "../types/stats.js";
-import { displayEnrichmentBackfillWhere } from "../domain/enrichmentCriteria.js";
+import { displayEnrichmentBackfillWhere } from "../services/enrichment/criteria.js";
 import { propertyInclude } from "./propertyInclude.js";
 import { tryToPropertyRow } from "./listingMapper.js";
 

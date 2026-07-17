@@ -13,7 +13,6 @@ import {
 import { createScrapers } from "./scrapers/index.js";
 import { formatScrapeErrors } from "./services/formatScrapeSummary.js";
 import { notifyScrapeResults } from "./services/notifyScrapeResults.js";
-import { runEnrichmentBackfill } from "./services/enrichmentBackfillLoop.js";
 import { resetListingCompatibilityCache } from "./services/compatibilityService.js";
 import { ScraperService } from "./services/scraperService.js";
 import { EnrichmentQueue } from "./services/enrichmentQueue.js";
@@ -116,22 +115,25 @@ async function main(): Promise<void> {
   }
 
   const { enrichment } = scrapeConfig;
-  const backfillCtx = {
-    repository,
-    reactionRepository,
-    queue: enrichmentQueue,
-    enrichment,
-    log: cronLog,
-  };
 
   if (enrichment.enabled && cron.validate(enrichment.cron)) {
     cron.schedule(enrichment.cron, () => {
-      void runEnrichmentBackfill(backfillCtx, "cron");
+      void enrichmentQueue.runBackfill({
+        reactionRepository,
+        enrichment,
+        log: cronLog,
+        trigger: "cron",
+      });
     });
     cronLog.info(
       `Scheduled enrichment backfill: ${enrichment.cron} (batch ${String(enrichment.batchLimit)}, scan ${String(enrichment.searchLimit)}, min compat ${String(enrichment.minCompatScore)})`
     );
-    void runEnrichmentBackfill(backfillCtx, "startup");
+    void enrichmentQueue.runBackfill({
+      reactionRepository,
+      enrichment,
+      log: cronLog,
+      trigger: "startup",
+    });
   } else if (enrichment.enabled) {
     cronLog.error(
       `Invalid enrichment cron expression: "${enrichment.cron}" — automatic enrichment backfill disabled`

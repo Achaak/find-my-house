@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { makeListing } from "../test/listingFixtures.js";
+import { makeListing } from "../../test/listingFixtures.js";
 import {
   findAgencyPropertyMatch,
   findFuzzyPropertyMatch,
   findPendingPropertyMatch,
-} from "./propertyMatchLookup.js";
+} from "./lookup.js";
 
 describe("findAgencyPropertyMatch", () => {
   it("matches a new Bienici listing to a property from the same agency", () => {
@@ -80,47 +80,70 @@ describe("findPendingPropertyMatch", () => {
     expect(match?.listing.externalId).toBe("lbc-1");
   });
 
-  it("matches a listing to a candidate via publication fields", () => {
-    const leboncoin = makeListing({
-      source: "leboncoin",
-      externalId: "lbc-475",
-      postalCode: "76450",
-      price: 197_000,
-      surface: 130,
+  it("matches pending Bienici listings via agency slug", () => {
+    const first = makeListing({
+      source: "bienici",
+      externalId: "iad-france-111",
+      postalCode: "76170",
+      price: 195_500,
+      surface: 125,
       rooms: 5,
       bedrooms: 3,
-      landSurface: 1000,
+      landSurface: 1509,
+      propertyType: "house",
+      isNewProperty: false,
+    });
+    const second = makeListing({
+      source: "bienici",
+      externalId: "iad-france-222",
+      postalCode: "76170",
+      price: 195_500,
+      surface: 125,
+      rooms: 5,
+      bedrooms: 3,
+      landSurface: 1509,
+      propertyType: "house",
+      isNewProperty: false,
+    });
+
+    const match = findPendingPropertyMatch(second, [
+      { listing: first, scrapedAt: new Date(), extraPublications: [] },
+    ]);
+
+    expect(match?.listing.externalId).toBe("iad-france-111");
+  });
+});
+
+describe("findFuzzyPropertyMatch", () => {
+  it("matches across portals when structural fields agree", () => {
+    const listing = makeListing({
+      source: "leboncoin",
+      externalId: "lbc-fuzzy",
+      postalCode: "76400",
+      price: 292_000,
+      surface: 150,
+      rooms: 7,
+      bedrooms: 5,
+      landSurface: 1500,
       propertyType: "Maison",
       isNewProperty: false,
     });
 
-    const match = findFuzzyPropertyMatch(leboncoin, [
+    const match = findFuzzyPropertyMatch(listing, [
       {
-        id: 780,
-        postalCode: "76450",
-        price: 197_000,
-        surface: 130,
-        rooms: 5,
-        bedrooms: 3,
-        landSurface: 1000,
+        id: 7,
+        postalCode: "76400",
+        price: 292_000,
+        surface: 150,
+        rooms: 7,
+        bedrooms: 5,
+        landSurface: 1500,
         propertyType: "Maison",
-        isNewProperty: true,
-        publications: [
-          {
-            postalCode: "76450",
-            price: 197_000,
-            surface: 130,
-            rooms: 5,
-            bedrooms: 3,
-            landSurface: 1000,
-            propertyType: "Maison",
-            isNewProperty: true,
-            source: "seloger",
-          },
-        ],
+        isNewProperty: false,
+        publications: [],
       },
     ]);
 
-    expect(match?.id).toBe(780);
+    expect(match?.id).toBe(7);
   });
 });

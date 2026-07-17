@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestRepository } from "../test/db.js";
 import type { ListingRepository } from "../db/listingRepository.js";
+import type { ReactionRepository } from "../db/reactionRepository.js";
 import { makeListing } from "../test/listingFixtures.js";
 import { ensurePropertyEnriched } from "./enrichmentService.js";
 import { EnrichmentQueue } from "./enrichmentQueue.js";
@@ -18,6 +19,7 @@ const mockEnsurePropertyEnriched = vi.mocked(ensurePropertyEnriched);
 
 describe("EnrichmentQueue", () => {
   let repository: ListingRepository;
+  let reactionRepository: ReactionRepository;
   let dispose: (() => Promise<void>) | undefined;
   let queue: EnrichmentQueue;
 
@@ -40,6 +42,7 @@ describe("EnrichmentQueue", () => {
 
     const testDb = createTestRepository();
     repository = testDb.repository;
+    reactionRepository = testDb.reactionRepository;
     dispose = testDb.dispose;
     queue = new EnrichmentQueue(repository);
 
@@ -93,13 +96,12 @@ describe("EnrichmentQueue", () => {
       await repository.markEnrichmentAttempted(propertyId, "display");
     }
 
-    await expect(
-      queue.waitUntilEnriched(propertyId, "display", "high")
-    ).resolves.toEqual({ warnings: [] });
+    const ready = await queue.ensureReady(propertyId, "display", "high");
+    expect(ready?.id).toBe(propertyId);
     expect(mockEnsurePropertyEnriched).not.toHaveBeenCalled();
   });
 
-  it("returns timedOut when enrichment does not finish in time", async () => {
+  it("returns the current row when enrichment times out", async () => {
     const { items } = await repository.search({ limit: 1 });
     const property = items[0];
 
@@ -107,17 +109,19 @@ describe("EnrichmentQueue", () => {
       () => new Promise(() => undefined)
     );
 
-    const result = await queue.waitUntilEnriched(
-      property.id,
-      "display",
-      "high",
-      50
-    );
+    const ready = await queue.ensureReady(property.id, "display", "high", 50);
 
-    expect(result).toEqual({
-      warnings: ["Enrichment timed out"],
-      timedOut: true,
-    });
+    expect(ready?.id).toBe(property.id);
+    expect(mockEnsurePropertyEnriched).toHaveBeenCalled();
+  });
+
+  it("ensureReady returns the refreshed property row", async () => {
+    const { items } = await repository.search({ limit: 1 });
+    const property = items[0];
+
+    const ready = await queue.ensureReady(property.id, "display", "high");
+
+    expect(ready?.id).toBe(property.id);
     expect(mockEnsurePropertyEnriched).toHaveBeenCalled();
   });
 
@@ -139,5 +143,45 @@ describe("EnrichmentQueue", () => {
     });
 
     expect(queue.getQueuedCount()).toBe(1);
+  });
+
+  it("runBackfill queues pending listings once", async () => {
+    await repository.upsertMany([
+      makeListing({
+        externalId: "backfill-pending",
+        url: "https://www.bienici.com/annonce/backfill-pending",
+        description: null,
+        imageUrl: null,
+      }),
+    ]);
+
+    const log = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+    };
+
+    const scheduled = await queue.runBackfill({
+      reactionRepository,
+      enrichment: {
+        cron: "0 * * * *",
+        enabled: true,
+        minCompatScore: 0,
+        batchLimit: 10,
+        searchLimit: 1000,
+      },
+      log,
+      trigger: "startup",
+    });
+
+    expect(scheduled).toBeGreaterThan(0);
+    await vi.waitFor(
+      () => {
+        expect(mockEnsurePropertyEnriched).toHaveBeenCalled();
+      },
+      { timeout: 5_000 }
+    );
+    expect(log.info).toHaveBeenCalledWith(expect.stringContaining("queued"));
   });
 });

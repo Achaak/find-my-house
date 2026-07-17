@@ -30,18 +30,6 @@ vi.mock("../utils/compatibility/score.js", async (importOriginal) => {
 const mockResolveModel = vi.mocked(resolveCompatibilityModel);
 const mockGetScore = vi.mocked(getCompatibilityScore);
 
-vi.mock("./enrichmentService.js", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("./enrichmentService.js")>();
-  return {
-    ...actual,
-    getEnrichmentStatus: vi.fn(
-      (property: PropertyRow, purpose: "display" | "address") =>
-        actual.getEnrichmentStatus(property, purpose)
-    ),
-  };
-});
-
 function publicationExternalId(property: PropertyRow): string | undefined {
   return property.publications[0]?.externalId;
 }

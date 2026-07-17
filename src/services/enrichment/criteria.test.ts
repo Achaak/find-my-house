@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   displayEnrichmentBackfillWhere,
+  getEnrichmentStatus,
   publicationHasIncompleteLocalImages,
   publicationNeedsDisplayRefresh,
   publicationNeedsFirstDisplayEnrichment,
@@ -8,10 +9,10 @@ import {
   propertyNeedsDisplayRefresh,
   propertyNeedsDisplayWork,
   propertyNeedsEnrichment,
-} from "./enrichmentCriteria.js";
-import { makePropertyRow } from "../test/listingFixtures.js";
-import type { PublicationRow } from "../types/listing.js";
-import { Prisma } from "../generated/prisma/client.js";
+} from "./criteria.js";
+import { makePropertyRow } from "../../test/listingFixtures.js";
+import type { PublicationRow } from "../../types/listing.js";
+import { Prisma } from "../../generated/prisma/client.js";
 
 function withPublication(
   overrides: Partial<PublicationRow>
@@ -54,6 +55,7 @@ describe("display enrichment criteria", () => {
     expect(propertyNeedsEnrichment(property, "display")).toBe(false);
     expect(propertyNeedsDisplayRefresh(property)).toBe(true);
     expect(propertyNeedsDisplayWork(property)).toBe(true);
+    expect(getEnrichmentStatus(property, "display")).toBe("pending");
     expect(publicationNeedsDisplayRefresh(property.publications[0])).toBe(true);
   });
 

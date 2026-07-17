@@ -1,5 +1,5 @@
 import type { Listing } from "../types/listing.js";
-import type { MatchDiagnostics } from "./propertyMatchPolicy.js";
+import type { MatchDiagnostics } from "../domain/propertyMatching/index.js";
 import { createLogger } from "../utils/logger.js";
 import type { PrismaClient } from "../generated/prisma/client.js";
 import { Prisma } from "../generated/prisma/client.js";

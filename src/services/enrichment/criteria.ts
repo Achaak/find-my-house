@@ -1,7 +1,7 @@
-import { Prisma } from "../generated/prisma/client.js";
-import type { PropertyRow, PublicationRow } from "../types/listing.js";
-import { isTruncatedPortalDescription } from "../utils/classifiedPortal/parsers/detailDescription.js";
-import { classifiedImageNeedsRefresh } from "../utils/classifiedPortal/helpers.js";
+import { Prisma } from "../../generated/prisma/client.js";
+import type { PropertyRow, PublicationRow } from "../../types/listing.js";
+import { isTruncatedPortalDescription } from "../../utils/classifiedPortal/parsers/detailDescription.js";
+import { classifiedImageNeedsRefresh } from "../../utils/classifiedPortal/helpers.js";
 
 export type EnrichmentPurpose = "display" | "address";
 
@@ -49,16 +49,6 @@ export function publicationNeedsDisplayRefresh(
   if (isTruncatedPortalDescription(publication.description)) return true;
   if (classifiedImageNeedsRefresh(publication.imageUrl)) return true;
   return false;
-}
-
-/** @deprecated Prefer publicationNeedsFirstDisplayEnrichment + publicationHasIncompleteLocalImages */
-export function publicationNeedsDisplayEnrichment(
-  publication: PublicationRow
-): boolean {
-  return (
-    publicationNeedsFirstDisplayEnrichment(publication) ||
-    publicationHasIncompleteLocalImages(publication)
-  );
 }
 
 function missingEnergyFields(
@@ -148,10 +138,17 @@ export function propertyNeedsEnrichment(
 
 export type EnrichmentStatus = "pending" | "complete";
 
+/**
+ * Status aligned with ensureReady: display pending means any display work
+ * (backfill + refresh + incomplete images); address uses address criteria.
+ */
 export function getEnrichmentStatus(
   property: PropertyRow,
   purpose: EnrichmentPurpose
 ): EnrichmentStatus {
+  if (purpose === "display") {
+    return propertyNeedsDisplayWork(property) ? "pending" : "complete";
+  }
   return propertyNeedsEnrichment(property, purpose) ? "pending" : "complete";
 }
 
@@ -196,14 +193,4 @@ export function displayEnrichmentBackfillWhere(): Prisma.PropertyWhereInput {
       displayImageStoreIncompleteWhere(),
     ],
   };
-}
-
-/** @deprecated Use displayEnrichmentBackfillWhere */
-export function displayEnrichmentPendingWhere(): Prisma.PropertyWhereInput {
-  return displayFirstEnrichmentPendingWhere();
-}
-
-/** @deprecated Use displayImageStoreIncompleteWhere */
-export function displayImageBackfillPendingWhere(): Prisma.PropertyWhereInput {
-  return displayImageStoreIncompleteWhere();
 }
