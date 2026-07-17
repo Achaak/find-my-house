@@ -207,29 +207,6 @@ export class ListingRepository implements ListingRepositoryRoles {
     });
   }
 
-  async findPropertiesForImageBackfillScan(
-    limit: number
-  ): Promise<PropertyRow[]> {
-    const rows = await this.prisma.property.findMany({
-      where: {
-        publications: {
-          some: {
-            isActive: true,
-            enrichedAt: { not: null },
-            imageLocalHashes: { not: Prisma.DbNull },
-          },
-        },
-      },
-      take: limit,
-      orderBy: { updatedAt: "asc" },
-      include: propertyInclude,
-    });
-    return rows.flatMap((row) => {
-      const property = tryToPropertyRow(row);
-      return property ? [property] : [];
-    });
-  }
-
   /**
    * Clears stale "pending image backfill" markers on publications that have no
    * photos to store (enrichedAt set but imageLocalHashes still null).

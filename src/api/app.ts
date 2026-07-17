@@ -32,7 +32,7 @@ import { reconcileProperties } from "../services/reconcileService.js";
 import { scheduleEnrichmentBackfill } from "../services/enrichmentBackfill.js";
 import {
   getEnrichmentStatus,
-  needsDisplayEnrichmentWork,
+  propertyNeedsDisplayWork,
   propertyNeedsEnrichment,
 } from "../services/enrichmentService.js";
 import { formatScrapeSummary } from "../services/formatScrapeSummary.js";
@@ -85,7 +85,7 @@ async function serializeBrowseResponse(
   );
 
   let property = state.property;
-  if (property && (await needsDisplayEnrichmentWork(property))) {
+  if (property && propertyNeedsDisplayWork(property)) {
     await ctx.enrichmentQueue.waitUntilEnriched(property.id, "display", "high");
     property = (await ctx.repository.findById(property.id)) ?? property;
   }
@@ -253,7 +253,7 @@ export function createApiApp(ctx: ApiContext) {
       return c.json({ error: "Listing not found" }, 404);
     }
 
-    if (await needsDisplayEnrichmentWork(property)) {
+    if (propertyNeedsDisplayWork(property)) {
       await ctx.enrichmentQueue.waitUntilEnriched(id, "display", "high");
       property = (await ctx.repository.findById(id)) ?? property;
     }

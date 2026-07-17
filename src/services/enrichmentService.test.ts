@@ -20,6 +20,8 @@ import {
 import {
   enrichProperty,
   ensurePropertyEnriched,
+  propertyNeedsDisplayRefresh,
+  propertyNeedsDisplayWork,
   propertyNeedsEnrichment,
 } from "./enrichmentService.js";
 import { photoUrlDedupKey } from "../utils/images/filterSyndicatedPhotoUrls.js";
@@ -63,13 +65,20 @@ vi.mock("./imageDownloadService.js", async (importOriginal) => {
         urls: string[] | null,
         existing: Record<string, string> | null,
         existingPerceptual: Record<string, string> | null = null
-      ) => ({
-        localHashes: { ...(existing ?? {}) },
-        perceptualHashes: { ...(existingPerceptual ?? {}) },
-      })
+      ) => {
+        const localHashes = { ...(existing ?? {}) };
+        const perceptualHashes = { ...(existingPerceptual ?? {}) };
+        for (const url of urls ?? []) {
+          if (!localHashes[url]) {
+            localHashes[url] = `hash-${url}`;
+          }
+          if (!perceptualHashes[url]) {
+            perceptualHashes[url] = `phash-${url}`;
+          }
+        }
+        return { localHashes, perceptualHashes };
+      }
     ),
-    propertyHasMissingStoredImages: vi.fn().mockResolvedValue(false),
-    publicationHasMissingStoredImages: vi.fn().mockResolvedValue(false),
   };
 });
 
@@ -159,11 +168,17 @@ async function markDisplayAndGalleryComplete(
   if (!property) throw new Error("Expected property");
 
   for (const publicationRow of property.publications) {
+    const imageUrls =
+      publicationRow.imageUrls ??
+      (publicationRow.imageUrl ? [publicationRow.imageUrl] : null);
+    const imageLocalHashes = imageUrls
+      ? Object.fromEntries(
+          imageUrls.map((url, index) => [url, `hash-${String(index)}`])
+        )
+      : null;
     await repository.applyPublicationGallery(publicationRow.id, {
-      imageUrls:
-        publicationRow.imageUrls ??
-        (publicationRow.imageUrl ? [publicationRow.imageUrl] : null),
-      imageLocalHashes: publicationRow.imageLocalHashes ?? {},
+      imageUrls,
+      imageLocalHashes,
     });
   }
 
@@ -226,17 +241,24 @@ describe("propertyNeedsEnrichment", () => {
     ).toBe(true);
   });
 
-  it("requires display enrichment for SeLoger truncated descriptions", () => {
+  it("keeps SeLoger truncated descriptions as on-demand refresh, not backfill", () => {
     const property = makePropertyRow({
       publications: [
         publication("seloger", 1, "sl-1", {
           enrichedAt: "2026-01-15T10:00:00.000Z",
           description: "Court résumé...",
+          imageUrl: "https://mms.seloger.com/x.jpg?ci_seal=ok",
+          imageUrls: ["https://mms.seloger.com/x.jpg?ci_seal=ok"],
+          imageLocalHashes: {
+            "https://mms.seloger.com/x.jpg?ci_seal=ok": "hash",
+          },
         }),
       ],
     });
 
-    expect(propertyNeedsEnrichment(property, "display")).toBe(true);
+    expect(propertyNeedsEnrichment(property, "display")).toBe(false);
+    expect(propertyNeedsDisplayRefresh(property)).toBe(true);
+    expect(propertyNeedsDisplayWork(property)).toBe(true);
   });
 
   it("uses stricter rules for address purpose", () => {
@@ -834,6 +856,7 @@ describe("ensurePropertyEnriched", () => {
         ],
       },
       imageUrl: "https://example.com/photo.jpg",
+      images: ["https://example.com/photo.jpg"],
     });
 
     if (!inserted.row) {

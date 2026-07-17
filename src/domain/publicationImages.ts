@@ -145,18 +145,3 @@ export function mergePropertyPhotos(
 
   return photos;
 }
-
-export function publicationNeedsGalleryEnrichment(publication: {
-  enrichedAt: string | null;
-}): boolean {
-  return publication.enrichedAt === null;
-}
-
-export function propertyNeedsGalleryEnrichment(
-  publications: readonly { isActive: boolean; enrichedAt: string | null }[]
-): boolean {
-  return publications.some(
-    (publication) =>
-      publication.isActive && publicationNeedsGalleryEnrichment(publication)
-  );
-}

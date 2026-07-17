@@ -1,12 +1,8 @@
 import type { ListingRepository } from "../db/listingRepository.js";
 import type { ReactionRepository } from "../db/reactionRepository.js";
-import {
-  getListingCompatibilityCard,
-  resolveCompatibilityModel,
-} from "./compatibilityService.js";
-import { propertyNeedsEnrichment } from "../domain/enrichmentCriteria.js";
+import { resolveCompatibilityModel } from "./compatibilityService.js";
+import { propertyNeedsDisplayBackfill } from "../domain/enrichmentCriteria.js";
 import type { EnrichmentQueue } from "./enrichmentQueue.js";
-import { propertyHasMissingStoredImages } from "./imageDownloadService.js";
 import { getCompatibilityScore } from "../utils/compatibility/score.js";
 import { sortByCompatibility } from "../utils/compatibility/score.js";
 import { createLogger } from "../utils/logger.js";
@@ -24,25 +20,6 @@ export type EnrichmentBackfillOptions = {
 const DEFAULT_MIN_SCORE = 0;
 const DEFAULT_LIMIT = 10;
 const DEFAULT_SEARCH_LIMIT = 1000;
-
-async function collectPendingForBackfill(
-  scanned: PropertyRow[]
-): Promise<PropertyRow[]> {
-  const pending: PropertyRow[] = [];
-
-  for (const property of scanned) {
-    if (propertyNeedsEnrichment(property, "display")) {
-      pending.push(property);
-      continue;
-    }
-
-    if (await propertyHasMissingStoredImages(property.publications)) {
-      pending.push(property);
-    }
-  }
-
-  return pending;
-}
 
 function selectCandidates(
   pending: PropertyRow[],
@@ -74,8 +51,8 @@ function selectCandidates(
 }
 
 /**
- * Queues display enrichment for pending listings, prioritising compatibility
- * when preferences are available. Intended to gradually enrich the full catalog.
+ * Queues display enrichment for pending Properties (first-time or incomplete
+ * local image hashes). Does not enqueue sticky HTML-portal refresh.
  */
 export async function scheduleEnrichmentBackfill(
   repository: ListingRepository,
@@ -89,35 +66,12 @@ export async function scheduleEnrichmentBackfill(
   const model = await resolveCompatibilityModel(reactionRepository);
 
   const scanned = await repository.findPropertiesForEnrichmentScan(searchLimit);
-  const pending = await collectPendingForBackfill(scanned);
+  const pending = scanned.filter(propertyNeedsDisplayBackfill);
   const candidates = selectCandidates(pending, model, minScore, limit);
 
   for (const property of candidates) {
     queue.schedule(property.id, "display", "low");
   }
 
-  let scheduled = candidates.length;
-  if (scheduled < limit) {
-    const imageBackfillScan =
-      await repository.findPropertiesForImageBackfillScan(searchLimit);
-    const candidateIds = new Set(candidates.map((property) => property.id));
-
-    for (const property of imageBackfillScan) {
-      if (scheduled >= limit) break;
-      if (candidateIds.has(property.id)) continue;
-      if (!(await propertyHasMissingStoredImages(property.publications))) {
-        continue;
-      }
-      queue.schedule(property.id, "display", "low");
-      scheduled += 1;
-    }
-  }
-
-  return scheduled;
-}
-
-export function compatibilityCardForProperty(
-  ...args: Parameters<typeof getListingCompatibilityCard>
-) {
-  return getListingCompatibilityCard(...args);
+  return candidates.length;
 }

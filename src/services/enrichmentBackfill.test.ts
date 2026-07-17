@@ -111,8 +111,11 @@ describe("scheduleEnrichmentBackfill", () => {
           imageUrls: null,
           imageLocalHashes: null,
         });
+        await repository.markPublicationEnrichmentAttempted(
+          publication.id,
+          "display"
+        );
       }
-      await repository.markEnrichmentAttempted(property.id, "display");
     }
   });
 

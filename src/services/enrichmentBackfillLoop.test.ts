@@ -4,7 +4,7 @@ import { makeListing } from "../test/listingFixtures.js";
 import type { ListingRepository } from "../db/listingRepository.js";
 import type { ReactionRepository } from "../db/reactionRepository.js";
 import { EnrichmentQueue } from "./enrichmentQueue.js";
-import { startEnrichmentBackfillLoop } from "./enrichmentBackfillLoop.js";
+import { runEnrichmentBackfill } from "./enrichmentBackfillLoop.js";
 import { ensurePropertyEnriched } from "./enrichmentService.js";
 
 vi.mock("./enrichmentService.js", async (importOriginal) => {
@@ -21,12 +21,11 @@ vi.mock("./enrichmentService.js", async (importOriginal) => {
 
 const mockEnsurePropertyEnriched = vi.mocked(ensurePropertyEnriched);
 
-describe("startEnrichmentBackfillLoop", () => {
+describe("runEnrichmentBackfill", () => {
   let repository: ListingRepository;
   let reactionRepository: ReactionRepository;
   let dispose: (() => Promise<void>) | undefined;
   let queue: EnrichmentQueue;
-  let stopLoop: (() => void) | undefined;
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -47,11 +46,10 @@ describe("startEnrichmentBackfillLoop", () => {
   });
 
   afterEach(async () => {
-    stopLoop?.();
     await dispose?.();
   });
 
-  it("queues pending listings on startup and after the queue drains", async () => {
+  it("queues pending listings once without idle refill", async () => {
     const log = {
       info: vi.fn(),
       warn: vi.fn(),
@@ -59,21 +57,24 @@ describe("startEnrichmentBackfillLoop", () => {
       debug: vi.fn(),
     };
 
-    stopLoop = startEnrichmentBackfillLoop({
-      repository,
-      reactionRepository,
-      queue,
-      enrichment: {
-        cron: "0 * * * *",
-        enabled: true,
-        minCompatScore: 0,
-        batchLimit: 10,
-        searchLimit: 1000,
+    const scheduled = await runEnrichmentBackfill(
+      {
+        repository,
+        reactionRepository,
+        queue,
+        enrichment: {
+          cron: "0 * * * *",
+          enabled: true,
+          minCompatScore: 0,
+          batchLimit: 10,
+          searchLimit: 1000,
+        },
+        log,
       },
-      log,
-      intervalMs: 60_000,
-    });
+      "startup"
+    );
 
+    expect(scheduled).toBeGreaterThan(0);
     await vi.waitFor(
       () => {
         expect(mockEnsurePropertyEnriched).toHaveBeenCalled();

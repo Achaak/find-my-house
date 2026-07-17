@@ -9,8 +9,10 @@ import {
 } from "vitest";
 import { createTestRepository } from "../test/db.js";
 import { makeListing } from "../test/listingFixtures.js";
-import { propertyNeedsEnrichment } from "../domain/enrichmentCriteria.js";
-import { needsDisplayEnrichmentWork } from "../services/enrichmentService.js";
+import {
+  propertyNeedsDisplayBackfill,
+  propertyNeedsEnrichment,
+} from "../domain/enrichmentCriteria.js";
 import type { ListingRepository } from "./listingRepository.js";
 import type { PrismaClient } from "../generated/prisma/client.js";
 
@@ -790,12 +792,7 @@ describe("ListingRepository.countPendingDisplayEnrichment", () => {
     await repository.upsertMany([complete, pending, stalePortalImage]);
 
     const scanned = await repository.findPropertiesForEnrichmentScan(1000);
-    let expected = 0;
-    for (const property of scanned) {
-      if (await needsDisplayEnrichmentWork(property)) {
-        expected += 1;
-      }
-    }
+    const expected = scanned.filter(propertyNeedsDisplayBackfill).length;
 
     expect(await repository.countPendingDisplayEnrichment()).toBe(expected);
     expect(expected).toBeGreaterThanOrEqual(2);

@@ -5,20 +5,60 @@ import { classifiedImageNeedsRefresh } from "../utils/classifiedPortal/helpers.j
 
 export type EnrichmentPurpose = "display" | "address";
 
-const HTML_PORTAL_SOURCES = ["seloger", "logicimmo"] as const;
+/**
+ * First-time display enrichment: active publication never marked enriched.
+ */
+export function publicationNeedsFirstDisplayEnrichment(
+  publication: PublicationRow
+): boolean {
+  return publication.isActive && publication.enrichedAt === null;
+}
 
+/**
+ * Local image hashes missing for known remote URLs (DB-level, no filesystem).
+ */
+export function publicationHasIncompleteLocalImages(
+  publication: Pick<
+    PublicationRow,
+    "isActive" | "imageUrls" | "imageLocalHashes"
+  >
+): boolean {
+  if (!publication.isActive || !publication.imageUrls?.length) {
+    return false;
+  }
+
+  const hashes = publication.imageLocalHashes;
+  if (!hashes || Object.keys(hashes).length === 0) {
+    return true;
+  }
+
+  return publication.imageUrls.some((url) => !hashes[url]);
+}
+
+/**
+ * HTML-portal refresh after a first enrich (truncated description / stale image).
+ * On-demand only — never part of backfill pending / stats.
+ */
+export function publicationNeedsDisplayRefresh(
+  publication: PublicationRow
+): boolean {
+  if (!publication.isActive || !publication.enrichedAt) return false;
+  if (publication.source !== "seloger" && publication.source !== "logicimmo") {
+    return false;
+  }
+  if (isTruncatedPortalDescription(publication.description)) return true;
+  if (classifiedImageNeedsRefresh(publication.imageUrl)) return true;
+  return false;
+}
+
+/** @deprecated Prefer publicationNeedsFirstDisplayEnrichment + publicationHasIncompleteLocalImages */
 export function publicationNeedsDisplayEnrichment(
   publication: PublicationRow
 ): boolean {
-  if (!publication.isActive) return false;
-  if (!publication.enrichedAt) return true;
-
-  if (publication.source === "seloger" || publication.source === "logicimmo") {
-    if (isTruncatedPortalDescription(publication.description)) return true;
-    if (classifiedImageNeedsRefresh(publication.imageUrl)) return true;
-  }
-
-  return false;
+  return (
+    publicationNeedsFirstDisplayEnrichment(publication) ||
+    publicationHasIncompleteLocalImages(publication)
+  );
 }
 
 function missingEnergyFields(
@@ -61,8 +101,36 @@ export function propertyHasMissingEnrichmentFields(
   return (
     missingEnergy ||
     property.landSurface === null ||
-    property.publications.some(publicationNeedsDisplayEnrichment) ||
+    property.publications.some(
+      (publication) =>
+        publicationNeedsFirstDisplayEnrichment(publication) ||
+        publicationHasIncompleteLocalImages(publication)
+    ) ||
     (hasHtmlPortalPublication && missingCoords)
+  );
+}
+
+/**
+ * Backfill / stats pending: first-time enrich or incomplete local image hashes.
+ * Does not include sticky HTML-portal refresh.
+ */
+export function propertyNeedsDisplayBackfill(property: PropertyRow): boolean {
+  return property.publications.some(
+    (publication) =>
+      publicationNeedsFirstDisplayEnrichment(publication) ||
+      publicationHasIncompleteLocalImages(publication)
+  );
+}
+
+export function propertyNeedsDisplayRefresh(property: PropertyRow): boolean {
+  return property.publications.some(publicationNeedsDisplayRefresh);
+}
+
+/** Any display work: backfill intents or on-demand portal refresh. */
+export function propertyNeedsDisplayWork(property: PropertyRow): boolean {
+  return (
+    propertyNeedsDisplayBackfill(property) ||
+    propertyNeedsDisplayRefresh(property)
   );
 }
 
@@ -75,7 +143,7 @@ export function propertyNeedsEnrichment(
     return propertyHasMissingEnrichmentFields(property, purpose);
   }
 
-  return property.publications.some(publicationNeedsDisplayEnrichment);
+  return propertyNeedsDisplayBackfill(property);
 }
 
 export type EnrichmentStatus = "pending" | "complete";
@@ -87,9 +155,9 @@ export function getEnrichmentStatus(
   return propertyNeedsEnrichment(property, purpose) ? "pending" : "complete";
 }
 
-/** Prisma filter matching `propertyNeedsEnrichment(property, "display")`. */
-export function displayEnrichmentPendingWhere(): Prisma.PropertyWhereInput {
-  const pendingEnrichment: Prisma.PropertyWhereInput = {
+/** SQL: first-time display enrichment. */
+export function displayFirstEnrichmentPendingWhere(): Prisma.PropertyWhereInput {
+  return {
     publications: {
       some: {
         isActive: true,
@@ -97,62 +165,45 @@ export function displayEnrichmentPendingWhere(): Prisma.PropertyWhereInput {
       },
     },
   };
-
-  const stalePortalImage: Prisma.PropertyWhereInput = {
-    publications: {
-      some: {
-        isActive: true,
-        source: { in: [...HTML_PORTAL_SOURCES] },
-        OR: [
-          { imageUrl: { contains: "v.seloger.com/s/width/" } },
-          {
-            AND: [
-              {
-                OR: [
-                  { imageUrl: { contains: "mms.logic-immo.com" } },
-                  { imageUrl: { contains: "mms.seloger.com" } },
-                ],
-              },
-              { NOT: { imageUrl: { contains: "ci_seal=" } } },
-            ],
-          },
-        ],
-      },
-    },
-  };
-
-  const truncatedPortalDescription: Prisma.PropertyWhereInput = {
-    publications: {
-      some: {
-        isActive: true,
-        source: { in: [...HTML_PORTAL_SOURCES] },
-        OR: [{ description: null }, { description: { endsWith: "..." } }],
-      },
-    },
-  };
-
-  return {
-    OR: [pendingEnrichment, stalePortalImage, truncatedPortalDescription],
-  };
 }
 
-/** Publications enriched but local images were never stored. */
-export function displayImageBackfillPendingWhere(): Prisma.PropertyWhereInput {
+/** SQL: enriched pubs with remote image URLs but no local hash map yet. */
+export function displayImageStoreIncompleteWhere(): Prisma.PropertyWhereInput {
   return {
     publications: {
       some: {
         isActive: true,
         enrichedAt: { not: null },
-        imageLocalHashes: { equals: Prisma.DbNull },
         NOT: { imageUrls: { equals: Prisma.DbNull } },
+        OR: [
+          { imageLocalHashes: { equals: Prisma.DbNull } },
+          { imageLocalHashes: { equals: {} } },
+        ],
       },
     },
   };
 }
 
-/** DB filter for the hourly enrichment backfill scan. */
+/**
+ * Single SQL filter for DisplayEnrichmentPending (backfill + stats).
+ * Matches `propertyNeedsDisplayBackfill` for the common cases; partial hash
+ * maps are narrowed in-memory after scan.
+ */
 export function displayEnrichmentBackfillWhere(): Prisma.PropertyWhereInput {
   return {
-    OR: [displayEnrichmentPendingWhere(), displayImageBackfillPendingWhere()],
+    OR: [
+      displayFirstEnrichmentPendingWhere(),
+      displayImageStoreIncompleteWhere(),
+    ],
   };
+}
+
+/** @deprecated Use displayEnrichmentBackfillWhere */
+export function displayEnrichmentPendingWhere(): Prisma.PropertyWhereInput {
+  return displayFirstEnrichmentPendingWhere();
+}
+
+/** @deprecated Use displayImageStoreIncompleteWhere */
+export function displayImageBackfillPendingWhere(): Prisma.PropertyWhereInput {
+  return displayImageStoreIncompleteWhere();
 }

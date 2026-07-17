@@ -26,6 +26,14 @@ _Avoid_: Crawl, fetch job
 
 **Enrichment**:
 Post-scrape async fill of missing property fields from portal detail APIs. Two purposes: `display` (image, description, land) and `address` (stricter energy/coords for DPE lookup).
+
+**Display enrichment backfill**:
+Scheduled job (startup + hourly cron) that queues Properties still needing _first-time_ display enrichment (`enrichedAt` null) or incomplete local image hashes. Does **not** include sticky HTML-portal refresh (truncated SeLoger/LogicImmo description or unsigned image URLs) — that is on-demand when a Property is opened.
+
+**Display enrichment refresh**:
+On-demand re-fetch for HTML-portal Publications that are already enriched but still have truncated descriptions or stale image URLs. Triggered from browse/detail, not from the backfill conveyor.
+_Avoid_: Treating refresh as backfill pending (causes catalog-wide re-queue)
+
 _Avoid_: Backfill (unless referring to the scheduled backfill job)
 
 **Browse session**:

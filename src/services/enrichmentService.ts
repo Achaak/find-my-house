@@ -1,5 +1,8 @@
 import type { ListingRepository } from "../db/listingRepository.js";
 import {
+  publicationHasIncompleteLocalImages,
+  propertyNeedsDisplayRefresh,
+  propertyNeedsDisplayWork,
   propertyNeedsEnrichment,
   type EnrichmentPurpose,
 } from "../domain/enrichmentCriteria.js";
@@ -16,11 +19,7 @@ import {
   isEnrichmentAccessBlockedError,
   SOURCE_PRIORITY,
 } from "./enrichmentAdapters.js";
-import {
-  downloadPublicationImages,
-  propertyHasMissingStoredImages,
-  publicationHasMissingStoredImages,
-} from "./imageDownloadService.js";
+import { downloadPublicationImages } from "./imageDownloadService.js";
 import {
   filterSyndicatedPhotoUrls,
   firstPhotoUrl,
@@ -79,14 +78,14 @@ export type {
 } from "../domain/enrichmentCriteria.js";
 export {
   getEnrichmentStatus,
+  propertyNeedsDisplayRefresh,
+  propertyNeedsDisplayWork,
   propertyNeedsEnrichment,
 } from "../domain/enrichmentCriteria.js";
 
-export async function needsDisplayEnrichmentWork(
-  property: PropertyRow
-): Promise<boolean> {
-  if (propertyNeedsEnrichment(property, "display")) return true;
-  return propertyHasMissingStoredImages(property.publications);
+/** @deprecated Prefer propertyNeedsDisplayWork */
+export function needsDisplayEnrichmentWork(property: PropertyRow): boolean {
+  return propertyNeedsDisplayWork(property);
 }
 
 const DEDUP_STRUCTURE_FIELDS = new Set([
@@ -308,11 +307,12 @@ export async function ensurePropertyEnriched(
   const property = await repository.findById(id);
   if (!property) return { property: undefined, warnings: [] };
 
-  const needsImageBackfill =
-    purpose === "display" &&
-    (await propertyHasMissingStoredImages(property.publications));
+  const needsDisplayWork =
+    purpose === "display"
+      ? propertyNeedsDisplayWork(property)
+      : propertyNeedsEnrichment(property, purpose);
 
-  if (!propertyNeedsEnrichment(property, purpose) && !needsImageBackfill) {
+  if (!needsDisplayWork) {
     return { property, warnings: [] };
   }
 
@@ -322,7 +322,13 @@ export async function ensurePropertyEnriched(
 
   const warnings: string[] = [];
   let resultProperty = property;
-  if (propertyNeedsEnrichment(property, purpose)) {
+  const needsPortalFetch =
+    purpose === "address"
+      ? propertyNeedsEnrichment(property, purpose)
+      : propertyNeedsEnrichment(property, "display") ||
+        propertyNeedsDisplayRefresh(property);
+
+  if (needsPortalFetch) {
     const {
       patches,
       updatedFields,
@@ -378,9 +384,9 @@ export async function ensurePropertyEnriched(
         continue;
       }
 
-      const missingStoredImages =
-        await publicationHasMissingStoredImages(publication);
-      if (publication.enrichedAt && !missingStoredImages) {
+      const needsFirst = publication.enrichedAt === null;
+      const needsImages = publicationHasIncompleteLocalImages(publication);
+      if (!needsFirst && !needsImages) {
         continue;
       }
 
@@ -406,10 +412,9 @@ export async function ensurePropertyEnriched(
         );
         if (galleryUpdated.ok) {
           resultProperty = galleryUpdated.value;
-          continue;
+        } else {
+          warnings.push(`Gallery update failed: ${galleryUpdated.error}`);
         }
-
-        warnings.push(`Gallery update failed: ${galleryUpdated.error}`);
       } else if (publication.imageLocalHashes === null) {
         const galleryUpdated = await repository.applyPublicationGallery(
           publication.id,
@@ -422,14 +427,16 @@ export async function ensurePropertyEnriched(
         }
       }
 
-      const marked = await repository.markPublicationEnrichmentAttempted(
-        publication.id,
-        purpose
-      );
-      if (marked.ok) {
-        resultProperty = marked.value;
-      } else {
-        warnings.push(`Failed to mark enrichment attempt: ${marked.error}`);
+      if (needsFirst) {
+        const marked = await repository.markPublicationEnrichmentAttempted(
+          publication.id,
+          purpose
+        );
+        if (marked.ok) {
+          resultProperty = marked.value;
+        } else {
+          warnings.push(`Failed to mark enrichment attempt: ${marked.error}`);
+        }
       }
     }
   }
