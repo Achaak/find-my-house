@@ -80,6 +80,36 @@ export function toPublicationCreateData(
   };
 }
 
+/** Fields scrape must not wipe when updating an existing publication. */
+export type PublicationEnrichmentPreserve = {
+  description: string | null;
+  imageUrl: string | null;
+  imageUrls: string[] | null;
+  address: string | null;
+  dpeNumero: string | null;
+};
+
+/**
+ * Update payload for an existing publication. Search cards are often sparse;
+ * keep prior portal-detail / address fields when the scrape omits them, and
+ * never default address/dpe to null the way creates do.
+ */
+export function toPublicationUpdateData(
+  listing: Listing,
+  scrapedAt: Date,
+  existing: PublicationEnrichmentPreserve
+): PublicationCreateData {
+  const data = toPublicationCreateData(listing, scrapedAt);
+  data.address = existing.address;
+  data.dpeNumero = existing.dpeNumero;
+  data.description ??= existing.description;
+  data.imageUrl ??= existing.imageUrl;
+  if (data.imageUrls == null || data.imageUrls.length === 0) {
+    data.imageUrls = existing.imageUrls;
+  }
+  return data;
+}
+
 export function toPrismaPublicationData(data: PublicationCreateData) {
   return {
     ...data,

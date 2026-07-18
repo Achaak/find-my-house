@@ -121,6 +121,17 @@ export class ScraperService {
       );
     }
 
+    const imagePurge = await this.repository.purgeOrphanStoredImages();
+    if (
+      imagePurge.deletedFiles > 0 ||
+      imagePurge.prunedHashEntries > 0 ||
+      imagePurge.prunedIndexEntries > 0
+    ) {
+      log.info(
+        `Purged orphan images: ${String(imagePurge.deletedFiles)} file(s), ${String(imagePurge.prunedHashEntries)} stale hash entr${imagePurge.prunedHashEntries === 1 ? "y" : "ies"}, ${String(imagePurge.prunedIndexEntries)} index entr${imagePurge.prunedIndexEntries === 1 ? "y" : "ies"}`
+      );
+    }
+
     return {
       ...scrapeResult,
       insertedListings,

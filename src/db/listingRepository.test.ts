@@ -198,6 +198,67 @@ describe("ListingRepository.upsertMany", () => {
     expect(secondRun.updated).toBe(0);
   });
 
+  it("does not reset enrichedAt (or pending count) on price-only scrape update", async () => {
+    const listing = makeListing({
+      externalId: "enrich-preserve-price",
+      url: "https://www.bienici.com/annonce/enrich-preserve-price",
+      description: "Already enriched description",
+      imageUrl: "https://example.com/photo.jpg",
+      imageUrls: ["https://example.com/photo.jpg"],
+      landSurface: 400,
+      dpeClass: "C",
+      gesClass: "D",
+      dpeConsumptionKwhM2: 120,
+      gesEmissionKgM2: 25,
+    });
+
+    const inserted = await repository.upsertMany([listing]);
+    const insertedListing = inserted.insertedListings.at(0);
+    if (!insertedListing) throw new Error("Expected inserted property");
+    const propertyId = insertedListing.id;
+
+    const beforeMark = await repository.findById(propertyId);
+    const publication = beforeMark?.publications[0];
+    if (!publication) throw new Error("Expected publication");
+
+    // Seed enrichedAt + local hashes so only a scrape reset can re-pend.
+    await repository.applyPublicationGallery(publication.id, {
+      imageUrls: ["https://example.com/photo.jpg"],
+      imageLocalHashes: { "https://example.com/photo.jpg": "hash-1" },
+    });
+
+    const afterEnrich = await repository.findById(propertyId);
+    if (!afterEnrich) throw new Error("Expected property after enrich");
+    expect(afterEnrich.publications[0]?.enrichedAt).not.toBeNull();
+    expect(propertyNeedsDisplayBackfill(afterEnrich)).toBe(false);
+    const pendingAfterEnrich = await repository.countPendingDisplayEnrichment();
+
+    const updateResult = await repository.upsertMany([
+      {
+        ...listing,
+        price: listing.price - 10_000,
+        description: null,
+        imageUrl: null,
+        imageUrls: null,
+      },
+    ]);
+    expect(updateResult.updated).toBe(1);
+
+    const afterScrape = await repository.findById(propertyId);
+    if (!afterScrape) throw new Error("Expected property after scrape");
+    expect(afterScrape.publications[0]?.enrichedAt).not.toBeNull();
+    expect(afterScrape.publications[0]?.description).toBe(
+      "Already enriched description"
+    );
+    expect(afterScrape.publications[0]?.imageUrls).toEqual([
+      "https://example.com/photo.jpg",
+    ]);
+    expect(propertyNeedsDisplayBackfill(afterScrape)).toBe(false);
+    expect(await repository.countPendingDisplayEnrichment()).toBe(
+      pendingAfterEnrich
+    );
+  });
+
   it("handles batches larger than SQLite bind-parameter limit", async () => {
     const listings = Array.from({ length: 400 }, (_, index) =>
       makeListing({

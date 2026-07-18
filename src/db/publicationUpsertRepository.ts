@@ -22,6 +22,7 @@ import {
   type PublicationCreateData,
   toPrismaPublicationData,
   toPublicationCreateData,
+  toPublicationUpdateData,
   publicationImageUrlsChanged,
 } from "./publicationData.js";
 import { toPrismaSearchCacheData } from "./propertyWriteData.js";
@@ -406,7 +407,10 @@ export class PublicationUpsertRepository {
       skipped: 0,
       deactivated: 0,
     };
-    const publicationUpdatesById = new Map<number, Listing>();
+    const publicationUpdatesById = new Map<
+      number,
+      { listing: Listing; existing: PublicationWithProperty }
+    >();
     const publicationScrapedAtById = new Map<number, Date>();
     const publicationReactivateById = new Set<number>();
     const pendingPropertyCreates = new Map<string, PendingPropertyCreate>();
@@ -454,7 +458,10 @@ export class PublicationUpsertRepository {
         }
 
         if (propertyChanged) {
-          publicationUpdatesById.set(existingPublication.id, listing);
+          publicationUpdatesById.set(existingPublication.id, {
+            listing,
+            existing: existingPublication,
+          });
           if (isPriceDrop(property.price, listing.price, property.firstPrice)) {
             priceDropPropertyIds.add(property.id);
           }
@@ -556,15 +563,23 @@ export class PublicationUpsertRepository {
     await this.prisma.$transaction(async (tx) => {
       const projectionRefreshIds = new Set<number>();
 
-      for (const [publicationId, listing] of publicationUpdatesById) {
+      for (const [
+        publicationId,
+        { listing, existing },
+      ] of publicationUpdatesById) {
         await tx.listingPublication.update({
           where: { id: publicationId },
           data: {
             ...toPrismaPublicationData(
-              toPublicationCreateData(listing, new Date(listing.scrapedAt))
+              toPublicationUpdateData(listing, new Date(listing.scrapedAt), {
+                description: existing.description,
+                imageUrl: existing.imageUrl,
+                imageUrls: parseImageUrls(existing.imageUrls),
+                address: existing.address,
+                dpeNumero: existing.dpeNumero,
+              })
             ),
             isActive: true,
-            enrichedAt: null,
           },
         });
         const publication = await tx.listingPublication.findUnique({

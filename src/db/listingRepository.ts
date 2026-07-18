@@ -28,6 +28,7 @@ import {
   toPrismaPropertyPatch,
 } from "./propertyWriteData.js";
 import { purgeOrphanProperties } from "./purgeOrphanProperties.js";
+import { purgeOrphanStoredImages } from "../services/purgeOrphanStoredImages.js";
 import {
   CompositePropertyMatchDiagnosticsSink,
   LoggerPropertyMatchDiagnosticsSink,
@@ -191,6 +192,10 @@ export class ListingRepository implements ListingRepositoryRoles {
 
   async purgeOrphanProperties(): Promise<number> {
     return purgeOrphanProperties(this.prisma);
+  }
+
+  async purgeOrphanStoredImages() {
+    return purgeOrphanStoredImages(this.prisma);
   }
 
   async findPropertiesForEnrichmentScan(limit: number): Promise<PropertyRow[]> {

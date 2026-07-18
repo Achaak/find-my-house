@@ -87,6 +87,21 @@ export async function registerPerceptualImage(
   await persistIndex([...entries, { perceptualHash, contentHash }]);
 }
 
+/** Keep only index entries whose content hash is still referenced. */
+export async function prunePerceptualIndexToContentHashes(
+  referencedContentHashes: ReadonlySet<string>
+): Promise<number> {
+  const entries = await getIndex();
+  const next = entries.filter((entry) =>
+    referencedContentHashes.has(entry.contentHash)
+  );
+  const removed = entries.length - next.length;
+  if (removed > 0) {
+    await persistIndex(next);
+  }
+  return removed;
+}
+
 /** Test helper — resets in-memory cache. */
 export function resetPerceptualImageIndexCache(): void {
   indexCache = null;
