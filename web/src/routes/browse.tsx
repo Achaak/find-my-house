@@ -70,6 +70,9 @@ function BrowsePage() {
       propertyId: number;
     }) => api.browseReact(action, propertyId),
     onSuccess: (data, variables) => {
+      // Clear exit before swapping the card so the next house does not mount
+      // already opacity-0 (and so a key change cannot inherit the exit class).
+      setExitDirection(null);
       queryClient.setQueryData(queryKeys.browse, data);
       invalidateReactionSideEffects(queryClient);
       invalidatePropertyQueries(queryClient, variables.propertyId);
@@ -208,6 +211,7 @@ function BrowsePage() {
             <>
               <div className="-mx-4 flex flex-1 items-center py-2 md:mx-0 md:py-4">
                 <BrowsePropertyCard
+                  key={state.item.id}
                   property={state.item}
                   exitDirection={exitDirection}
                 />

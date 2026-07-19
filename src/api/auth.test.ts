@@ -11,7 +11,12 @@ vi.mock("../config/web.js", () => ({
   },
 }));
 
-const { getIngressUsername, resolveApiUser } = await import("./auth.js");
+const {
+  AUTH_USER_CACHE_TTL_MS,
+  clearAuthUserCache,
+  getIngressUsername,
+  resolveApiUser,
+} = await import("./auth.js");
 
 describe("getIngressUsername", () => {
   it("reads X-Remote-User-Name from HA ingress", () => {
@@ -48,6 +53,8 @@ describe("getIngressUsername", () => {
 describe("resolveApiUser", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    clearAuthUserCache();
+    vi.unstubAllEnvs();
   });
 
   it("authenticates HA ingress requests without a bearer token", async () => {
@@ -79,5 +86,63 @@ describe("resolveApiUser", () => {
       username: "achak",
       isAdmin: true,
     });
+  });
+
+  it("caches bearer token resolution across requests within the TTL", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: "user-1",
+          name: "Achak",
+          is_admin: true,
+          is_owner: false,
+        }),
+        { status: 200 }
+      )
+    );
+
+    const request = () =>
+      new Request("http://localhost/api/me", {
+        headers: { Authorization: "Bearer ha-token" },
+      });
+
+    const first = await resolveApiUser(request());
+    const second = await resolveApiUser(request());
+
+    expect(first).toEqual({
+      id: "ha:achak",
+      username: "Achak",
+      isAdmin: true,
+    });
+    expect(second).toEqual(first);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("revalidates with Home Assistant after the cache TTL expires", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            id: "user-1",
+            name: "Achak",
+            is_admin: false,
+            is_owner: false,
+          }),
+          { status: 200 }
+        )
+      )
+    );
+
+    const request = new Request("http://localhost/api/me", {
+      headers: { Authorization: "Bearer ha-token" },
+    });
+
+    await resolveApiUser(request);
+    vi.advanceTimersByTime(AUTH_USER_CACHE_TTL_MS + 1);
+    await resolveApiUser(request);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
   });
 });

@@ -1,9 +1,13 @@
+import { createHash } from "node:crypto";
 import type { Context, MiddlewareHandler } from "hono";
 import { webConfig } from "../config/web.js";
 import { createLogger } from "../utils/logger.js";
 import type { ApiUser } from "./types.js";
 
 const log = createLogger("api:auth");
+
+/** Short TTL so a navigation burst reuses one HA validation. */
+export const AUTH_USER_CACHE_TTL_MS = 45_000;
 
 type HaCurrentUser = {
   id: string;
@@ -15,6 +19,40 @@ type HaCurrentUser = {
 export type AuthVariables = {
   user: ApiUser;
 };
+
+type AuthCacheEntry = {
+  user: ApiUser;
+  expiresAt: number;
+};
+
+const bearerUserCache = new Map<string, AuthCacheEntry>();
+
+function bearerCacheKey(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+function getCachedBearerUser(token: string): ApiUser | null {
+  const key = bearerCacheKey(token);
+  const entry = bearerUserCache.get(key);
+  if (!entry) return null;
+  if (entry.expiresAt <= Date.now()) {
+    bearerUserCache.delete(key);
+    return null;
+  }
+  return entry.user;
+}
+
+function setCachedBearerUser(token: string, user: ApiUser): void {
+  bearerUserCache.set(bearerCacheKey(token), {
+    user,
+    expiresAt: Date.now() + AUTH_USER_CACHE_TTL_MS,
+  });
+}
+
+/** Clears the in-memory bearer → user cache (tests). */
+export function clearAuthUserCache(): void {
+  bearerUserCache.clear();
+}
 
 async function fetchHaCurrentUser(
   token: string
@@ -100,6 +138,32 @@ function userFromHaProfile(haUser: HaCurrentUser): ApiUser {
   };
 }
 
+async function resolveBearerUser(bearer: string): Promise<ApiUser | null> {
+  const cached = getCachedBearerUser(bearer);
+  if (cached) {
+    return cached;
+  }
+
+  const haUser = await fetchHaCurrentUser(bearer);
+  if (haUser) {
+    const user = userFromHaProfile(haUser);
+    setCachedBearerUser(bearer, user);
+    return user;
+  }
+
+  if (await validateHaToken(bearer)) {
+    const user: ApiUser = {
+      id: `ha:token:${hashToken(bearer)}`,
+      username: "token",
+      isAdmin: false,
+    };
+    setCachedBearerUser(bearer, user);
+    return user;
+  }
+
+  return null;
+}
+
 export async function resolveApiUser(
   request: Request
 ): Promise<ApiUser | null> {
@@ -111,42 +175,27 @@ export async function resolveApiUser(
     };
   }
 
+  const bearer = request.headers
+    .get("Authorization")
+    ?.replace(/^Bearer\s+/i, "");
+
   const ingressUser = getIngressUsername(request);
   if (ingressUser) {
-    const bearer = request.headers
-      .get("Authorization")
-      ?.replace(/^Bearer\s+/i, "");
     if (bearer) {
-      const haUser = await fetchHaCurrentUser(bearer);
-      if (haUser) {
-        return userFromHaProfile(haUser);
+      const fromBearer = await resolveBearerUser(bearer);
+      if (fromBearer) {
+        return fromBearer;
       }
     }
 
     return userFromIngress(ingressUser);
   }
 
-  const bearer = request.headers
-    .get("Authorization")
-    ?.replace(/^Bearer\s+/i, "");
   if (!bearer) {
     return null;
   }
 
-  const haUser = await fetchHaCurrentUser(bearer);
-  if (haUser) {
-    return userFromHaProfile(haUser);
-  }
-
-  if (await validateHaToken(bearer)) {
-    return {
-      id: `ha:token:${hashToken(bearer)}`,
-      username: "token",
-      isAdmin: false,
-    };
-  }
-
-  return null;
+  return resolveBearerUser(bearer);
 }
 
 function hashToken(token: string): string {

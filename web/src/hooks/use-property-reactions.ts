@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, queryKeys } from "@/lib/api";
 import {
   invalidatePropertyQueries,
   invalidateReactionSideEffects,
@@ -12,6 +12,8 @@ export function usePropertyReactions(property: Property) {
   const onSuccess = () => {
     invalidatePropertyQueries(queryClient, property.id);
     invalidateReactionSideEffects(queryClient);
+    // Detail/grid reactions do not return browse session state — refresh it.
+    void queryClient.invalidateQueries({ queryKey: queryKeys.browse });
   };
 
   const likeMutation = useMutation({

@@ -17,9 +17,13 @@ export function invalidatePropertyQueries(
   });
 }
 
-/** Refresh aggregate views after a reaction or browse undo. */
+/**
+ * Refresh aggregate views after a reaction or browse undo.
+ * Does not invalidate the browse session query — callers that already
+ * `setQueryData(queryKeys.browse, …)` from a mutation must not refetch,
+ * or a slower in-flight GET can overwrite the newer card.
+ */
 export function invalidateReactionSideEffects(queryClient: QueryClient) {
-  void queryClient.invalidateQueries({ queryKey: queryKeys.browse });
   void queryClient.invalidateQueries({ queryKey: ["stats"] });
   void queryClient.invalidateQueries({ queryKey: ["stats-series"] });
   void queryClient.invalidateQueries({

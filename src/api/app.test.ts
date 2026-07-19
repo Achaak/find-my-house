@@ -66,17 +66,24 @@ vi.mock("../homeAssistant/client.js", () => ({
   isHomeAssistantAddOn: () => false,
 }));
 
-function createMockEnrichmentQueue(
-  findById: (id: number) => Promise<unknown>
-): EnrichmentQueue {
+function createMockEnrichmentQueue(findById: (id: number) => Promise<unknown>) {
+  const schedule = vi.fn();
+  const ensureReady = vi.fn(async (id: number) => findById(id));
+  const getStatus = vi.fn(() => "complete" as const);
+
   return {
-    getQueuedCount: () => 0,
-    schedule: vi.fn(),
-    scheduleScrapeResults: vi.fn(),
-    ensureReady: vi.fn(async (id: number) => findById(id)),
-    getStatus: vi.fn(() => "complete" as const),
-    runBackfill: vi.fn(() => Promise.resolve(0)),
-  } as unknown as EnrichmentQueue;
+    queue: {
+      getQueuedCount: () => 0,
+      schedule,
+      scheduleScrapeResults: vi.fn(),
+      ensureReady,
+      getStatus,
+      runBackfill: vi.fn(() => Promise.resolve(0)),
+    } as unknown as EnrichmentQueue,
+    schedule,
+    ensureReady,
+    getStatus,
+  };
 }
 
 function createMockScraperService(): ScraperService {
@@ -90,10 +97,20 @@ describe("createApiApp", () => {
   let ctx: ApiContext;
   let app: ReturnType<typeof createApiApp>;
   let propertyId: number;
+  let enrichmentSchedule: ReturnType<typeof vi.fn>;
+  let enrichmentEnsureReady: ReturnType<typeof vi.fn>;
+  let enrichmentGetStatus: ReturnType<typeof vi.fn>;
 
   beforeAll(async () => {
     const testDb = createTestRepository();
     dispose = testDb.dispose;
+
+    const enrichment = createMockEnrichmentQueue((id) =>
+      testDb.repository.findById(id)
+    );
+    enrichmentSchedule = enrichment.schedule;
+    enrichmentEnsureReady = enrichment.ensureReady;
+    enrichmentGetStatus = enrichment.getStatus;
 
     ctx = {
       repository: testDb.repository,
@@ -102,9 +119,7 @@ describe("createApiApp", () => {
         testDb.prisma
       ),
       scraperService: createMockScraperService(),
-      enrichmentQueue: createMockEnrichmentQueue((id) =>
-        testDb.repository.findById(id)
-      ),
+      enrichmentQueue: enrichment.queue,
       scrapeDefaults: {
         city: "Lanquetot",
         postalCode: "76160",
@@ -247,6 +262,24 @@ describe("createApiApp", () => {
     const body = (await response.json()) as ListingDetailResponse;
     expect(body.item.id).toBe(propertyId);
     expect(body.enrichment.status).toBe("complete");
+    expect(enrichmentEnsureReady).not.toHaveBeenCalled();
+  });
+
+  it("GET /api/listings/:id schedules display enrichment without waiting", async () => {
+    enrichmentGetStatus.mockReturnValue("pending");
+
+    const response = await app.request(`/api/listings/${String(propertyId)}`);
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as ListingDetailResponse;
+    expect(body.enrichment.status).toBe("pending");
+    expect(enrichmentSchedule).toHaveBeenCalledWith(
+      propertyId,
+      "display",
+      "high"
+    );
+    expect(enrichmentEnsureReady).not.toHaveBeenCalled();
+
+    enrichmentGetStatus.mockReturnValue("complete");
   });
 
   it("POST /api/reactions/like adds a household like", async () => {

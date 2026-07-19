@@ -78,11 +78,14 @@ async function serializeBrowseResponse(
     true
   );
 
-  let property = state.property;
-  if (property) {
-    property =
-      (await ctx.enrichmentQueue.ensureReady(property.id, "display", "high")) ??
-      property;
+  const property = state.property;
+  if (
+    property &&
+    ctx.enrichmentQueue.getStatus(property, "display") === "pending"
+  ) {
+    // Kick display enrichment in the background; return the cached row now
+    // instead of waiting up to 30s on a portal fetch.
+    ctx.enrichmentQueue.schedule(property.id, "display", "high");
   }
 
   const reaction =
@@ -243,14 +246,14 @@ export function createApiApp(ctx: ApiContext) {
       return c.json({ error: "Invalid listing id" }, 400);
     }
 
-    let property = await ctx.repository.findById(id);
+    const property = await ctx.repository.findById(id);
     if (!property) {
       return c.json({ error: "Listing not found" }, 404);
     }
 
-    property =
-      (await ctx.enrichmentQueue.ensureReady(id, "display", "high")) ??
-      property;
+    if (ctx.enrichmentQueue.getStatus(property, "display") === "pending") {
+      ctx.enrichmentQueue.schedule(id, "display", "high");
+    }
 
     return c.json({
       item: await serializeProperty(property, ctx.reactionRepository),
