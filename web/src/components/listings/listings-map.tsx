@@ -228,9 +228,10 @@ export function ListingsMap({
     const map = mapRef.current;
     const latLng = marker.getLatLng();
     map.panTo(latLng, { animate: true });
-    window.setTimeout(() => {
+    const timer = window.setTimeout(() => {
       marker.openPopup();
     }, 250);
+    return () => window.clearTimeout(timer);
   }, [selectedId]);
 
   useEffect(() => {

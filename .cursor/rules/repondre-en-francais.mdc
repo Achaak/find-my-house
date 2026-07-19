@@ -1,0 +1,13 @@
+---
+description: Toutes les réponses des agents doivent être en français
+alwaysApply: true
+---
+
+# Langue des réponses
+
+Réponds **toujours en français** dans ce projet.
+
+- Messages à l'utilisateur, explications, résumés, questions de clarification : en français.
+- Messages de commit, descriptions de PR, titres d'issues : en français, sauf si l'utilisateur demande explicitement une autre langue.
+- Identifiants de code, noms de fichiers, APIs et citations de code : laisser en anglais (ou dans la langue d'origine du code).
+- Ne pas mélanger anglais et français dans le prose adressé à l'utilisateur.

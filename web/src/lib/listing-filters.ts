@@ -54,6 +54,9 @@ export function formatFilterChips(filters: ListingSearchFilters): FilterChip[] {
   if (filters.postalCode) {
     chips.push({ key: "postalCode", label: filters.postalCode });
   }
+  if (filters.text) {
+    chips.push({ key: "text", label: filters.text });
+  }
   if (filters.maxPrice !== undefined) {
     chips.push({
       key: "maxPrice",
@@ -75,6 +78,34 @@ export function formatFilterChips(filters: ListingSearchFilters): FilterChip[] {
       key: "minSurface",
       label: m.browse_criteria_min_surface({
         surface: String(filters.minSurface),
+      }),
+    });
+  }
+  if (filters.minLandSurface !== undefined) {
+    chips.push({
+      key: "minLandSurface",
+      label: m.browse_criteria_min_land({
+        land: String(filters.minLandSurface),
+      }),
+    });
+  }
+  if (filters.minRooms !== undefined) {
+    chips.push({
+      key: "minRooms",
+      label: m.filter_min_rooms_chip({ count: filters.minRooms }),
+    });
+  }
+  if (filters.minBedrooms !== undefined) {
+    chips.push({
+      key: "minBedrooms",
+      label: m.filter_min_bedrooms_chip({ count: filters.minBedrooms }),
+    });
+  }
+  if (filters.maxTravelMinutes !== undefined) {
+    chips.push({
+      key: "maxTravelMinutes",
+      label: m.filter_max_travel_chip({
+        minutes: filters.maxTravelMinutes,
       }),
     });
   }
@@ -103,6 +134,9 @@ export function clearFilterChip(
     case "postalCode":
       delete next.postalCode;
       break;
+    case "text":
+      delete next.text;
+      break;
     case "maxPrice":
       delete next.maxPrice;
       break;
@@ -111,6 +145,18 @@ export function clearFilterChip(
       break;
     case "minSurface":
       delete next.minSurface;
+      break;
+    case "minLandSurface":
+      delete next.minLandSurface;
+      break;
+    case "minRooms":
+      delete next.minRooms;
+      break;
+    case "minBedrooms":
+      delete next.minBedrooms;
+      break;
+    case "maxTravelMinutes":
+      delete next.maxTravelMinutes;
       break;
     case "source":
       delete next.source;

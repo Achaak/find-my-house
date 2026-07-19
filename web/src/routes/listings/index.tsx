@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Sheet } from "@/components/ui/sheet";
 import { useListingSearch } from "@/hooks/use-listing-search";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { getErrorMessage } from "@/lib/error-message";
 import { clearFilterChip, searchParamsToFilters } from "@/lib/listing-filters";
 import * as m from "@/paraglide/messages.js";
@@ -38,6 +39,7 @@ function ListingsPage() {
   const search = useListingSearch(filters);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [mapPreviewOpen, setMapPreviewOpen] = useState(false);
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
   const filterCount = activeFilterCount(filters);
 
   const submitFilters = () => {
@@ -158,40 +160,18 @@ function ListingsPage() {
           </p>
 
           {search.view === "map" ? (
-            <>
-              <div className="lg:hidden">
-                <ListingsMapView
-                  layout="mobile"
-                  properties={search.mapItems}
-                  selectedId={search.selectedId}
-                  selectedProperty={search.selectedProperty}
-                  totalCount={search.total}
-                  mapBoundsKey={search.mapBoundsKey}
-                  mapLoading={
-                    search.mapQuery.isLoading && !search.mapQuery.data
-                  }
-                  mapPreviewOpen={mapPreviewOpen}
-                  onMapPreviewOpenChange={setMapPreviewOpen}
-                  onPropertySelect={selectMapProperty}
-                />
-              </div>
-              <div className="hidden lg:block">
-                <ListingsMapView
-                  layout="desktop"
-                  properties={search.mapItems}
-                  selectedId={search.selectedId}
-                  selectedProperty={search.selectedProperty}
-                  totalCount={search.total}
-                  mapBoundsKey={search.mapBoundsKey}
-                  mapLoading={
-                    search.mapQuery.isLoading && !search.mapQuery.data
-                  }
-                  mapPreviewOpen={mapPreviewOpen}
-                  onMapPreviewOpenChange={setMapPreviewOpen}
-                  onPropertySelect={selectMapProperty}
-                />
-              </div>
-            </>
+            <ListingsMapView
+              layout={isDesktop ? "desktop" : "mobile"}
+              properties={search.mapItems}
+              selectedId={search.selectedId}
+              selectedProperty={search.selectedProperty}
+              totalCount={search.total}
+              mapBoundsKey={search.mapBoundsKey}
+              mapLoading={search.mapQuery.isLoading && !search.mapQuery.data}
+              mapPreviewOpen={mapPreviewOpen}
+              onMapPreviewOpenChange={setMapPreviewOpen}
+              onPropertySelect={selectMapProperty}
+            />
           ) : search.items.length === 0 ? (
             <EmptyState
               title={m.listings_empty_title()}

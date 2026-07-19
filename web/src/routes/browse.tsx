@@ -43,6 +43,7 @@ function BrowsePage() {
   const [undoState, setUndoState] = useState<NonNullable<
     BrowseState["undoDislike"]
   > | null>(null);
+  const [mutationError, setMutationError] = useState<unknown>(null);
   const exitTimerRef = useRef<number | null>(null);
 
   const browseQuery = useBrowseSession();
@@ -50,15 +51,20 @@ function BrowsePage() {
   const startMutation = useMutation({
     mutationFn: api.browseStart,
     onSuccess: (data) => {
+      setMutationError(null);
       queryClient.setQueryData(queryKeys.browse, data);
     },
+    onError: (error) => setMutationError(error),
   });
 
   const stopMutation = useMutation({
     mutationFn: api.browseStop,
     onSuccess: () => {
+      setMutationError(null);
       queryClient.setQueryData(queryKeys.browse, null);
+      setUndoState(null);
     },
+    onError: (error) => setMutationError(error),
   });
 
   const reactMutation = useMutation({
@@ -70,6 +76,7 @@ function BrowsePage() {
       propertyId: number;
     }) => api.browseReact(action, propertyId),
     onSuccess: (data, variables) => {
+      setMutationError(null);
       // Clear exit before swapping the card so the next house does not mount
       // already opacity-0 (and so a key change cannot inherit the exit class).
       setExitDirection(null);
@@ -80,11 +87,19 @@ function BrowsePage() {
         setUndoState(data.undoDislike);
       }
     },
+    onError: (error) => setMutationError(error),
   });
 
   const undoMutation = useMutation({
-    mutationFn: (propertyId: number) => api.undoDislike(propertyId),
+    mutationFn: async (propertyId: number) => {
+      const data = await api.undoDislike(propertyId);
+      if (data.status !== "removed") {
+        throw new Error(m.browse_undo_failed());
+      }
+      return data;
+    },
     onSuccess: (data, propertyId) => {
+      setMutationError(null);
       setUndoState(null);
       if (data.browse) {
         queryClient.setQueryData(queryKeys.browse, data.browse);
@@ -92,6 +107,7 @@ function BrowsePage() {
       invalidateReactionSideEffects(queryClient);
       invalidatePropertyQueries(queryClient, propertyId);
     },
+    onError: (error) => setMutationError(error),
   });
 
   useEffect(
@@ -103,13 +119,9 @@ function BrowsePage() {
     []
   );
 
-  const state = browseQuery.data ?? startMutation.data;
-  const mutationError =
-    startMutation.error ??
-    stopMutation.error ??
-    reactMutation.error ??
-    undoMutation.error ??
-    null;
+  // Prefer the live browse query only — never fall back to a stale
+  // startMutation payload after stop (null must win over ??).
+  const state = browseQuery.data ?? undefined;
   const isReacting = reactMutation.isPending || Boolean(exitDirection);
 
   const handleReact = useCallback(
@@ -131,7 +143,7 @@ function BrowsePage() {
   );
 
   const showEmptyStart =
-    !state && (browseQuery.isSuccess || startMutation.isSuccess);
+    !state && browseQuery.isFetched && !browseQuery.isError;
 
   return (
     <div className="flex flex-col gap-6">
@@ -205,7 +217,10 @@ function BrowsePage() {
               className="flex-1 justify-center py-10"
               title={m.browse_empty_finished_title()}
               description={m.browse_empty_finished_desc()}
-              action={{ label: m.browse_start(), to: "/browse" }}
+              action={{
+                label: m.browse_start(),
+                onClick: () => startMutation.mutate(),
+              }}
             />
           ) : (
             <>

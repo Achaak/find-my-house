@@ -81,7 +81,8 @@ describe("browse reaction cache updates", () => {
     await inFlight;
 
     // React Query writes the late response into the cache — this is why browse
-    // mutations must setQueryData without invalidating/refetching browse.
+    // mutations must setQueryData without invalidating/refetching browse, and
+    // why detail/grid reactions must not invalidate browse either.
     expect(
       queryClient.getQueryData<BrowseState>(queryKeys.browse)?.item?.id
     ).toBe(2);

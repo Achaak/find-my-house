@@ -7,7 +7,10 @@ import {
   type AuthVariables,
 } from "./auth.js";
 import { parseListingSearchFilters } from "./searchFilters.js";
-import { LISTING_MAP_LIMIT_MAX } from "@find-my-house/api-types";
+import {
+  LISTING_MAP_LIMIT_MAX,
+  LISTING_SEARCH_LIMIT_MAX,
+} from "@find-my-house/api-types";
 import {
   serializeDpeCandidate,
   serializeProperties,
@@ -33,12 +36,14 @@ import { formatScrapeSummary } from "../services/formatScrapeSummary.js";
 import {
   advanceBrowseSession,
   clearBrowseSession,
+  clearPendingDislikeUndo,
   getBrowseSession,
   getBrowseState,
   noteBrowseReaction,
   rewindBrowseDislike,
   setPendingDislikeUndo,
   startBrowseSession,
+  withBrowseLock,
   type BrowseSession,
 } from "../services/browseSession.js";
 import type { BrowseState as InternalBrowseState } from "../services/browseSession.js";
@@ -205,20 +210,28 @@ export function createApiApp(ctx: ApiContext) {
     const sort = filters.sort;
     const limit = isMapMode ? LISTING_MAP_LIMIT_MAX : (filters.limit ?? 20);
     const offset = isMapMode ? 0 : (filters.offset ?? 0);
+    const compatSort = sort === "compat_desc";
+    // Rank a full candidate window, then paginate in memory so page 2+ is
+    // the next-best by compatibility — not the best of an arbitrary SQL page.
+    const fetchLimit = compatSort
+      ? isMapMode
+        ? LISTING_MAP_LIMIT_MAX
+        : LISTING_SEARCH_LIMIT_MAX
+      : limit;
+    const fetchOffset = compatSort ? 0 : offset;
 
     const { items: listings, total } = await ctx.repository.search({
       ...filters,
-      sort: sort === "compat_desc" ? undefined : sort,
-      limit: sort === "compat_desc" ? Math.max(limit, 50) : limit,
-      offset,
+      sort: compatSort ? undefined : sort,
+      limit: fetchLimit,
+      offset: fetchOffset,
     });
 
     const model = await resolveCompatibilityModel(ctx.reactionRepository);
 
-    const rankedListings =
-      sort === "compat_desc"
-        ? sortByCompatibility(listings, model).slice(0, limit)
-        : listings;
+    const rankedListings = compatSort
+      ? sortByCompatibility(listings, model).slice(offset, offset + limit)
+      : listings;
 
     const listingsForResponse = isMapMode
       ? rankedListings.filter(
@@ -312,26 +325,56 @@ export function createApiApp(ctx: ApiContext) {
     }
 
     const user = getUser(c);
-    const session = getBrowseSession(user.id);
-    if (!session) {
-      return c.json({ error: "Browse session expired" }, 404);
-    }
-
     const body: { propertyId?: number } = await c.req
       .json<{ propertyId?: number }>()
       .catch(() => ({ propertyId: undefined }));
     const propertyId = body.propertyId;
-    if (!propertyId || !Number.isInteger(propertyId)) {
+    if (
+      propertyId === undefined ||
+      !Number.isInteger(propertyId) ||
+      propertyId <= 0
+    ) {
       return c.json({ error: "propertyId is required" }, 400);
     }
 
-    const listing = await ctx.repository.findById(propertyId);
-    if (!listing) {
-      clearBrowseSession(user.id);
-      return c.json({ error: "Listing not found" }, 404);
-    }
+    return withBrowseLock(user.id, async () => {
+      const session = getBrowseSession(user.id);
+      if (!session) {
+        return c.json({ error: "Browse session expired" }, 404);
+      }
 
-    if (action === "pass") {
+      if (session.currentPropertyId !== propertyId) {
+        return c.json(
+          {
+            error: "propertyId does not match the current browse listing",
+          },
+          409
+        );
+      }
+
+      const listing = await ctx.repository.findById(propertyId);
+      if (!listing) {
+        return c.json({ error: "Listing not found" }, 404);
+      }
+
+      if (action === "pass") {
+        clearPendingDislikeUndo(session);
+        const state = await advanceBrowseSession(
+          ctx.repository,
+          ctx.reactionRepository,
+          user.id,
+          session
+        );
+
+        return c.json(
+          await serializeBrowseResponse(ctx, user.id, session, state)
+        );
+      }
+
+      const dislikedIsExplore = session.currentIsExplore;
+      await ctx.reactionRepository.add(propertyId, action);
+      noteBrowseReaction(session, propertyId);
+
       const state = await advanceBrowseSession(
         ctx.repository,
         ctx.reactionRepository,
@@ -339,37 +382,24 @@ export function createApiApp(ctx: ApiContext) {
         session
       );
 
+      if (action === "dislike") {
+        setPendingDislikeUndo(session, {
+          dislikedPropertyId: propertyId,
+          dislikedIsExplore,
+          advancedToPropertyId: state.property?.id ?? null,
+          advancedProperty: state.property,
+        });
+      } else {
+        clearPendingDislikeUndo(session);
+      }
+
       return c.json(
-        await serializeBrowseResponse(ctx, user.id, session, state)
+        await serializeBrowseResponse(ctx, user.id, session, state, {
+          reactionType: action,
+          dislikedPropertyId: action === "dislike" ? propertyId : undefined,
+        })
       );
-    }
-
-    const dislikedIsExplore = session.currentIsExplore;
-    await ctx.reactionRepository.add(propertyId, action);
-    noteBrowseReaction(session, propertyId);
-
-    const state = await advanceBrowseSession(
-      ctx.repository,
-      ctx.reactionRepository,
-      user.id,
-      session
-    );
-
-    if (action === "dislike") {
-      setPendingDislikeUndo(session, {
-        dislikedPropertyId: propertyId,
-        dislikedIsExplore,
-        advancedToPropertyId: state.property?.id ?? null,
-        advancedProperty: state.property,
-      });
-    }
-
-    return c.json(
-      await serializeBrowseResponse(ctx, user.id, session, state, {
-        reactionType: action,
-        dislikedPropertyId: action === "dislike" ? propertyId : undefined,
-      })
-    );
+    });
   });
 
   app.post("/api/reactions/dislike/:propertyId/undo", async (c) => {
@@ -483,12 +513,18 @@ export function createApiApp(ctx: ApiContext) {
 
   app.post("/api/reactions/like/:propertyId/archive", async (c) => {
     const propertyId = Number.parseInt(c.req.param("propertyId"), 10);
+    if (!Number.isInteger(propertyId) || propertyId <= 0) {
+      return c.json({ error: "Invalid property id" }, 400);
+    }
     const result = await ctx.reactionRepository.archive(propertyId);
     return c.json({ status: result });
   });
 
   app.post("/api/reactions/like/:propertyId/unarchive", async (c) => {
     const propertyId = Number.parseInt(c.req.param("propertyId"), 10);
+    if (!Number.isInteger(propertyId) || propertyId <= 0) {
+      return c.json({ error: "Invalid property id" }, 400);
+    }
     const result = await ctx.reactionRepository.unarchive(propertyId);
     return c.json({ status: result });
   });

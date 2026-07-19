@@ -108,6 +108,9 @@ function ConfirmAddressButton({
     typeof usePropertyDetail
   >["confirmAddressMutation"];
 }) {
+  const isThisCandidate = confirmAddressMutation.variables === numeroDpe;
+  const isPending = confirmAddressMutation.isPending && isThisCandidate;
+
   return (
     <div className="flex flex-col items-end gap-1">
       <Button
@@ -116,18 +119,16 @@ function ConfirmAddressButton({
         disabled={confirmAddressMutation.isPending}
         onClick={() => confirmAddressMutation.mutate(numeroDpe)}
       >
-        {confirmAddressMutation.isPending
-          ? m.common_saving()
-          : m.listing_detail_confirm()}
+        {isPending ? m.common_saving() : m.listing_detail_confirm()}
       </Button>
-      {confirmAddressMutation.isSuccess ? (
+      {isThisCandidate && confirmAddressMutation.isSuccess ? (
         <span className="text-xs text-muted-foreground">
           {m.listing_detail_address_saved({
             numero: confirmAddressMutation.data.dpeNumero,
           })}
         </span>
       ) : null}
-      {confirmAddressMutation.error ? (
+      {isThisCandidate && confirmAddressMutation.error ? (
         <span className="text-xs text-destructive">
           {getErrorMessage(confirmAddressMutation.error)}
         </span>

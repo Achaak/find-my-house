@@ -1,3 +1,7 @@
+## Language
+
+Always reply to the user in **French**. Code identifiers, file names, APIs, and code citations stay in their original language.
+
 ## Agent skills
 
 ### Issue tracker

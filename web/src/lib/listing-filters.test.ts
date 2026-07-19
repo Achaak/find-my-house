@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   filtersToSearchParams,
+  formatFilterChips,
   normalizeListingFilters,
   searchParamsToFilters,
 } from "./listing-filters";
@@ -76,5 +77,26 @@ describe("normalizeListingFilters", () => {
       priceDropOnly: undefined,
       limit: 20,
     });
+  });
+});
+
+describe("formatFilterChips", () => {
+  it("includes text, land, rooms, bedrooms, and travel filters", () => {
+    expect(
+      formatFilterChips({
+        text: "jardin",
+        minLandSurface: 500,
+        minRooms: 4,
+        minBedrooms: 2,
+        maxTravelMinutes: 30,
+        limit: 20,
+      }).map((chip) => chip.key)
+    ).toEqual([
+      "text",
+      "minLandSurface",
+      "minRooms",
+      "minBedrooms",
+      "maxTravelMinutes",
+    ]);
   });
 });

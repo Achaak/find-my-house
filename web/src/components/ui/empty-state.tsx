@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export function EmptyState({
@@ -10,7 +10,8 @@ export function EmptyState({
 }: {
   title: string;
   description?: string;
-  action?: { label: string; to: string };
+  action?:
+    { label: string; to: string } | { label: string; onClick: () => void };
   className?: string;
 }) {
   return (
@@ -26,10 +27,14 @@ export function EmptyState({
           {description}
         </p>
       ) : null}
-      {action ? (
+      {action && "to" in action ? (
         <Link to={action.to} className={cn(buttonVariants(), "mt-4")}>
           {action.label}
         </Link>
+      ) : action && "onClick" in action ? (
+        <Button type="button" className="mt-4" onClick={action.onClick}>
+          {action.label}
+        </Button>
       ) : null}
     </div>
   );

@@ -13,6 +13,24 @@ import {
 export type { BrowseSession };
 
 const sessions = new Map<string, BrowseSession>();
+const browseLocks = new Map<string, Promise<unknown>>();
+
+/** Serialize browse mutations per user to avoid cursor races. */
+export function withBrowseLock<T>(
+  userId: string,
+  fn: () => Promise<T>
+): Promise<T> {
+  const previous = browseLocks.get(userId) ?? Promise.resolve();
+  const run = previous.then(fn, fn);
+  browseLocks.set(
+    userId,
+    run.then(
+      () => undefined,
+      () => undefined
+    )
+  );
+  return run;
+}
 
 function createBrowseSessionState(
   filters: ListingSearchFilters

@@ -256,6 +256,53 @@ describe("createApiApp", () => {
     }
   });
 
+  it("browse action rejects a mismatched propertyId without advancing", async () => {
+    const start = await app.request("/api/browse/start", { method: "POST" });
+    const started = (await start.json()) as BrowseState;
+    expect(started.item).not.toBeNull();
+    if (!started.item) throw new Error("Expected browse item");
+
+    const mismatched = await app.request("/api/browse/pass", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ propertyId: started.item.id + 999_999 }),
+    });
+    expect(mismatched.status).toBe(409);
+
+    const current = await app.request("/api/browse");
+    expect(current.status).toBe(200);
+    const currentBody = (await current.json()) as BrowseState;
+    expect(currentBody.item?.id).toBe(started.item.id);
+    expect(currentBody.shownCount).toBe(started.shownCount);
+  });
+
+  it("browse action keeps the session when the listing is missing", async () => {
+    const start = await app.request("/api/browse/start", { method: "POST" });
+    const started = (await start.json()) as BrowseState;
+    expect(started.item).not.toBeNull();
+    if (!started.item) throw new Error("Expected browse item");
+
+    const session = (
+      await import("../services/browseSession.js")
+    ).getBrowseSession("ha:test-user");
+    // Force a cursor that points at a deleted id while keeping the session.
+    if (session) {
+      session.currentPropertyId = 9_999_999;
+    }
+
+    const response = await app.request("/api/browse/pass", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ propertyId: 9_999_999 }),
+    });
+    expect(response.status).toBe(404);
+
+    const stillThere = (
+      await import("../services/browseSession.js")
+    ).getBrowseSession("ha:test-user");
+    expect(stillThere).toBeDefined();
+  });
+
   it("GET /api/listings/:id returns a property", async () => {
     const response = await app.request(`/api/listings/${String(propertyId)}`);
     expect(response.status).toBe(200);

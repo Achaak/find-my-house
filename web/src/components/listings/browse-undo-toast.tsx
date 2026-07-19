@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import * as m from "@/paraglide/messages.js";
 
@@ -16,6 +16,11 @@ export function BrowseUndoToast({
   const [secondsLeft, setSecondsLeft] = useState(() =>
     Math.max(0, Math.ceil((new Date(undoUntil).getTime() - Date.now()) / 1000))
   );
+  const onDismissRef = useRef(onDismiss);
+
+  useEffect(() => {
+    onDismissRef.current = onDismiss;
+  }, [onDismiss]);
 
   useEffect(() => {
     const tick = () => {
@@ -24,12 +29,12 @@ export function BrowseUndoToast({
         Math.ceil((new Date(undoUntil).getTime() - Date.now()) / 1000)
       );
       setSecondsLeft(left);
-      if (left <= 0) onDismiss();
+      if (left <= 0) onDismissRef.current();
     };
     tick();
     const id = window.setInterval(tick, 250);
     return () => window.clearInterval(id);
-  }, [undoUntil, onDismiss]);
+  }, [undoUntil]);
 
   if (secondsLeft <= 0) return null;
 

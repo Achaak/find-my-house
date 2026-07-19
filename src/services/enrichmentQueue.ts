@@ -93,6 +93,19 @@ export class EnrichmentQueue {
   ): void {
     const key = jobKey(propertyId, purpose);
     if (this.queuedKeys.has(key)) {
+      if (priority !== "high") {
+        return;
+      }
+      // Promote an already-queued low job so on-demand browse/detail work
+      // is not stuck behind the backfill drain order.
+      const index = this.queue.findIndex(
+        (item) => jobKey(item.propertyId, item.purpose) === key
+      );
+      if (index >= 0) {
+        const [item] = this.queue.splice(index, 1);
+        item.priority = "high";
+        this.queue.unshift(item);
+      }
       return;
     }
 

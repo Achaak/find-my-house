@@ -211,5 +211,37 @@ describe("ReactionRepository", () => {
 
       expect(status).toBe("not_dislike");
     });
+
+    it("resets grace when switching an old like to dislike", async () => {
+      await reactionRepository.remove(propertyId, "dislike");
+      await reactionRepository.remove(propertyId, "like");
+      await reactionRepository.add(propertyId, "like");
+
+      vi.useFakeTimers();
+      vi.setSystemTime(Date.now() + DISLIKE_UNDO_GRACE_MS + 60_000);
+      await reactionRepository.add(propertyId, "dislike");
+
+      const status = await reactionRepository.removeDislikeWithinGrace(
+        propertyId,
+        DISLIKE_UNDO_GRACE_MS
+      );
+
+      expect(status).toBe("removed");
+      vi.useRealTimers();
+    });
+  });
+
+  describe("loadCompatibilityTrainingData", () => {
+    it("excludes archived likes from training", async () => {
+      await reactionRepository.remove(propertyId, "dislike");
+      await reactionRepository.remove(propertyId, "like");
+      await reactionRepository.add(propertyId, "like");
+      await reactionRepository.archive(propertyId);
+
+      const training = await reactionRepository.loadCompatibilityTrainingData();
+      expect(
+        training.likes.some((property) => property.id === propertyId)
+      ).toBe(false);
+    });
   });
 });

@@ -42,7 +42,8 @@ export class ReactionRepository {
     await this.prisma.listingReaction.upsert({
       where: { propertyId },
       create: { propertyId, type },
-      update: { type, archivedAt: null },
+      // Reset createdAt so dislike-undo grace starts from the type change.
+      update: { type, archivedAt: null, createdAt: new Date() },
     });
 
     this.notifyMutation();
@@ -105,7 +106,7 @@ export class ReactionRepository {
     await this.prisma.listingReaction.upsert({
       where: { propertyId },
       create: { propertyId, type },
-      update: { type, archivedAt: null },
+      update: { type, archivedAt: null, createdAt: new Date() },
     });
 
     this.notifyMutation();
@@ -131,6 +132,7 @@ export class ReactionRepository {
       where: { propertyId },
       data: { archivedAt: new Date() },
     });
+    this.notifyMutation();
 
     return "archived";
   }
@@ -154,6 +156,7 @@ export class ReactionRepository {
       where: { propertyId },
       data: { archivedAt: null },
     });
+    this.notifyMutation();
 
     return "unarchived";
   }
@@ -202,7 +205,7 @@ export class ReactionRepository {
     type: ReactionType
   ): Promise<PropertyRow[]> {
     const reactions = await this.prisma.listingReaction.findMany({
-      where: { type },
+      where: { type, archivedAt: null },
       include: { property: true },
       orderBy: { createdAt: "desc" },
       take: 200,
